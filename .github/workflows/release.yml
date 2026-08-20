@@ -1,0 +1,175 @@
+name: Release Prelay Client
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: prelay-client-release-${{ github.ref_name }}
+  cancel-in-progress: false
+
+jobs:
+  verify:
+    name: Verify Client
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          submodules: recursive
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: oven-sh/setup-bun@v2
+
+      - name: Install Linux desktop dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y \
+            build-essential \
+            libayatana-appindicator3-dev \
+            librsvg2-dev \
+            libssl-dev \
+            libwebkit2gtk-4.1-dev \
+            libxdo-dev
+
+      - name: Verify frontend
+        shell: bash
+        run: |
+          set -euo pipefail
+          bun install --frozen-lockfile
+          bun run typecheck
+          bun test
+
+      - name: Verify Rust
+        working-directory: src-tauri
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo fmt --all -- --check
+          cargo clippy --all-targets --all-features -- -D warnings
+          cargo test --all-targets --all-features
+
+  prepare:
+    name: Prepare Release
+    needs: verify
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          submodules: recursive
+
+      - id: version
+        name: Validate release version
+        shell: bash
+        run: |
+          set -euo pipefail
+          tag_version="${GITHUB_REF_NAME#v}"
+          [[ "$tag_version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]
+          package_version="$(jq -r '.version' package.json)"
+          native_version="$(awk -F '"' '/^version = / { print $2; exit }' src-tauri/Cargo.toml)"
+          tauri_version="$(jq -r '.version' src-tauri/tauri.conf.json)"
+          test "$tag_version" = "$package_version"
+          test "$tag_version" = "$native_version"
+          test "$tag_version" = "$tauri_version"
+          echo "version=$tag_version" >> "$GITHUB_OUTPUT"
+
+  build-desktop:
+    name: Build desktop client (${{ matrix.platform }})
+    needs: prepare
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: windows-latest
+            platform: windows-x86_64
+            bundles: msi,nsis
+            artifact_name: prelay-client-windows-x86_64
+            artifact_path: |
+              src-tauri/target/release/bundle/msi/*.msi
+              src-tauri/target/release/bundle/nsis/*.exe
+          - runner: ubuntu-latest
+            platform: linux-x86_64
+            bundles: deb,appimage
+            artifact_name: prelay-client-linux-x86_64
+            artifact_path: |
+              src-tauri/target/release/bundle/deb/*.deb
+              src-tauri/target/release/bundle/appimage/*.AppImage
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          submodules: recursive
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: oven-sh/setup-bun@v2
+
+      - name: Install Linux desktop dependencies
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y \
+            build-essential \
+            libayatana-appindicator3-dev \
+            librsvg2-dev \
+            libssl-dev \
+            libwebkit2gtk-4.1-dev \
+            libxdo-dev \
+            patchelf
+
+      - name: Build desktop client
+        shell: bash
+        run: |
+          set -euo pipefail
+          bun install --frozen-lockfile
+          bun run tauri build --bundles "${{ matrix.bundles }}"
+
+      - name: Upload desktop client artifacts
+        uses: actions/upload-artifact@v7
+        with:
+          name: ${{ matrix.artifact_name }}
+          path: ${{ matrix.artifact_path }}
+          if-no-files-found: error
+
+  publish:
+    name: Publish release
+    needs: [prepare, build-desktop]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download release artifacts
+        uses: actions/download-artifact@v8
+        with:
+          pattern: prelay-client-*
+          path: artifacts
+          merge-multiple: true
+
+      - name: Generate checksums
+        working-directory: artifacts
+        shell: bash
+        run: |
+          set -euo pipefail
+          find . -type f -print0 | sort -z | xargs -0 sha256sum > SHA256SUMS
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v3
+        with:
+          name: Prelay Client ${{ needs.prepare.outputs.version }}
+          body: Desktop packages: Windows MSI and NSIS; Linux DEB and AppImage.
+          files: |
+            artifacts/*.msi
+            artifacts/*.exe
+            artifacts/*.deb
+            artifacts/*.AppImage
+            artifacts/SHA256SUMS
+          fail_on_unmatched_files: true
+          overwrite_files: true
