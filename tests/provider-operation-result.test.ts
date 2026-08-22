@@ -61,14 +61,51 @@ test("Nuxt 供应商操作 DTO 只声明 Tauri 实际返回的字段", () => {
   expect(source).toContain("models: string[] | null;");
 });
 
-test("供应商页面根据结果成功状态使用不同提示颜色并显示指标", () => {
+test("供应商页面按供应商 ID 执行连通性检查，不传 API Key", () => {
   const page = readFileSync(
     new URL("../app/pages/providers.vue", import.meta.url),
     "utf8",
   );
+  const command = readFileSync(
+    new URL("../src-tauri/src/commands/providers.rs", import.meta.url),
+    "utf8",
+  );
 
-  expect(page).toContain("operationFeedback.success");
-  expect(page).toContain("operationFeedback.metrics");
-  expect(page).toContain("notice--error");
-  expect(page).toContain("getProviderOperationFeedback");
+  expect(page).not.toContain("notifications.notify");
+  expect(page).toContain('"providers_ping"');
+  expect(page).toContain("providerId: provider.id");
+  expect(page).not.toMatch(/providers_ping[\s\S]{0,180}api_key/);
+  expect(command).toContain('format!("/api/providers/{provider_id}/ping")');
+  expect(page).toContain('"providers_discover_models"');
+  expect(page).toContain('"providers_test_protocol"');
+});
+
+test("供应商表单内的协议测试也发送全局通知并保留指标", () => {
+  const form = readFileSync(
+    new URL(
+      "../app/components/providers/ProviderForm.vue",
+      import.meta.url,
+    ),
+    "utf8",
+  );
+
+  expect(form).toContain("getProviderOperationFeedback");
+  expect(form).toContain("notifications.notify");
+  expect(form).toContain('type: feedback.success ? "success" : "danger"');
+  expect(form).toContain('message: feedback.metrics ?? ""');
+});
+
+test("供应商表单以模型发现结果覆盖本地清单并发送结果通知", () => {
+  const form = readFileSync(
+    new URL(
+      "../app/components/providers/ProviderForm.vue",
+      import.meta.url,
+    ),
+    "utf8",
+  );
+
+  expect(form).toContain("notifications.success(");
+  expect(form).toContain('title: "模型已获取"');
+  expect(form).toContain("models.value = result.models ?? [];");
+  expect(form).not.toContain("本次新增");
 });

@@ -4,13 +4,11 @@ import type {
   ProviderCapabilities,
   UpstreamProtocol,
 } from "~/stores/relay";
-import {
-  getProviderOperationFeedback,
-  type ProviderOperationFeedback,
-  type ProviderOperationResult,
-} from "~/utils/providerOperations";
-import { providerProtocolOptions } from "~/utils/providerCapabilities";
-import { DrawerPanel, PageHeader, PageShell } from "~/components/base";
+import { type ProviderOperationResult } from "~/utils/providerOperations";
+import { Button, Drawer, useConfirm, useNotification } from "stellar-ui";
+import ProviderForm from "~/components/providers/ProviderForm.vue";
+import ProviderList from "~/components/providers/ProviderList.vue";
+import PanelSection from "~/components/shell/PanelSection.vue";
 
 type ProviderFormPayload = {
   id?: string;
@@ -22,22 +20,65 @@ type ProviderFormPayload = {
   models: string[];
 };
 
-const { error, pending, invokeCommand } = useRelayCommand();
+const { pending, invokeCommand } = useRelayCommand();
+const { confirm: confirmAction } = useConfirm();
+const notifications = useNotification();
 const providers = ref<Provider[]>([]);
 const editingProvider = ref<Provider | null>(null);
 const showForm = ref(false);
-const operationFeedback = ref<ProviderOperationFeedback | null>(null);
+const loadingProviders = ref(false);
+const pingStates = ref<Record<string, ProviderPingState>>({});
+
+type ProviderPingState = {
+  checking: boolean;
+  ok?: boolean;
+  latencyMs?: number | null;
+};
 
 async function loadProviders() {
+  loadingProviders.value = true;
   try {
     providers.value = await invokeCommand<Provider[]>("providers_list");
+    pingStates.value = Object.fromEntries(
+      providers.value.map((provider) => [provider.id, { checking: false }]),
+    );
+    void Promise.all(providers.value.map(pingProvider));
   } catch {
     // The command composable exposes the error to this view.
+  } finally {
+    loadingProviders.value = false;
+  }
+}
+
+async function pingProvider(provider: Provider) {
+  pingStates.value = {
+    ...pingStates.value,
+    [provider.id]: { checking: true },
+  };
+  try {
+    const result = await invokeCommand<ProviderOperationResult>(
+      "providers_ping",
+      {
+        providerId: provider.id,
+      },
+    );
+    pingStates.value = {
+      ...pingStates.value,
+      [provider.id]: {
+        checking: false,
+        ok: result.ok,
+        latencyMs: result.latency_ms,
+      },
+    };
+  } catch {
+    pingStates.value = {
+      ...pingStates.value,
+      [provider.id]: { checking: false, ok: false },
+    };
   }
 }
 
 async function saveProvider(payload: ProviderFormPayload) {
-  operationFeedback.value = null;
   try {
     await invokeCommand("providers_save", {
       ...(payload.id ? { providerId: payload.id } : {}),
@@ -53,11 +94,7 @@ async function saveProvider(payload: ProviderFormPayload) {
     showForm.value = false;
     editingProvider.value = null;
     await loadProviders();
-    operationFeedback.value = {
-      success: true,
-      message: "供应商已保存。",
-      metrics: null,
-    };
+    notifications.success("供应商已保存");
   } catch {
     // The command composable exposes the error to this view.
   } finally {
@@ -66,41 +103,43 @@ async function saveProvider(payload: ProviderFormPayload) {
 }
 
 async function deleteProvider(provider: Provider) {
-  if (!confirm(`删除供应商“${provider.name}”及其模型？`)) return;
-  operationFeedback.value = null;
+  const confirmed = await confirmAction({
+    title: "删除供应商",
+    message: `删除供应商“${provider.name}”？`,
+    description: "该供应商及其模型将一并删除，且无法恢复。",
+    confirmText: "删除",
+    danger: true,
+  });
+  if (!confirmed) return;
   try {
     await invokeCommand("providers_delete", { providerId: provider.id });
     await loadProviders();
-    operationFeedback.value = {
-      success: true,
-      message: "供应商已删除。",
-      metrics: null,
-    };
+    notifications.success("供应商已删除");
   } catch {
     // The command composable exposes the error to this view.
   }
 }
 
-async function runProviderOperation(
-  command:
-    "providers_ping" | "providers_discover_models" | "providers_test_protocol",
-  provider: Provider,
-  protocol?: UpstreamProtocol,
-) {
-  operationFeedback.value = null;
-  try {
-    const result = await invokeCommand<ProviderOperationResult>(command, {
-      providerId: provider.id,
-      ...(command === "providers_test_protocol"
-        ? { protocol: protocol ?? providerProtocolOptions(provider)[0] }
-        : {}),
-    });
-    operationFeedback.value = getProviderOperationFeedback(result);
-    if (command === "providers_discover_models" && result.ok)
-      await loadProviders();
-  } catch {
-    // The command composable exposes the error to this view.
-  }
+async function discoverModelsFromForm(input: {
+  provider_type: string;
+  base_url: string;
+  api_key: string;
+}) {
+  return invokeCommand<ProviderOperationResult>("providers_discover_models", {
+    input,
+  });
+}
+
+function testProtocolFromForm(input: {
+  provider_type: string;
+  base_url: string;
+  api_key: string;
+  protocol?: UpstreamProtocol;
+  model?: string;
+}) {
+  return invokeCommand<ProviderOperationResult>("providers_test_protocol", {
+    input,
+  });
 }
 
 function editProvider(provider: Provider) {
@@ -117,68 +156,58 @@ onMounted(loadProviders);
 </script>
 
 <template>
-  <PageShell>
-    <PageHeader
-      title="供应商"
-      description="添加上游服务，管理可用模型，做连接测试。"
-    >
-      <template #actions>
-        <button
-          class="button-secondary"
-          :disabled="pending"
-          @click="loadProviders"
-        >
-          {{ pending ? "刷新中..." : "刷新" }}
-        </button>
-        <button class="button-primary" @click="newProvider">添加供应商</button>
+  <main class="page-workbench">
+    <PanelSection title="供应商">
+      <template #header-actions>
+        <Button :disabled="loadingProviders" @click="loadProviders">
+          {{ loadingProviders ? "刷新中..." : "刷新" }}
+        </Button>
+        <Button variant="primary" @click="newProvider">新增</Button>
       </template>
-    </PageHeader>
-    <p v-if="error" class="notice notice--error">{{ error.message }}</p>
-    <p
-      v-else-if="operationFeedback"
-      class="notice"
-      :class="operationFeedback.success ? '' : 'notice--error'"
-    >
-      {{ operationFeedback.message }}
-      <span v-if="operationFeedback.metrics">{{
-        operationFeedback.metrics
-      }}</span>
-    </p>
-    <section class="min-h-0 flex-1">
-      <ProvidersProviderList
+      <ProviderList
+        :loading="loadingProviders"
         :providers="providers"
-        :pending="pending"
+        :ping-states="pingStates"
         @edit="editProvider"
+        @ping="pingProvider"
         @remove="deleteProvider"
-        @ping="runProviderOperation('providers_ping', $event)"
-        @discover="runProviderOperation('providers_discover_models', $event)"
-        @test-protocol="
-          runProviderOperation(
-            'providers_test_protocol',
-            $event.provider,
-            $event.protocol,
-          )
-        "
       />
-    </section>
-    <DrawerPanel
-      :open="showForm"
-      :title="editingProvider ? '编辑供应商' : '添加供应商'"
-      :description="
-        editingProvider
-          ? '修改供应商连接信息；API Key 留空表示不更换。'
-          : '填写连接信息，并维护模型清单。'
-      "
-      label="供应商配置"
-      size="lg"
-      @close="showForm = false"
+    </PanelSection>
+    <Drawer
+      v-model:visible="showForm"
+      :title="editingProvider ? '编辑供应商' : '新增供应商'"
+      size="xlarge"
+      @cancel="showForm = false"
     >
-      <ProvidersProviderForm
+      <ProviderForm
         :provider="editingProvider"
         :pending="pending"
+        :discover-models="discoverModelsFromForm"
+        :test-protocol="testProtocolFromForm"
         @save="saveProvider"
         @cancel="showForm = false"
       />
-    </DrawerPanel>
-  </PageShell>
+      <template #footer>
+        <Button @click="showForm = false">取消</Button>
+        <Button
+          form="provider-form"
+          type="submit"
+          variant="primary"
+          :disabled="pending"
+        >
+          {{ pending ? "保存中..." : "保存" }}
+        </Button>
+      </template>
+    </Drawer>
+  </main>
 </template>
+
+<style scoped>
+.page-workbench {
+  display: flex;
+  height: 100%;
+  min-height: 0;
+  flex-direction: column;
+  padding: var(--pr-workbench-padding);
+}
+</style>

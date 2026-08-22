@@ -1,6 +1,6 @@
 use prelay_protocol::{
-    CreateProviderRequest, ProviderCapabilityOverrides, ProviderOperationResponse,
-    ProviderResponse, TestProviderProtocolRequest, UpdateProviderRequest,
+    CreateProviderRequest, ProviderCapabilityOverrides, ProviderOperationRequest,
+    ProviderOperationResponse, ProviderResponse, UpdateProviderRequest,
 };
 use serde::{Deserialize, Serialize};
 use tauri::State;
@@ -90,40 +90,29 @@ pub async fn providers_ping(
 ) -> Result<ProviderOperationResponse, ClientError> {
     authenticated_api(&state)
         .await?
-        .post(
-            &format!("/api/providers/{provider_id}/ping"),
-            &serde_json::json!({}),
-        )
+        .post(&format!("/api/providers/{provider_id}/ping"), &())
         .await
 }
 
 #[tauri::command]
 pub async fn providers_discover_models(
     state: State<'_, NativeState>,
-    provider_id: String,
+    input: ProviderOperationRequest,
 ) -> Result<ProviderOperationResponse, ClientError> {
     authenticated_api(&state)
         .await?
-        .post(
-            &format!("/api/providers/{provider_id}/discover-models"),
-            &serde_json::json!({}),
-        )
+        .post("/api/providers/discover-models", &input)
         .await
 }
 
 #[tauri::command]
 pub async fn providers_test_protocol(
     state: State<'_, NativeState>,
-    provider_id: String,
-    protocol: String,
-    model: Option<String>,
+    input: ProviderOperationRequest,
 ) -> Result<ProviderOperationResponse, ClientError> {
     authenticated_api(&state)
         .await?
-        .post(
-            &format!("/api/providers/{provider_id}/test-protocol"),
-            &TestProviderProtocolRequest { protocol, model },
-        )
+        .post("/api/providers/test-protocol", &input)
         .await
 }
 
