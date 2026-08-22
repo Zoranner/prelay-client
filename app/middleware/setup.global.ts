@@ -13,7 +13,11 @@ export default defineNuxtRouteMiddleware(async (to) => {
   if (!settings.relayUrl.value && to.path !== "/setup") {
     return navigateTo("/setup");
   }
-  if (settings.relayUrl.value && to.path === "/setup") {
+  if (
+    settings.relayUrl.value &&
+    to.path === "/setup" &&
+    to.query.change !== "1"
+  ) {
     return navigateTo("/");
   }
 });

@@ -376,7 +376,10 @@ fn management_request_hides_structured_server_error_message_on_internal_failure(
     server.join().expect("join test relay");
 
     assert_eq!(error.code(), "internal");
-    assert_eq!(error.message, "relay rejected the management request");
+    assert_eq!(
+        error.message,
+        "management API returned HTTP 500 Internal Server Error"
+    );
 }
 
 #[test]
@@ -395,7 +398,31 @@ fn management_request_uses_safe_fallback_for_empty_string_server_error() {
     server.join().expect("join test relay");
 
     assert_eq!(error.code(), "validation_failed");
-    assert_eq!(error.message, "relay rejected the management request");
+    assert_eq!(
+        error.message,
+        "management API returned HTTP 400 Bad Request"
+    );
+}
+
+#[test]
+fn management_request_includes_http_reason_when_server_omits_the_error_body() {
+    let (base_url, server) = one_response_server("405 Method Not Allowed", "", |request| {
+        assert!(request.starts_with("POST /api/providers HTTP/1.1"))
+    });
+    let store = MemoryCredentialStore::with_record("device-secret", None);
+    let client = ApiClient::new(base_url, &store).expect("create client");
+
+    let error = tauri::async_runtime::block_on(
+        client.post::<serde_json::Value, _>("/api/providers", &serde_json::json!({})),
+    )
+    .expect_err("method rejection must be returned");
+    server.join().expect("join test relay");
+
+    assert_eq!(error.code(), "internal");
+    assert_eq!(
+        error.message,
+        "management API returned HTTP 405 Method Not Allowed"
+    );
 }
 
 #[test]

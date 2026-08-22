@@ -3,6 +3,7 @@ use tauri::State;
 
 use crate::{
     api_client::{ApiClient, ClientError},
+    commands::authenticated_api,
     identity::IdentitySource,
     NativeState,
 };
@@ -33,6 +34,6 @@ pub fn collect_bootstrap(
 
 #[tauri::command]
 pub async fn bootstrap(state: State<'_, NativeState>) -> Result<BootstrapResponse, ClientError> {
-    let api_client = crate::commands::authenticated_api(&state).await?;
+    let api_client = authenticated_api(&state).await?;
     collect_bootstrap(&state.identity, &api_client)
 }

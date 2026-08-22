@@ -25,5 +25,15 @@ export function useRelaySettings() {
     return settings;
   }
 
-  return { relayUrl, loaded, load, save };
+  async function connect(value: string) {
+    const settings = await invokeCommand<RelaySettingsResponse>(
+      "relay_settings_connect",
+      { relayUrl: value },
+    );
+    relayUrl.value = settings.relay_url;
+    loaded.value = true;
+    return settings;
+  }
+
+  return { relayUrl, loaded, load, save, connect };
 }

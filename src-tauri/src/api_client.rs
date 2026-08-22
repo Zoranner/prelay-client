@@ -362,8 +362,74 @@ fn credential_store_error(error: String) -> ClientError {
     ClientError::new("credential_store_error", error)
 }
 
-fn network_error(_: reqwest::Error) -> ClientError {
-    ClientError::new("network_error", "unable to reach the relay management API")
+fn network_error(error: reqwest::Error) -> ClientError {
+    let diagnostic = network_error_diagnostic(error);
+    eprintln!("relay management request failed: {}", diagnostic);
+    ClientError::new(
+        "network_error",
+        format!("unable to reach the relay management API: {diagnostic}"),
+    )
+}
+
+fn network_error_diagnostic(error: reqwest::Error) -> String {
+    format!("{:?}", error.without_url())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{network_error, network_error_diagnostic};
+    use std::net::TcpListener;
+
+    #[test]
+    fn network_error_logs_a_url_redacted_reqwest_diagnostic_and_keeps_a_stable_message() {
+        let listener = TcpListener::bind("127.0.0.1:0").expect("reserve unavailable relay port");
+        let address = listener
+            .local_addr()
+            .expect("read unavailable relay address");
+        drop(listener);
+        let error = tauri::async_runtime::block_on(async move {
+            reqwest::Client::builder()
+                .no_proxy()
+                .build()
+                .expect("build HTTP client")
+                .get(format!(
+                    "http://diagnostic-user:diagnostic-secret@{address}"
+                ))
+                .send()
+                .await
+                .expect_err("unavailable relay must fail the request")
+        });
+        let diagnostic = network_error_diagnostic(error);
+
+        assert!(diagnostic.contains("kind: Request"));
+        assert!(diagnostic.contains("source:"));
+        assert!(!diagnostic.contains("diagnostic-user"));
+        assert!(!diagnostic.contains("diagnostic-secret"));
+
+        let listener = TcpListener::bind("127.0.0.1:0").expect("reserve unavailable relay port");
+        let address = listener
+            .local_addr()
+            .expect("read unavailable relay address");
+        drop(listener);
+        let error = tauri::async_runtime::block_on(async move {
+            reqwest::Client::builder()
+                .no_proxy()
+                .build()
+                .expect("build HTTP client")
+                .get(format!("http://{address}"))
+                .send()
+                .await
+                .expect_err("unavailable relay must fail the request")
+        });
+        let client_error = network_error(error);
+
+        assert_eq!(client_error.code(), "network_error");
+        assert!(client_error
+            .message
+            .starts_with("unable to reach the relay management API: reqwest::Error"));
+        assert!(!client_error.message.contains("diagnostic-user"));
+        assert!(!client_error.message.contains("diagnostic-secret"));
+    }
 }
 
 async fn response_error(response: reqwest::Response) -> ClientError {
@@ -384,7 +450,8 @@ async fn response_error(response: reqwest::Response) -> ClientError {
             "this Windows identity is already registered and cannot be restored automatically"
                 .into()
         } else {
-            "relay rejected the management request".into()
+            let reason = status.canonical_reason().unwrap_or("Unknown Status");
+            format!("management API returned HTTP {} {reason}", status.as_u16())
         }
     });
     ClientError::new(code, message)
