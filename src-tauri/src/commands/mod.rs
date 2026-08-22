@@ -1,5 +1,5 @@
 pub mod bootstrap;
-pub mod interfaces;
+pub mod endpoints;
 pub mod providers;
 pub mod settings;
 pub mod stats;

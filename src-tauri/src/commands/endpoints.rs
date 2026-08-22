@@ -1,5 +1,5 @@
 use prelay_protocol::{
-    CreateInterfaceRequest, InterfaceModelInput, InterfaceResponse, UpdateInterfaceRequest,
+    CreateEndpointRequest, EndpointModelInput, EndpointResponse, UpdateEndpointRequest,
 };
 use serde::{Deserialize, Serialize};
 use tauri::State;
@@ -11,74 +11,71 @@ use crate::{
 };
 
 #[derive(Debug, Clone, Default, Deserialize, Serialize)]
-pub struct InterfaceSaveInput {
+pub struct EndpointSaveInput {
     pub name: String,
     pub protocol: String,
-    pub models: Vec<InterfaceModelInput>,
+    pub models: Vec<EndpointModelInput>,
 }
 
 #[tauri::command]
-pub async fn interfaces_list(
+pub async fn endpoints_list(
     state: State<'_, NativeState>,
-) -> Result<Vec<InterfaceResponse>, ClientError> {
-    authenticated_api(&state)
-        .await?
-        .get("/api/interfaces")
-        .await
+) -> Result<Vec<EndpointResponse>, ClientError> {
+    authenticated_api(&state).await?.get("/api/endpoints").await
 }
 
 #[tauri::command]
-pub async fn interfaces_save(
+pub async fn endpoints_save(
     state: State<'_, NativeState>,
-    interface_id: Option<String>,
-    input: InterfaceSaveInput,
-) -> Result<InterfaceResponse, ClientError> {
+    endpoint_id: Option<String>,
+    input: EndpointSaveInput,
+) -> Result<EndpointResponse, ClientError> {
     let client = authenticated_api(&state).await?;
-    match interface_id {
-        Some(interface_id) => {
-            let input = UpdateInterfaceRequest {
+    match endpoint_id {
+        Some(endpoint_id) => {
+            let input = UpdateEndpointRequest {
                 name: Some(input.name),
                 protocol: Some(input.protocol),
                 models: Some(input.models),
             };
             client
-                .patch(&format!("/api/interfaces/{interface_id}"), &input)
+                .patch(&format!("/api/endpoints/{endpoint_id}"), &input)
                 .await
         }
         None => {
-            let input = CreateInterfaceRequest {
+            let input = CreateEndpointRequest {
                 name: input.name,
                 protocol: Some(input.protocol),
                 models: input.models,
             };
-            client.post("/api/interfaces", &input).await
+            client.post("/api/endpoints", &input).await
         }
     }
 }
 
 #[tauri::command]
-pub async fn interfaces_delete(
+pub async fn endpoints_delete(
     state: State<'_, NativeState>,
-    interface_id: String,
+    endpoint_id: String,
 ) -> Result<OperationStatus, ClientError> {
     authenticated_api(&state)
         .await?
-        .delete(&format!("/api/interfaces/{interface_id}"))
+        .delete(&format!("/api/endpoints/{endpoint_id}"))
         .await?;
     Ok(OperationStatus {
-        message: "interface deleted".to_string(),
+        message: "endpoint deleted".to_string(),
     })
 }
 
 #[tauri::command]
-pub async fn interfaces_regenerate_token(
+pub async fn endpoints_regenerate_token(
     state: State<'_, NativeState>,
-    interface_id: String,
-) -> Result<InterfaceResponse, ClientError> {
+    endpoint_id: String,
+) -> Result<EndpointResponse, ClientError> {
     authenticated_api(&state)
         .await?
         .post(
-            &format!("/api/interfaces/{interface_id}/regenerate-token"),
+            &format!("/api/endpoints/{endpoint_id}/regenerate-token"),
             &serde_json::json!({}),
         )
         .await

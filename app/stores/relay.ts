@@ -38,6 +38,7 @@ export interface Provider {
   name: string;
   provider_type: string;
   base_url: string;
+  api_key: string;
   api_key_masked: string;
   capabilities: ProviderCapabilities;
   upstream_protocols: string[];
@@ -45,21 +46,21 @@ export interface Provider {
   created_at: string;
 }
 
-export interface InterfaceModel {
+export interface EndpointModel {
   id?: string;
-  interface_id?: string;
+  endpoint_id?: string;
   model_name: string;
   provider_id: string;
   upstream_model: string;
   created_at?: string;
 }
 
-export interface RelayInterface {
+export interface RelayEndpoint {
   id: string;
   name: string;
   protocol: string;
   token: string;
-  models: InterfaceModel[];
+  models: EndpointModel[];
   created_at: string;
 }
 
@@ -69,7 +70,29 @@ export interface StatsOverview {
   failed_requests: number;
   input_tokens: number;
   output_tokens: number;
+  cache_read_tokens: number;
+  cache_write_tokens: number;
+  average_latency_ms: number | null;
 }
+
+export interface TokenUsageTimelinePoint {
+  bucket: string;
+  input_tokens: number;
+  output_tokens: number;
+  cache_read_tokens: number;
+  cache_write_tokens: number;
+}
+
+export type StatsRange =
+  | "today"
+  | "yesterday"
+  | "this_week"
+  | "last_week"
+  | "this_month"
+  | "last_month"
+  | "this_year"
+  | "last_year"
+  | "all";
 
 export interface ModelStats {
   model_requested: string | null;
@@ -93,6 +116,7 @@ export interface RequestLog {
   created_at: string;
   protocol_in: string | null;
   protocol_upstream: string | null;
+  endpoint_name: string | null;
   provider_name: string | null;
   model_requested: string | null;
   status: string;
@@ -101,6 +125,10 @@ export interface RequestLog {
   error_message: string | null;
   input_tokens: number | null;
   output_tokens: number | null;
+  is_streaming: boolean | null;
+  first_token_ms: number | null;
+  cache_read_tokens: number | null;
+  cache_write_tokens: number | null;
   latency_ms: number | null;
   upstream_request_id: string | null;
   metadata_json: string | null;
