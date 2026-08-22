@@ -1,23 +1,28 @@
 import { invoke } from "@tauri-apps/api/core";
 import { computed, readonly, ref, type ComputedRef, type Ref } from "vue";
+import { useNotification } from "stellar-ui";
 
 import { toRelayError, type RelayError } from "~/utils/errors";
 
 export type RelayCommand =
   | "bootstrap"
   | "relay_settings_get"
+  | "relay_settings_connect"
   | "relay_settings_save"
+  | "desktop_preferences_get"
+  | "desktop_preferences_save"
   | "providers_list"
   | "providers_save"
   | "providers_delete"
   | "providers_ping"
   | "providers_discover_models"
   | "providers_test_protocol"
-  | "interfaces_list"
-  | "interfaces_save"
-  | "interfaces_delete"
-  | "interfaces_regenerate_token"
+  | "endpoints_list"
+  | "endpoints_save"
+  | "endpoints_delete"
+  | "endpoints_regenerate_token"
   | "stats_overview"
+  | "stats_timeline"
   | "stats_requests"
   | "stats_models"
   | "stats_providers"
@@ -44,6 +49,7 @@ export function useRelayCommand(): CommandState & {
     payload?: Record<string, unknown>,
   ): Promise<T>;
 } {
+  const notifications = useNotification();
   const pendingRequests = ref(0);
   const pending = computed(() => pendingRequests.value > 0);
   const error = ref<RelayError | null>(null);
@@ -60,6 +66,9 @@ export function useRelayCommand(): CommandState & {
     } catch (caught) {
       const relayError = toRelayError(caught);
       error.value = relayError;
+      notifications.danger(notificationMessage(relayError), {
+        title: "管理服务请求失败",
+      });
       if (relayError.code === "network_error") {
         managementApiError.value = relayError;
       }
@@ -70,4 +79,22 @@ export function useRelayCommand(): CommandState & {
   }
 
   return { pending, error, invokeCommand };
+}
+
+function notificationMessage(error: RelayError) {
+  const status = /^management API returned HTTP (\d{3})(?: .+)?$/.exec(
+    error.message,
+  );
+  const statusCode = status?.[1];
+  if (!statusCode) return error.message;
+
+  const explanations: Record<string, string> = {
+    "400": "拒绝了请求内容",
+    "401": "拒绝了当前设备凭据",
+    "403": "拒绝了当前身份的访问",
+    "404": "未找到请求的管理接口",
+    "405": "不支持本次请求使用的方法",
+    "500": "发生内部错误",
+  };
+  return `管理服务${explanations[statusCode] ?? "拒绝了本次请求"}（HTTP ${statusCode}）。`;
 }

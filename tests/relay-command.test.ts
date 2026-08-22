@@ -1,5 +1,7 @@
 import { expect, mock, test } from "bun:test";
 
+import { toRelayError } from "../app/utils/errors";
+
 type Deferred<T> = {
   promise: Promise<T>;
   resolve: (value: T) => void;
@@ -22,10 +24,7 @@ mock.module("@tauri-apps/api/core", () => ({
 }));
 
 mock.module("~/utils/errors", () => ({
-  toRelayError: (error: unknown) =>
-    typeof error === "object" && error !== null
-      ? (error as { code: string; message: string })
-      : { code: "internal", message: String(error) },
+  toRelayError,
 }));
 
 const { useRelayCommand, useRelayManagementApiStatus } =

@@ -6,6 +6,7 @@ export interface RelayError {
 const knownCodes = new Set([
   "identity_already_registered",
   "invalid_credential",
+  "network_error",
   "not_found",
   "validation_failed",
   "internal",
