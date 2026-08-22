@@ -12,19 +12,26 @@
   "app": {
     "windows": [
       {
+        "label": "main",
         "title": "Prelay",
         "width": 1080,
         "height": 720,
         "minWidth": 800,
-        "minHeight": 560
+        "minHeight": 560,
+        "resizable": true,
+        "decorations": false,
+        "shadow": false,
+        "visible": false
       }
     ],
     "security": {
-      "csp": null
+      "csp": null,
+      "capabilities": ["default"]
     }
   },
   "bundle": {
     "active": true,
-    "targets": "all"
+    "targets": "all",
+    "icon": ["icons/icon.ico", "icons/icon.png"]
   }
 }
