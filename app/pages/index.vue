@@ -1,128 +1,126 @@
 <script setup lang="ts">
-import type { BootstrapState, Provider, RelayInterface } from "~/stores/relay";
-import { useRelayStore } from "~/stores/relay";
-import { PageHeader, PageShell, SurfacePanel } from "~/components/base";
+import type {
+  ModelStats,
+  ProviderStats,
+  StatsOverview,
+  StatsRange,
+  TokenUsageTimelinePoint,
+} from "~/stores/relay";
+import { Button } from "stellar-ui";
+import StatsRangeSelect from "~/components/dashboard/StatsRangeSelect.vue";
+import StatsBreakdownTable from "~/components/dashboard/StatsBreakdownTable.vue";
+import StatsOverviewPanel from "~/components/dashboard/StatsOverview.vue";
+import TokenUsageTrendChart from "~/components/dashboard/TokenUsageTrendChart.vue";
+import PanelSection from "~/components/shell/PanelSection.vue";
 
-const { bootstrap, setBootstrap } = useRelayStore();
-const { error, pending, invokeCommand } = useRelayCommand();
-const rotatingCredential = ref(false);
-const providers = ref<Provider[]>([]);
-const interfaces = ref<RelayInterface[]>([]);
+const { pending, invokeCommand } = useRelayCommand();
+const overview = ref<StatsOverview | null>(null);
+const models = ref<ModelStats[]>([]);
+const providers = ref<ProviderStats[]>([]);
+const timeline = ref<TokenUsageTimelinePoint[]>([]);
+const selectedRange = ref<StatsRange>("today");
 
-async function loadBootstrap() {
+const modelRows = computed(() =>
+  models.value.map((row, index) => ({
+    id: `${row.model_requested ?? "unknown"}-${index}`,
+    name: row.model_requested ?? "未识别模型",
+    total_requests: row.total_requests,
+    successful_requests: row.successful_requests,
+    input_tokens: row.input_tokens,
+    output_tokens: row.output_tokens,
+    average_latency_ms: row.average_latency_ms,
+  })),
+);
+const providerRows = computed(() =>
+  providers.value.map((row, index) => ({
+    id: row.provider_id ?? `unknown-${index}`,
+    name: row.provider_name ?? "未识别供应商",
+    total_requests: row.total_requests,
+    successful_requests: row.successful_requests,
+    input_tokens: row.input_tokens,
+    output_tokens: row.output_tokens,
+    average_latency_ms: row.average_latency_ms,
+  })),
+);
+
+async function loadDashboard() {
   try {
-    const [bootstrapState, providerList, interfaceList] = await Promise.all([
-      invokeCommand<BootstrapState>("bootstrap"),
-      invokeCommand<Provider[]>("providers_list"),
-      invokeCommand<RelayInterface[]>("interfaces_list"),
+    const range = { range: selectedRange.value };
+    const [overviewValue, modelRows, providerRows, timelineRows] = await Promise.all([
+      invokeCommand<StatsOverview>("stats_overview", range),
+      invokeCommand<ModelStats[]>("stats_models", range),
+      invokeCommand<ProviderStats[]>("stats_providers", range),
+      invokeCommand<TokenUsageTimelinePoint[]>("stats_timeline", range),
     ]);
-    setBootstrap(bootstrapState);
-    providers.value = providerList;
-    interfaces.value = interfaceList;
+    overview.value = overviewValue;
+    models.value = modelRows;
+    providers.value = providerRows;
+    timeline.value = timelineRows;
   } catch {
-    // The command composable keeps the stable error for the view.
+    // The command composable exposes the stable error to this view.
   }
 }
 
-async function rotateCredential() {
-  rotatingCredential.value = true;
-  try {
-    await invokeCommand("credential_rotate");
-    await loadBootstrap();
-  } catch {
-    // The command composable keeps the stable error for the view.
-  } finally {
-    rotatingCredential.value = false;
-  }
-}
-
-onMounted(loadBootstrap);
+onMounted(loadDashboard);
+watch(selectedRange, loadDashboard);
 </script>
 
 <template>
-  <PageShell>
-    <PageHeader
-      title="工作台"
-      description="查看当前服务连接，并继续完成供应商与接入配置。"
-    >
-      <template #actions
-        ><NuxtLink class="button-primary no-underline" to="/providers"
-          >添加供应商</NuxtLink
-        ><NuxtLink class="button-secondary no-underline" to="/interfaces"
-          >管理接入</NuxtLink
-        ></template
-      >
-    </PageHeader>
-    <SurfacePanel>
-      <section class="grid min-h-0 gap-4 p-6 lg:grid-cols-3">
-        <div class="rounded-lg border border-stone-200 bg-stone-50 p-5">
-          <p class="text-sm text-stone-500">管理服务</p>
-          <strong class="mt-2 block text-lg font-semibold text-stone-800">
-            {{ bootstrap?.relay_url ?? "正在连接" }}
-          </strong>
-          <NuxtLink
-            class="mt-4 inline-block text-sm text-[#176b5d]"
-            to="/settings"
-          >
-            服务设置
-          </NuxtLink>
+  <main class="page-workbench">
+    <PanelSection title="工作台">
+      <template #header-actions>
+        <StatsRangeSelect v-model="selectedRange" />
+        <Button :disabled="pending" @click="loadDashboard">
+          {{ pending ? "刷新中..." : "刷新" }}
+        </Button>
+        <Button variant="primary" @click="navigateTo('/stats')">查看活动</Button>
+      </template>
+      <div class="dashboard-content">
+        <StatsOverviewPanel :overview="overview" />
+        <TokenUsageTrendChart :points="timeline" :range="selectedRange" />
+        <div class="dashboard-stat-lists">
+          <StatsBreakdownTable
+            empty-message="暂无供应商统计。"
+            :rows="providerRows"
+            title="供应商统计"
+          />
+          <StatsBreakdownTable
+            empty-message="暂无模型统计。"
+            :rows="modelRows"
+            title="模型统计"
+          />
         </div>
-        <div class="rounded-lg border border-stone-200 bg-stone-50 p-5">
-          <p class="text-sm text-stone-500">供应商</p>
-          <strong class="mt-2 block text-3xl font-semibold text-stone-800">{{
-            providers.length
-          }}</strong>
-          <NuxtLink
-            class="mt-4 inline-block text-sm text-[#176b5d]"
-            to="/providers"
-          >
-            管理供应商
-          </NuxtLink>
-        </div>
-        <div class="rounded-lg border border-stone-200 bg-stone-50 p-5">
-          <p class="text-sm text-stone-500">接入配置</p>
-          <strong class="mt-2 block text-3xl font-semibold text-stone-800">{{
-            interfaces.length
-          }}</strong>
-          <NuxtLink
-            class="mt-4 inline-block text-sm text-[#176b5d]"
-            to="/interfaces"
-          >
-            管理接入
-          </NuxtLink>
-        </div>
-        <div
-          class="rounded-lg border border-stone-200 bg-white p-5 lg:col-span-2"
-        >
-          <h2 class="font-semibold text-stone-800">当前身份</h2>
-          <p v-if="pending && !bootstrap" class="mt-3 text-sm text-stone-500">
-            正在读取管理状态。
-          </p>
-          <p
-            v-else-if="bootstrap"
-            class="mt-3 text-sm leading-6 text-stone-600"
-          >
-            {{ bootstrap.username || "未提供 Windows 账户" }}
-            的供应商和接入配置仅在当前身份范围内生效。
-          </p>
-          <p v-else-if="error" class="mt-3 text-sm text-red-700">
-            {{ error.message }}
-          </p>
-        </div>
-        <div class="rounded-lg border border-stone-200 bg-white p-5">
-          <h2 class="font-semibold text-stone-800">设备凭据</h2>
-          <p class="mt-3 text-sm text-stone-500">
-            {{ bootstrap?.has_device_credential ? "已保存" : "尚未注册" }}
-          </p>
-          <button
-            class="button-secondary mt-4"
-            :disabled="rotatingCredential"
-            @click="rotateCredential"
-          >
-            {{ rotatingCredential ? "轮换中" : "轮换设备凭据" }}
-          </button>
-        </div>
-      </section>
-    </SurfacePanel>
-  </PageShell>
+      </div>
+    </PanelSection>
+  </main>
 </template>
+
+<style scoped>
+.page-workbench {
+  display: flex;
+  height: 100%;
+  min-height: 0;
+  flex-direction: column;
+  padding: var(--pr-workbench-padding);
+}
+
+.dashboard-content {
+  display: grid;
+  min-height: 0;
+  flex: 1;
+  gap: var(--spacing-lg);
+  overflow: auto;
+}
+
+.dashboard-stat-lists {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--spacing-lg);
+}
+
+@media (max-width: 960px) {
+  .dashboard-stat-lists {
+    grid-template-columns: 1fr;
+  }
+}
+</style>

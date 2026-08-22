@@ -1,14 +1,34 @@
-use prelay_protocol::{ModelStatsSummary, ProviderStatsSummary, RequestLogSummary, StatsOverview};
+use prelay_protocol::{
+    ModelStatsSummary, ProviderStatsSummary, RequestLogSummary, StatsOverview,
+    TokenUsageTimelinePoint,
+};
 use tauri::State;
 
 use crate::{api_client::ClientError, commands::authenticated_api, NativeState};
 
+fn range_path(path: &str, range: Option<String>) -> String {
+    match range {
+        Some(range) => format!("{path}?range={range}"),
+        None => path.to_string(),
+    }
+}
+
 #[tauri::command]
-pub async fn stats_overview(state: State<'_, NativeState>) -> Result<StatsOverview, ClientError> {
-    authenticated_api(&state)
-        .await?
-        .get("/api/stats/overview")
-        .await
+pub async fn stats_overview(
+    state: State<'_, NativeState>,
+    range: Option<String>,
+) -> Result<StatsOverview, ClientError> {
+    let path = range_path("/api/stats/overview", range);
+    authenticated_api(&state).await?.get(&path).await
+}
+
+#[tauri::command]
+pub async fn stats_timeline(
+    state: State<'_, NativeState>,
+    range: Option<String>,
+) -> Result<Vec<TokenUsageTimelinePoint>, ClientError> {
+    let path = range_path("/api/stats/timeline", range);
+    authenticated_api(&state).await?.get(&path).await
 }
 
 #[tauri::command]
@@ -26,19 +46,17 @@ pub async fn stats_requests(
 #[tauri::command]
 pub async fn stats_models(
     state: State<'_, NativeState>,
+    range: Option<String>,
 ) -> Result<Vec<ModelStatsSummary>, ClientError> {
-    authenticated_api(&state)
-        .await?
-        .get("/api/stats/models")
-        .await
+    let path = range_path("/api/stats/models", range);
+    authenticated_api(&state).await?.get(&path).await
 }
 
 #[tauri::command]
 pub async fn stats_providers(
     state: State<'_, NativeState>,
+    range: Option<String>,
 ) -> Result<Vec<ProviderStatsSummary>, ClientError> {
-    authenticated_api(&state)
-        .await?
-        .get("/api/stats/providers")
-        .await
+    let path = range_path("/api/stats/providers", range);
+    authenticated_api(&state).await?.get(&path).await
 }
