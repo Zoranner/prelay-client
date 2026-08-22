@@ -4,46 +4,45 @@ import { readFileSync } from "node:fs";
 const source = (path: string) =>
   readFileSync(new URL(`../app/${path}`, import.meta.url), "utf8");
 
-test("desktop client preserves management primitives in the desktop workbench shell", () => {
+test("桌面客户端按参考工程采用 shell、workbench 和业务域目录", () => {
   const app = source("app.vue");
-  const css = source("assets/css/main.css");
+  const shell = source("components/workbench/WorkbenchShell.vue");
+  const styles = source("assets/css/main.css");
 
-  expect(app).toContain("app-root");
-  expect(app).toContain("workspace-sidebar");
-  expect(app).toContain("workspace-main");
-  expect(app).toContain("workspace-topbar");
-  expect(app).toContain("大模型服务透传代理");
-  expect(app).not.toContain('label: "诊断"');
-  expect(app).not.toContain('path: "/diagnostics"');
-  expect(css).toContain("--pr-color-page");
-  expect(css).toContain(".workspace-sidebar");
-  expect(css).toContain(".page-shell");
-  expect(css).toContain(".surface-panel");
-  expect(css).toContain(".data-table");
-  expect(css).toContain(".drawer-panel");
+  expect(app).toContain("WorkbenchShell");
+  expect(shell).toContain('from "stellar-ui"');
+  expect(shell).toContain("Sidebar");
+  expect(styles).toContain('@import "stellar-ui/styles"');
+  expect(styles).not.toContain("tokens.css");
+  expect(styles).not.toContain("business.css");
 });
 
-test("management pages use the legacy page, table, and drawer primitives", () => {
-  for (const page of ["pages/providers.vue", "pages/interfaces.vue"]) {
+test("供应商和接入点页面通过 Stellar UI 的 PanelSection、Table 和 Drawer 组合", () => {
+  for (const page of ["pages/providers.vue", "pages/endpoints.vue"]) {
     const content = source(page);
-
-    expect(content).toContain("PageShell");
-    expect(content).toContain("PageHeader");
-    expect(content).toContain("DrawerPanel");
+    expect(content).toContain('from "stellar-ui"');
+    expect(content).toContain("PanelSection");
+    expect(content).toContain("v-model:visible");
   }
 
-  for (const component of [
-    "components/providers/ProviderList.vue",
-    "components/interfaces/InterfaceList.vue",
-  ]) {
+  for (const component of ["components/providers/ProviderList.vue", "components/endpoints/EndpointList.vue"]) {
     const content = source(component);
-
-    expect(content).toContain("SurfacePanel");
-    expect(content).toContain("DataTableShell");
+    expect(content).toContain('from "stellar-ui"');
+    expect(content).toContain("<Table");
+    expect(content).not.toContain("~/components/display/Table.vue");
   }
+});
 
-  const stats = source("pages/stats.vue");
-  expect(stats).toContain("PageShell");
-  expect(stats).toContain("SurfacePanel");
-  expect(stats).toContain("data-table");
+test("供应商和接入点表单保留历史业务字段，并用 Stellar UI 表单组件承载", () => {
+  const providerForm = source("components/providers/ProviderForm.vue");
+  const endpointForm = source("components/endpoints/EndpointForm.vue");
+
+  expect(providerForm).toContain("PROVIDER_TEMPLATE_GROUPS");
+  expect(providerForm).toContain("获取模型");
+  expect(providerForm).toContain("protocolBaseUrls");
+  expect(providerForm).toContain("<Input");
+  expect(providerForm).toContain("<Select");
+  expect(endpointForm).toContain("newModelForm");
+  expect(endpointForm).toContain("新增模型");
+  expect(endpointForm).toContain("<Select");
 });

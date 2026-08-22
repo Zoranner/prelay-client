@@ -1,112 +1,100 @@
 <script setup lang="ts">
-import {
-  Activity,
-  KeyRound,
-  LayoutDashboard,
-  Plug,
-  RefreshCw,
-  Settings,
-  WifiOff,
-} from "lucide-vue-next";
-
-const primaryNavigation = [
-  { label: "工作台", path: "/", icon: LayoutDashboard },
-  { label: "供应商", path: "/providers", icon: Plug },
-  { label: "接入", path: "/interfaces", icon: KeyRound },
-  { label: "活动", path: "/stats", icon: Activity },
-];
-const settingsNavigation = { label: "设置", path: "/settings", icon: Settings };
+import type { UnlistenFn } from "@tauri-apps/api/event";
+import { listen } from "@tauri-apps/api/event";
+import { Button, NotificationContainer, Result } from "stellar-ui";
+import AppTitlebar from "~/components/shell/AppTitlebar.vue";
+import DesktopPreferencesDialog from "~/components/settings/DesktopPreferencesDialog.vue";
+import WorkbenchShell from "~/components/workbench/WorkbenchShell.vue";
 
 const managementApi = useRelayManagementApiStatus();
+const managementApiError = computed(() => managementApi.error.value);
 const relaySettings = useRelaySettings();
+const desktopPreferences = useDesktopPreferences();
+const desktopPreferencesDialog = useDesktopPreferencesDialog();
+const { visible: desktopPreferencesVisible } = desktopPreferencesDialog;
+const relayUrl = computed(() => relaySettings.relayUrl.value);
 const route = useRoute();
 const isSetupRoute = computed(() => route.path === "/setup");
-const canShowManagementError = computed(
-  () => route.path !== "/setup" && route.path !== "/settings",
-);
+const canShowManagementError = computed(() => route.path !== "/setup");
+const workspacePageKey = ref(0);
+let unlistenTraySettings: UnlistenFn | undefined;
+
+onMounted(async () => {
+  managementApi.clear();
+  await desktopPreferences.load();
+  if (!("__TAURI_INTERNALS__" in globalThis)) return;
+
+  unlistenTraySettings = await listen("tray:open-settings", () => {
+    desktopPreferencesDialog.open();
+  });
+});
+
+onUnmounted(() => unlistenTraySettings?.());
 
 function reloadApplication() {
-  window.location.reload();
+  managementApi.clear();
+  workspacePageKey.value += 1;
 }
 
-function openServiceSettings() {
+function switchRelayAddress() {
   managementApi.clear();
-  void navigateTo("/settings");
+  void navigateTo("/setup?change=1");
 }
 </script>
 
 <template>
-  <div class="app-root" :class="{ 'app-root--setup': isSetupRoute }">
-    <aside v-if="!isSetupRoute" class="workspace-sidebar">
-      <NuxtLink class="workspace-brand" to="/">
-        <span class="workspace-brand__name">Prelay</span>
-        <span class="workspace-brand__caption">大模型服务透传代理</span>
-      </NuxtLink>
-      <nav class="workspace-nav" aria-label="工作区导航">
-        <NuxtLink
-          v-for="item in primaryNavigation"
-          :key="item.path"
-          class="workspace-nav__link"
-          :to="item.path"
-        >
-          <component :is="item.icon" :size="18" aria-hidden="true" />
-          {{ item.label }}
-        </NuxtLink>
-      </nav>
-      <div class="workspace-sidebar__footer">
-        <NuxtLink class="workspace-nav__link" :to="settingsNavigation.path">
-          <component
-            :is="settingsNavigation.icon"
-            :size="18"
-            aria-hidden="true"
-          />
-          {{ settingsNavigation.label }}
-        </NuxtLink>
-      </div>
-    </aside>
-    <div v-if="!isSetupRoute" class="workspace-main">
-      <header class="workspace-topbar">
-        <p>管理工作台</p>
-        <span>{{ relaySettings.relayUrl ?? "未配置服务地址" }}</span>
-      </header>
-      <main class="workspace-page">
-        <div class="workspace-frame">
-          <NuxtPage />
-        </div>
-      </main>
-    </div>
+  <div class="app-root">
+    <AppTitlebar />
+    <WorkbenchShell v-if="!isSetupRoute" :relay-url="relayUrl">
+      <NuxtPage :key="workspacePageKey" />
+    </WorkbenchShell>
     <NuxtPage v-else />
-    <section
-      v-if="managementApi.error && canShowManagementError"
-      class="app-unavailable"
-      role="alert"
-      aria-live="assertive"
+    <div
+      v-if="managementApiError && canShowManagementError"
+      class="app-error-state"
     >
-      <div class="app-unavailable__content">
-        <WifiOff :size="32" stroke-width="1.75" aria-hidden="true" />
-        <h2>无法连接管理服务</h2>
-        <p>当前无法访问 Prelay 管理 API。</p>
-        <p class="app-unavailable__hint">
-          请检查网络连接和服务地址，然后重新加载。
-        </p>
-        <div class="flex flex-wrap justify-center gap-2">
-          <button
-            class="button-secondary"
-            type="button"
-            @click="openServiceSettings"
-          >
-            服务设置
-          </button>
-          <button
-            class="button-primary"
-            type="button"
-            @click="reloadApplication"
-          >
-            <RefreshCw :size="16" aria-hidden="true" />
-            重新加载
-          </button>
-        </div>
-      </div>
-    </section>
+      <Result
+        status="error"
+        title="无法连接管理服务"
+        description="当前无法访问 Prelay 管理 API。"
+      >
+        <p class="app-error-detail">{{ managementApiError.message }}</p>
+        <Button @click="switchRelayAddress">切换接入点地址</Button>
+        <Button variant="primary" @click="reloadApplication"> 重新加载 </Button>
+      </Result>
+    </div>
+    <DesktopPreferencesDialog v-model:visible="desktopPreferencesVisible" />
+    <NotificationContainer position="top-right" />
   </div>
 </template>
+
+<style scoped>
+.app-root {
+  display: grid;
+  height: 100dvh;
+  min-height: 0;
+  grid-template-rows: var(--pr-titlebar-height) minmax(0, 1fr);
+  overflow: hidden;
+  border: 1px solid var(--st-border);
+  background: var(--st-bg-panel);
+  color: var(--st-text-primary);
+}
+
+.app-error-state {
+  position: fixed;
+  z-index: 100;
+  inset: var(--pr-titlebar-height) 0 0;
+  display: grid;
+  place-items: center;
+  padding: var(--spacing-xl);
+  background: color-mix(in srgb, var(--st-bg-base) 88%, transparent);
+}
+
+.app-error-detail {
+  margin: 0 0 var(--spacing-md);
+  color: var(--st-text-muted);
+  font-family: var(--font-family-mono);
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+</style>

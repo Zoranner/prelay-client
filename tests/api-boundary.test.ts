@@ -10,6 +10,7 @@ test("Nuxt 管理页面只通过固定的 Tauri command 调用服务端", () => 
   for (const command of [
     "bootstrap",
     "relay_settings_get",
+    "relay_settings_connect",
     "relay_settings_save",
     "providers_list",
     "providers_save",
@@ -17,10 +18,10 @@ test("Nuxt 管理页面只通过固定的 Tauri command 调用服务端", () => 
     "providers_ping",
     "providers_discover_models",
     "providers_test_protocol",
-    "interfaces_list",
-    "interfaces_save",
-    "interfaces_delete",
-    "interfaces_regenerate_token",
+    "endpoints_list",
+    "endpoints_save",
+    "endpoints_delete",
+    "endpoints_regenerate_token",
     "stats_overview",
     "stats_requests",
     "stats_models",
@@ -34,11 +35,32 @@ test("Nuxt 管理页面只通过固定的 Tauri command 调用服务端", () => 
   expect(commands).toContain("invoke");
 });
 
+test("工作台使用同一范围读取概览、趋势、模型和供应商统计", () => {
+  const page = source("pages/index.vue");
+
+  expect(page).toContain('invokeCommand<StatsOverview>("stats_overview", range)');
+  expect(page).toContain('invokeCommand<ModelStats[]>("stats_models", range)');
+  expect(page).toContain('invokeCommand<ProviderStats[]>("stats_providers", range)');
+  expect(page).toContain('invokeCommand<TokenUsageTimelinePoint[]>("stats_timeline", range)');
+  expect(page).toContain("查看活动");
+});
+
+test("全屏管理服务错误读取嵌套 Ref 的当前值", () => {
+  const app = source("app.vue");
+
+  expect(app).toContain(
+    "const managementApiError = computed(() => managementApi.error.value);",
+  );
+  expect(app).toContain("managementApiError && canShowManagementError");
+  expect(app).toContain("<Result");
+  expect(app).toContain("{{ managementApiError.message }}");
+});
+
 test("Nuxt 页面不直连服务端或读取认证凭据", () => {
   for (const page of [
     "pages/index.vue",
     "pages/providers.vue",
-    "pages/interfaces.vue",
+    "pages/endpoints.vue",
     "pages/stats.vue",
     "pages/setup.vue",
     "pages/settings.vue",

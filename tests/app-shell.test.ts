@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 
 const appSource = () =>
   readFileSync(new URL("../app/app.vue", import.meta.url), "utf8");
@@ -46,9 +46,109 @@ test("Tauri uses the static Nuxt output and a fixed development port", () => {
 
 test("管理 API 不可达时由应用根节点显示阻断层", () => {
   const app = appSource();
-
   expect(app).toContain("useRelayManagementApiStatus");
   expect(app).toContain("managementApi.error");
-  expect(app).toContain("app-unavailable");
+  expect(app).toContain("Result");
+  expect(app).toContain("NotificationContainer");
   expect(app).toContain("重新加载");
+});
+
+test("桌面窗口只保留自绘标题栏和内容工作区", () => {
+  const tauriConfig = readFileSync(
+    new URL("../src-tauri/tauri.conf.json", import.meta.url),
+    "utf8",
+  );
+  const titlebar = readFileSync(
+    new URL("../app/components/shell/AppTitlebar.vue", import.meta.url),
+    "utf8",
+  );
+  const shell = readFileSync(
+    new URL("../app/components/workbench/WorkbenchShell.vue", import.meta.url),
+    "utf8",
+  );
+  const statusbar = readFileSync(
+    new URL(
+      "../app/components/workbench/WorkbenchStatusbar.vue",
+      import.meta.url,
+    ),
+    "utf8",
+  );
+
+  expect(tauriConfig).toContain('"decorations": false');
+  expect(appSource()).toContain("AppTitlebar");
+  expect(appSource()).toContain("<AppTitlebar />");
+  expect(titlebar).toContain("data-tauri-drag-region");
+  expect(titlebar).toContain("getCurrentWindow");
+  expect(shell).not.toContain("<AppTitlebar");
+  expect(shell).toContain("WorkbenchStatusbar");
+  expect(shell).toContain("--pr-statusbar-height");
+  expect(shell).toContain('<Sidebar variant="rail" :show-header="false">');
+  expect(statusbar).toContain("workbench-statusbar");
+  expect(statusbar).toContain("getVersion");
+  expect(statusbar).toContain("managementApi.error");
+  expect(statusbar).toContain("ph:arrows-left-right");
+  expect(statusbar).toContain('navigateTo("/setup?change=1")');
+  expect(statusbar).toContain('class="workbench-statusbar__switch"');
+  expect(statusbar).not.toContain("<Button");
+});
+
+test("桌面和网页标题栏复用 Prelay 图标资产", () => {
+  const tauriConfig = JSON.parse(
+    readFileSync(
+      new URL("../src-tauri/tauri.conf.json", import.meta.url),
+      "utf8",
+    ),
+  );
+  const titlebar = readFileSync(
+    new URL("../app/components/shell/AppTitlebar.vue", import.meta.url),
+    "utf8",
+  );
+
+  expect(tauriConfig.bundle.icon).toEqual(["icons/icon.ico", "icons/icon.png"]);
+  expect(
+    existsSync(new URL("../app/assets/images/prelay-icon.png", import.meta.url)),
+  ).toBe(true);
+  expect(titlebar).toContain('import prelayIcon from "~/assets/images/prelay-icon.png"');
+  expect(titlebar).toContain('<img :src="prelayIcon" alt=""');
+  expect(titlebar).not.toContain(">PR</span>");
+});
+
+test("托盘设置菜单打开全局设置弹窗", () => {
+  const app = appSource();
+
+  expect(app).toContain('listen("tray:open-settings"');
+  expect(app).toContain("desktopPreferencesDialog.open");
+  expect(app).toContain("unlistenTraySettings");
+});
+
+test("设置入口打开全局桌面偏好弹窗", () => {
+  const dialog = readFileSync(
+    new URL(
+      "../app/components/settings/DesktopPreferencesDialog.vue",
+      import.meta.url,
+    ),
+    "utf8",
+  );
+  const shell = readFileSync(
+    new URL("../app/components/workbench/WorkbenchShell.vue", import.meta.url),
+    "utf8",
+  );
+  const preferences = readFileSync(
+    new URL("../app/composables/useDesktopPreferences.ts", import.meta.url),
+    "utf8",
+  );
+
+  expect(appSource()).toContain("DesktopPreferencesDialog");
+  expect(appSource()).toContain("useDesktopPreferencesDialog");
+  expect(dialog).toContain('title="设置"');
+  expect(preferences).toContain('"desktop_preferences_get"');
+  expect(preferences).toContain('"desktop_preferences_save"');
+  expect(dialog).toContain("外观主题");
+  expect(dialog).toContain("开机自启");
+  expect(dialog).toContain("静默启动");
+  expect(dialog).toContain("最小化到托盘");
+  expect(dialog).toContain("<Toggle");
+  expect(dialog).not.toContain("<Checkbox");
+  expect(shell).toContain("openDesktopPreferences");
+  expect(shell).not.toContain('to="/settings"');
 });
