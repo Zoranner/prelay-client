@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Badge, Button, Table } from "stellar-ui";
+import { Button, Table, Tag } from "stellar-ui";
 import type { RelayEndpoint } from "~/stores/relay";
 
 type EndpointRow = RelayEndpoint & Record<string, unknown>;
@@ -66,14 +66,17 @@ function maskToken(token: string) {
     </template>
     <template #cell-models="{ row }">
       <div class="endpoint-models">
-        <Badge
+        <Tag
           v-for="model in row.models.slice(0, 3)"
           :key="model.id ?? `${model.provider_id}-${model.model_name}`"
-          variant="info"
+          size="small"
+          variant="primary"
         >
           {{ model.model_name }}
-        </Badge>
-        <Badge v-if="row.models.length > 3">+{{ row.models.length - 3 }}</Badge>
+        </Tag>
+        <Tag v-if="row.models.length > 3" size="small"
+          >+{{ row.models.length - 3 }}</Tag
+        >
       </div>
     </template>
     <template #cell-actions="{ row }">
