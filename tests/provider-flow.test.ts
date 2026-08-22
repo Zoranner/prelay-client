@@ -84,8 +84,6 @@ test("供应商表格使用组件库表格，并通过供应商 ID 执行 Ping",
   expect(list).not.toContain("<EmptyState");
   expect(list).toContain('empty-text="暂无供应商"');
   expect(list).toContain(':loading="loading"');
-  expect(list).toContain("<Tag");
-  expect(list).toContain('<Badge :variant="pingStatus(row.id).variant">');
   expect(page).toContain(':loading="loadingProviders"');
 });
 

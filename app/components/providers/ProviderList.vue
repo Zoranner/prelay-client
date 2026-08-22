@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Badge, Button, Table, Tag } from "stellar-ui";
+import { Badge, Button, Table } from "stellar-ui";
 import type { Provider } from "~/stores/relay";
 import { providerProtocolOptions } from "~/utils/providerCapabilities";
 import {
@@ -75,18 +75,13 @@ function pingStatus(providerId: string) {
       </div>
     </template>
     <template #cell-category="{ row }">
-      <Tag size="small">{{ providerCategory(row.provider_type) }}</Tag>
+      <Badge>{{ providerCategory(row.provider_type) }}</Badge>
     </template>
     <template #cell-protocols="{ row }">
       <div class="protocols">
-        <Tag
-          v-for="protocol in providerProtocolOptions(row)"
-          :key="protocol"
-          size="small"
-          variant="primary"
-        >
+        <Badge v-for="protocol in providerProtocolOptions(row)" :key="protocol" variant="info">
           {{ protocolLabel(protocol) }}
-        </Tag>
+        </Badge>
       </div>
     </template>
     <template #cell-models="{ row }">

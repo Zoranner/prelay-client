@@ -118,8 +118,6 @@ test("接入点表格以模型标签展示前三个模型并汇总其余数量",
   expect(endpointList).toContain('layout="auto"');
   expect(endpointList).toContain("row.models.slice(0, 3)");
   expect(endpointList).toContain("+{{ row.models.length - 3 }}");
-  expect(endpointList).toContain("<Tag");
-  expect(endpointList).not.toContain("<Badge");
 });
 
 test("接入点编辑抽屉将操作固定在 Drawer footer", () => {
