@@ -41,3 +41,11 @@ test("服务地址只在全屏接入点页通过连接命令确认", () => {
   expect(setup).not.toContain("<h1>连接管理服务</h1>");
   expect(setup).not.toContain(">Prelay<");
 });
+
+test("切换管理服务时回填当前保存的地址", () => {
+  const setup = source("pages/setup.vue");
+
+  expect(setup).toContain(
+    'isChangingAddress.value ? (settings.relayUrl.value ?? "") : "",',
+  );
+});

@@ -4,9 +4,11 @@ import { Button, Card, Input, useNotification } from "stellar-ui";
 const settings = useRelaySettings();
 const { pending } = useRelayCommand();
 const notifications = useNotification();
-const relayUrl = ref("");
 const route = useRoute();
 const isChangingAddress = computed(() => route.query.change === "1");
+const relayUrl = ref(
+  isChangingAddress.value ? (settings.relayUrl.value ?? "") : "",
+);
 
 function returnToWorkspace() {
   void navigateTo("/");
