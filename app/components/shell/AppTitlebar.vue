@@ -5,6 +5,7 @@ import { Button } from "stellar-ui";
 import prelayIcon from "~/assets/images/prelay-icon.png";
 
 const isMaximized = ref(false);
+const desktopPreferencesDialog = useDesktopPreferencesDialog();
 let unlistenResized: UnlistenFn | undefined;
 
 const isTauriRuntime = () => "__TAURI_INTERNALS__" in globalThis;
@@ -26,6 +27,7 @@ async function refreshMaximizedState() {
 }
 
 const minimize = () => withWindow((window) => window.minimize());
+const openDesktopPreferences = () => desktopPreferencesDialog.open();
 
 async function toggleMaximize() {
   await withWindow((window) => window.toggleMaximize());
@@ -62,6 +64,15 @@ onUnmounted(() => unlistenResized?.());
     </div>
 
     <div class="window-actions" @dblclick.stop>
+      <Button
+        square
+        size="small"
+        variant="ghost"
+        icon="ph:gear-six"
+        aria-label="设置"
+        title="设置"
+        @click="openDesktopPreferences"
+      />
       <Button
         square
         size="small"

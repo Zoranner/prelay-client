@@ -1,6 +1,7 @@
 export interface BootstrapState {
   relay_url?: string;
-  username: string;
+  display_name: string;
+  avatar_seed: string;
   has_device_credential: boolean;
 }
 

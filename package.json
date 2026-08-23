@@ -21,6 +21,8 @@
     "vue-tsc": "^3.3.9"
   },
   "dependencies": {
+    "@dicebear/core": "10.5.0",
+    "@dicebear/styles": "10.5.0",
     "@iconify-json/ph": "^1.2.2",
     "@lobehub/icons-static-svg": "^1.94.0",
     "@tauri-apps/api": "^2.0.0",

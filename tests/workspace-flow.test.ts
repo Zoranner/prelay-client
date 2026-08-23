@@ -7,6 +7,7 @@ const source = (path: string) =>
 test("桌面壳层按工作流组织客户端入口", () => {
   const app = source("app.vue");
   const navigation = source("components/workbench/WorkbenchShell.vue");
+  const titlebar = source("components/shell/AppTitlebar.vue");
 
   expect(app).toContain("WorkbenchShell");
   expect(navigation).toContain("SidebarItem");
@@ -14,7 +15,8 @@ test("桌面壳层按工作流组织客户端入口", () => {
   expect(navigation).toContain('label: "供应商"');
   expect(navigation).toContain('label: "接入点"');
   expect(navigation).toContain('label: "活动"');
-  expect(navigation).toContain("设置");
+  expect(navigation).not.toContain('label="设置"');
+  expect(titlebar).toContain('aria-label="设置"');
   expect(app).not.toContain("app-nav");
 });
 

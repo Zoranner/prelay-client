@@ -1,13 +1,17 @@
 <script setup lang="ts">
-import { Sidebar, SidebarItem } from "stellar-ui";
+import { Avatar as DiceBearAvatar, Style } from "@dicebear/core";
+import cutouts from "@dicebear/styles/cutouts.json";
+import { Avatar, Sidebar, SidebarItem } from "stellar-ui";
 import WorkbenchStatusbar from "~/components/workbench/WorkbenchStatusbar.vue";
+import { type BootstrapState, useRelayStore } from "~/stores/relay";
 
 defineProps<{
   relayUrl: string | null;
 }>();
 
 const route = useRoute();
-const desktopPreferencesDialog = useDesktopPreferencesDialog();
+const { invokeCommand } = useRelayCommand();
+const { bootstrap, setBootstrap } = useRelayStore();
 const navigation = [
   { label: "工作台", path: "/", icon: "ph:squares-four" },
   { label: "供应商", path: "/providers", icon: "ph:plugs-connected" },
@@ -15,10 +19,23 @@ const navigation = [
   { label: "扩展", path: "/extensions", icon: "ph:puzzle-piece" },
   { label: "活动", path: "/stats", icon: "ph:chart-line-up" },
 ];
+const displayName = computed(() => bootstrap.value?.display_name ?? "当前用户");
+const cutoutsStyle = new Style(cutouts);
+const avatarSrc = computed(() =>
+  new DiceBearAvatar(cutoutsStyle, {
+    seed: bootstrap.value?.avatar_seed ?? "current-user",
+  }).toDataUri(),
+);
 
-function openDesktopPreferences() {
-  desktopPreferencesDialog.open();
-}
+onMounted(async () => {
+  if (bootstrap.value) return;
+  try {
+    setBootstrap(await invokeCommand<BootstrapState>("bootstrap"));
+  } catch {
+    // The command composable exposes the management API error.
+  }
+});
+
 </script>
 
 <template>
@@ -34,11 +51,15 @@ function openDesktopPreferences() {
           :to="item.path"
         />
         <template #footer>
-          <SidebarItem
-            icon="ph:gear-six"
-            label="设置"
-            @click="openDesktopPreferences"
-          />
+          <div class="workbench-user" :title="displayName">
+            <Avatar
+              :src="avatarSrc"
+              :alt="displayName"
+              size="large"
+              shape="circle"
+            />
+            <span>{{ displayName }}</span>
+          </div>
         </template>
       </Sidebar>
 
@@ -74,5 +95,23 @@ function openDesktopPreferences() {
   min-height: 0;
   overflow: hidden;
   background: var(--st-bg-base);
+}
+
+.workbench-user {
+  display: grid;
+  width: 100%;
+  justify-items: center;
+  gap: 4px;
+  padding: var(--spacing-sm) 2px var(--spacing-md);
+  color: var(--st-text-secondary);
+  font-size: 11px;
+}
+
+.workbench-user span {
+  width: 100%;
+  overflow: hidden;
+  text-align: center;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 </style>

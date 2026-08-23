@@ -5,6 +5,8 @@
     "": {
       "name": "prelay-client",
       "dependencies": {
+        "@dicebear/core": "10.5.0",
+        "@dicebear/styles": "10.5.0",
         "@iconify-json/ph": "^1.2.2",
         "@lobehub/icons-static-svg": "^1.94.0",
         "@tauri-apps/api": "^2.0.0",
@@ -90,6 +92,10 @@
     "@csstools/selector-resolve-nested": ["@csstools/selector-resolve-nested@3.1.0", "http://pkg.rd.kim/repository/npm-group/@csstools/selector-resolve-nested/-/selector-resolve-nested-3.1.0.tgz", { "peerDependencies": { "postcss-selector-parser": "^7.0.0" } }, "sha512-mf1LEW0tJLKfWyvn5KdDrhpxHyuxpbNwTIwOYLIvsTffeyOf85j5oIzfG0yosxDgx/sswlqBnESYUcQH0vgZ0g=="],
 
     "@csstools/selector-specificity": ["@csstools/selector-specificity@5.0.0", "http://pkg.rd.kim/repository/npm-group/@csstools/selector-specificity/-/selector-specificity-5.0.0.tgz", { "peerDependencies": { "postcss-selector-parser": "^7.0.0" } }, "sha512-PCqQV3c4CoVm3kdPhyeZ07VmBRdH2EpMFA/pd9OASpOEC3aXNGoqPDAZ80D0cLpMBxnmk0+yNhGsEx31hq7Gtw=="],
+
+    "@dicebear/core": ["@dicebear/core@10.5.0", "http://pkg.rd.kim/repository/npm-group/@dicebear/core/-/core-10.5.0.tgz", {}, "sha512-FaBohsNT+/8z2C2jowlzNVbx4B+x6wVLK4HeQT35bJTV4LeV6xXl4zyPvxCm4HvG6PoN+100hNBbnj7Bumo18Q=="],
+
+    "@dicebear/styles": ["@dicebear/styles@10.5.0", "http://pkg.rd.kim/repository/npm-group/@dicebear/styles/-/styles-10.5.0.tgz", {}, "sha512-CV5rBIe/wECQua/jct3oJCN7aNNMb7H1TUFQr5x0DWMI+82KZDeLOgw50OzEjDIW0qGHfwvfz9tRh61ZEyardA=="],
 
     "@dxup/nuxt": ["@dxup/nuxt@0.5.6", "http://pkg.rd.kim/repository/npm-group/@dxup/nuxt/-/nuxt-0.5.6.tgz", { "dependencies": { "@dxup/unimport": "^0.1.2", "@nuxt/kit": "^4.5.1", "@vue/compiler-dom": "^3.5.40", "chokidar": "^5.0.0", "knitwork": "^1.3.0", "magic-string": "^1.1.0", "pathe": "^2.0.3", "tinyglobby": "^0.2.17", "unplugin": "^3.3.0" } }, "sha512-uZjAFoocWtWHr7YP9jm6FqwI8kjX2QN9bjcncoZt0GS+zExIAP3Ewv6EqEUvVP7w9pjZE+T19QxLHeoacN/MNg=="],
 

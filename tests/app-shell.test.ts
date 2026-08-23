@@ -116,6 +116,23 @@ test("桌面和网页标题栏复用 Prelay 图标资产", () => {
   );
 });
 
+test("工作台头像使用 DiceBear Cutouts 预设", () => {
+  const packageJson = JSON.parse(
+    readFileSync(new URL("../package.json", import.meta.url), "utf8"),
+  );
+  const shell = readFileSync(
+    new URL("../app/components/workbench/WorkbenchShell.vue", import.meta.url),
+    "utf8",
+  );
+
+  expect(packageJson.dependencies["@dicebear/core"]).toBe("10.5.0");
+  expect(packageJson.dependencies["@dicebear/styles"]).toBe("10.5.0");
+  expect(packageJson.dependencies["@dicebear/identicon"]).toBeUndefined();
+  expect(shell).toContain('import cutouts from "@dicebear/styles/cutouts.json"');
+  expect(shell).toContain("new Style(cutouts)");
+  expect(shell).toContain("new DiceBearAvatar(cutoutsStyle");
+});
+
 test("托盘设置菜单打开全局设置弹窗", () => {
   const app = appSource();
 
@@ -152,6 +169,10 @@ test("设置入口打开全局桌面偏好弹窗", () => {
     new URL("../app/components/workbench/WorkbenchShell.vue", import.meta.url),
     "utf8",
   );
+  const titlebar = readFileSync(
+    new URL("../app/components/shell/AppTitlebar.vue", import.meta.url),
+    "utf8",
+  );
   const preferences = readFileSync(
     new URL("../app/composables/useDesktopPreferences.ts", import.meta.url),
     "utf8",
@@ -171,6 +192,11 @@ test("设置入口打开全局桌面偏好弹窗", () => {
   expect(dialog).not.toContain("<Checkbox");
   expect(dialog).toContain("watch(() => draft.theme");
   expect(dialog).toContain("desktopPreferences.applyTheme");
-  expect(shell).toContain("openDesktopPreferences");
+  expect(titlebar).toContain("useDesktopPreferencesDialog");
+  expect(titlebar).toContain("openDesktopPreferences");
+  expect(titlebar).toMatch(
+    /icon="ph:gear-six"[\s\S]{0,240}aria-label="设置"[\s\S]{0,240}@click="openDesktopPreferences"[\s\S]{0,240}icon="ph:minus"/,
+  );
+  expect(shell).not.toContain('label="设置"');
   expect(shell).not.toContain('to="/settings"');
 });
