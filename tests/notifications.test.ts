@@ -15,13 +15,15 @@ test("通知由 Stellar UI 的全局容器承载，不插入页面和抽屉内�
   ];
 
   for (const surface of surfaces) {
-    expect(readFileSync(new URL(surface, import.meta.url), "utf8")).not.toContain(
-      "notice--danger",
-    );
+    expect(
+      readFileSync(new URL(surface, import.meta.url), "utf8"),
+    ).not.toContain("notice--danger");
   }
 
   expect(app).toContain('from "stellar-ui"');
   expect(app).toContain("NotificationContainer");
+  expect(app).toContain('position="top-right"');
+  expect(app).toContain(':max="3"');
   expect(app).not.toContain("NotificationViewport");
 });
 
