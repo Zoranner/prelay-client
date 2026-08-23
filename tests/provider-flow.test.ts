@@ -125,7 +125,70 @@ test("供应商页面的页面级命令使用简短文案", () => {
   const page = pageSource();
   expect(page).toMatch(/@click="newProvider">新增<\/Button>/);
   expect(page).toContain('pending ? "保存中..." : "保存"');
-  expect(providerSource).toMatch(/>新增<\/Button\s*>/);
+  expect(providerSource).toContain("<template #title>新增模型</template>");
+});
+
+test("供应商模型清单与接入点使用同一类列表工作流", () => {
+  expect(providerSource).toContain("Popover");
+  expect(providerSource).toContain("showAddModel");
+  expect(providerSource).toContain("setModelPopover");
+  expect(providerSource).toContain("<span>{{ models.length }} 个</span>");
+  expect(providerSource).toContain("新增模型");
+  expect(providerSource).toContain("model-popover");
+  expect(providerSource).not.toContain(
+    "接入点页只能选择这里已经配置的上游模型。",
+  );
+  expect(providerSource).not.toContain('class="model-adder"');
+  expect(providerSource).toContain(
+    "border-top: 1px solid var(--st-border-divider);",
+  );
+  expect(providerSource).not.toContain("border: 1px solid var(--st-border);");
+});
+
+test("供应商表单将基础上游地址作为唯一的 Base URL", () => {
+  expect(providerSource).toContain('label="Base URL"');
+  expect(providerSource).toContain(
+    ":placeholder=\"baseUrl || '填写协议地址'\"",
+  );
+  expect(providerSource).not.toContain("默认 Base URL");
+});
+
+test("供应商操作使用带提示的图标按钮", () => {
+  expect(providerSource).toMatch(
+    /icon="ph:plugs-connected"[\s\S]{0,180}@click="requestProtocolTest\(protocol\)"/,
+  );
+  expect(providerSource).toMatch(
+    /icon="ph:download-simple"[\s\S]{0,180}@click="requestDiscovery"/,
+  );
+  expect(providerSource).toMatch(/@click="requestDiscovery"\s*>\s*获取/);
+  expect(providerSource).toContain('aria-label="测试协议"');
+  expect(providerSource).toContain('aria-label="获取模型"');
+});
+
+test("供应商支持协议使用不同颜色的 Tag 多选", () => {
+  expect(providerSource).toContain("const protocolOptions = allProtocols.map(");
+  expect(providerSource).toContain("tagVariant:");
+  expect(providerSource).toMatch(
+    /<Select[\s\S]{0,120}v-model="upstreamProtocols"[\s\S]{0,180}multiple/,
+  );
+  expect(providerSource).not.toContain('class="protocol-checks"');
+});
+
+test("供应商与活动表共用协议 Tag 颜色", () => {
+  const providerList = readFileSync(
+    new URL("../app/components/providers/ProviderList.vue", import.meta.url),
+    "utf8",
+  );
+  const requestTable = readFileSync(
+    new URL("../app/components/activity/RequestTable.vue", import.meta.url),
+    "utf8",
+  );
+
+  expect(providerList).toContain("protocolTagVariant");
+  expect(providerList).toContain("<Tag");
+  expect(requestTable).toContain("protocolTagVariant");
+  expect(requestTable).toContain("<Tag");
+  expect(requestTable).not.toContain("function protocolLabel");
 });
 
 function pageSource() {

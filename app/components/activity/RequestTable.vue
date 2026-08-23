@@ -8,8 +8,10 @@ import {
   RadioGroup,
   Select,
   Table,
+  Tag,
 } from "stellar-ui";
 import { formatDiagnosticMetadata } from "~/utils/diagnosticMetadata";
+import { protocolLabel, protocolTagVariant } from "~/utils/providerTemplates";
 
 type RequestTableRow = RequestLog & Record<string, unknown>;
 
@@ -65,21 +67,6 @@ const metadataDrawerOpen = computed(() => selectedMetadata.value !== null);
 const metadataDetail = computed(() =>
   formatDiagnosticMetadata(selectedMetadata.value),
 );
-
-function protocolLabel(protocol: string | null) {
-  switch (protocol) {
-    case "chat_completions":
-    case "openai":
-      return "Chat Completions";
-    case "responses":
-      return "Responses";
-    case "anthropic_messages":
-    case "anthropic":
-      return "Anthropic Messages";
-    default:
-      return "-";
-  }
-}
 
 function statusTitle(row: RequestLog) {
   return (
@@ -170,11 +157,13 @@ function closeMetadata(visible: boolean) {
           </div>
         </template>
         <template #cell-protocol_in="{ row }">
-          <span
-            class="activity-content-nowrap"
+          <Tag
+            size="small"
             :title="protocolLabel(row.protocol_in)"
-            >{{ protocolLabel(row.protocol_in) }}</span
+            :variant="protocolTagVariant(row.protocol_in)"
           >
+            {{ protocolLabel(row.protocol_in) }}
+          </Tag>
         </template>
         <template #cell-mode="{ row }">
           {{

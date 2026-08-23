@@ -1,9 +1,9 @@
 <script setup lang="ts">
 import {
   Button,
-  Checkbox,
   FormField,
   Input,
+  Popover,
   Select,
   useNotification,
 } from "stellar-ui";
@@ -15,6 +15,7 @@ import type {
 import {
   PROVIDER_TEMPLATE_GROUPS,
   protocolLabel,
+  protocolTagVariant,
   providerTemplateForType,
 } from "~/utils/providerTemplates";
 import {
@@ -57,6 +58,11 @@ type ProviderOperationInput = {
 };
 
 const allProtocols: UpstreamProtocol[] = ["openai", "responses", "anthropic"];
+const protocolOptions = allProtocols.map((protocol) => ({
+  value: protocol,
+  label: protocolLabel(protocol),
+  tagVariant: protocolTagVariant(protocol),
+}));
 const providerTemplate = ref("custom");
 const name = ref("");
 const providerType = ref("openai_compatible");
@@ -85,6 +91,7 @@ const maxOutputTokens = ref<number | null>(null);
 const preservedCapabilities = ref<ProviderCapabilities>({});
 const notifications = useNotification();
 const showApiKey = ref(false);
+const showAddModel = ref(false);
 const defaultProviderTemplate = PROVIDER_TEMPLATE_GROUPS[0]?.options[0];
 const providerTemplateOptions = PROVIDER_TEMPLATE_GROUPS.flatMap((group) =>
   group.options.map((option) => ({
@@ -106,6 +113,8 @@ watch(
     baseUrl.value = provider?.base_url ?? template?.baseUrl ?? "";
     apiKey.value = provider?.api_key ?? "";
     showApiKey.value = false;
+    showAddModel.value = false;
+    modelDraft.value = "";
     models.value = provider?.models.map((model) => model.model_name) ?? [];
     upstreamProtocols.value = (
       provider?.capabilities?.upstream_protocols ??
@@ -157,6 +166,12 @@ function addModel() {
   if (!model || models.value.includes(model)) return;
   models.value.push(model);
   modelDraft.value = "";
+  showAddModel.value = false;
+}
+
+function setModelPopover(open: boolean) {
+  showAddModel.value = open;
+  if (!open) modelDraft.value = "";
 }
 
 function removeModel(model: string) {
@@ -208,7 +223,7 @@ function operationInput(protocol?: UpstreamProtocol): ProviderOperationInput {
 
 function submit() {
   if (!name.value.trim() || !baseUrl.value.trim()) {
-    notifications.danger("请填写名称和默认 Base URL。", {
+    notifications.danger("请填写名称和 Base URL。", {
       title: "连接配置不完整",
     });
     return;
@@ -278,18 +293,14 @@ function submit() {
             />
           </div>
         </FormField>
-        <Input v-model="baseUrl" label="默认 Base URL" type="url" />
-        <FormField label="支持协议">
-          <div class="protocol-checks">
-            <Checkbox
-              v-for="protocol in allProtocols"
-              :key="protocol"
-              v-model="upstreamProtocols"
-              :value="protocol"
-              :label="protocolLabel(protocol)"
-            />
-          </div>
-        </FormField>
+        <Input v-model="baseUrl" label="Base URL" type="url" />
+        <Select
+          v-model="upstreamProtocols"
+          multiple
+          label="支持协议"
+          placeholder="选择支持协议"
+          :options="protocolOptions"
+        />
         <div class="protocol-urls">
           <div
             v-for="protocol in orderedUpstreamProtocols"
@@ -299,15 +310,18 @@ function submit() {
             <span>{{ protocolLabel(protocol) }}</span>
             <Input
               v-model="protocolBaseUrls[protocol]"
-              placeholder="留空使用默认 Base URL"
+              :placeholder="baseUrl || '填写协议地址'"
             />
             <Button
+              square
               type="button"
               size="small"
+              icon="ph:plugs-connected"
+              aria-label="测试协议"
+              title="测试协议"
               :disabled="pending"
               @click="requestProtocolTest(protocol)"
-              >测试协议</Button
-            >
+            />
           </div>
         </div>
       </div>
@@ -315,17 +329,51 @@ function submit() {
 
     <section class="form-section">
       <div class="section-header">
-        <div>
-          <h3>模型清单</h3>
-          <p>接入点页只能选择这里已经配置的上游模型。</p>
+        <h3>模型清单</h3>
+        <div class="section-header__actions">
+          <span>{{ models.length }} 个</span>
+          <Button
+            type="button"
+            size="small"
+            icon="ph:download-simple"
+            aria-label="获取模型"
+            title="获取模型"
+            :disabled="pending"
+            @click="requestDiscovery"
+            >获取</Button
+          >
+          <Popover
+            v-model="showAddModel"
+            position="bottom"
+            align="right"
+            size="large"
+            @update:model-value="setModelPopover"
+          >
+            <Button size="small" type="button" variant="primary" icon="ph:plus">
+              新增
+            </Button>
+            <template #title>新增模型</template>
+            <template #content>
+              <div class="model-popover">
+                <Input
+                  v-model="modelDraft"
+                  label="上游模型"
+                  placeholder="kimi-k2-0711-preview"
+                  @enter="addModel"
+                />
+              </div>
+            </template>
+            <template #footer>
+              <Button
+                variant="primary"
+                type="button"
+                :disabled="pending"
+                @click="addModel"
+                >确认</Button
+              >
+            </template>
+          </Popover>
         </div>
-        <Button
-          type="button"
-          size="small"
-          :disabled="pending"
-          @click="requestDiscovery"
-          >获取模型</Button
-        >
       </div>
       <div class="model-list">
         <div v-for="model in models" :key="model" class="model-row">
@@ -342,17 +390,6 @@ function submit() {
         </div>
         <p v-if="!models.length" class="empty-text">暂无模型。</p>
       </div>
-      <div class="model-adder">
-        <Input
-          v-model="modelDraft"
-          label="上游模型"
-          placeholder="kimi-k2-0711-preview"
-          @enter="addModel"
-        />
-        <Button variant="primary" type="button" @click="addModel"
-          >新增</Button
-        >
-      </div>
     </section>
   </form>
 </template>
@@ -365,10 +402,11 @@ function submit() {
   display: grid;
   gap: var(--spacing-lg);
 }
+.provider-form {
+  padding: var(--spacing-lg);
+}
 .form-section {
   margin: 0;
-  border: 1px solid var(--st-border);
-  padding: var(--spacing-lg);
 }
 .form-section h3,
 .form-section p {
@@ -383,21 +421,13 @@ function submit() {
   color: var(--st-text-secondary);
 }
 .secret-input,
-.protocol-url-row,
-.section-header,
-.model-row,
-.model-adder {
+.protocol-url-row {
   display: flex;
   align-items: center;
   gap: var(--spacing-sm);
 }
 .secret-input__field {
   flex: 1;
-}
-.protocol-checks {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: var(--spacing-sm);
 }
 .protocol-urls {
   display: grid;
@@ -412,16 +442,30 @@ function submit() {
   flex: 1;
 }
 .section-header {
+  display: flex;
   justify-content: space-between;
   align-items: flex-start;
+  gap: var(--spacing-md);
+}
+.section-header__actions {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+}
+.section-header__actions > span {
+  color: var(--st-text-secondary);
 }
 .model-list {
   gap: var(--spacing-sm);
 }
 .model-row {
+  display: flex;
+  min-width: 0;
   justify-content: space-between;
-  border: 1px solid var(--st-border);
-  padding: var(--spacing-sm) var(--spacing-md);
+  align-items: center;
+  gap: var(--spacing-md);
+  border-top: 1px solid var(--st-border-divider);
+  padding: var(--spacing-sm) 0 0 var(--spacing-md);
 }
 .model-row code {
   min-width: 0;
@@ -429,18 +473,12 @@ function submit() {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.model-adder {
-  align-items: flex-end;
-}
-.model-adder > :first-child {
-  flex: 1;
+.model-popover {
+  display: grid;
+  gap: var(--spacing-md);
 }
 @media (max-width: 720px) {
-  .protocol-checks {
-    grid-template-columns: 1fr;
-  }
-  .protocol-url-row,
-  .model-adder {
+  .protocol-url-row {
     align-items: stretch;
     flex-direction: column;
   }

@@ -21,10 +21,9 @@ export const PROVIDER_TEMPLATE_GROUPS: {
         "gotoken",
         "GoToken 套餐",
         "gotoken",
-        "https://gotoken.cc/v1",
+        "https://gotoken.cc",
         ["responses", "openai", "anthropic"],
         {
-          responses: "https://gotoken.cc",
           openai: "https://gotoken.cc/v1",
           anthropic: "https://gotoken.cc/v1",
         },
@@ -37,7 +36,6 @@ export const PROVIDER_TEMPLATE_GROUPS: {
         ["anthropic", "openai"],
         {
           openai: "https://api.kimi.com/coding/v1",
-          anthropic: "https://api.kimi.com/coding",
         },
       ),
       template(
@@ -48,7 +46,6 @@ export const PROVIDER_TEMPLATE_GROUPS: {
         ["openai", "anthropic"],
         {
           openai: "https://open.bigmodel.cn/api/coding/paas/v4",
-          anthropic: "https://open.bigmodel.cn/api/anthropic",
         },
       ),
       template(
@@ -59,7 +56,6 @@ export const PROVIDER_TEMPLATE_GROUPS: {
         ["openai", "anthropic"],
         {
           openai: "https://api.minimax.io/v1",
-          anthropic: "https://api.minimax.io/anthropic",
         },
       ),
     ],
@@ -74,7 +70,6 @@ export const PROVIDER_TEMPLATE_GROUPS: {
         "https://api.deepseek.com/v1",
         ["responses", "openai", "anthropic"],
         {
-          openai: "https://api.deepseek.com/v1",
           anthropic: "https://api.deepseek.com/anthropic",
         },
       ),
@@ -85,14 +80,16 @@ export const PROVIDER_TEMPLATE_GROUPS: {
         "https://dashscope.aliyuncs.com/compatible-mode/v1",
         ["responses", "openai", "anthropic"],
         {
-          responses: "https://dashscope.aliyuncs.com/compatible-mode/v1",
-          openai: "https://dashscope.aliyuncs.com/compatible-mode/v1",
           anthropic: "https://dashscope.aliyuncs.com/apps/anthropic",
         },
       ),
-      template("kimi", "Kimi API 开放平台", "kimi", "https://api.moonshot.ai/v1", [
-        "openai",
-      ]),
+      template(
+        "kimi",
+        "Kimi API 开放平台",
+        "kimi",
+        "https://api.moonshot.ai/v1",
+        ["openai"],
+      ),
       template(
         "bigmodel",
         "智谱 BigModel 平台",
@@ -108,8 +105,6 @@ export const PROVIDER_TEMPLATE_GROUPS: {
         "https://api.minimaxi.com/v1",
         ["responses", "openai", "anthropic"],
         {
-          responses: "https://api.minimaxi.com/v1",
-          openai: "https://api.minimaxi.com/v1",
           anthropic: "https://api.minimaxi.com/anthropic",
         },
       ),
@@ -141,12 +136,28 @@ export function providerLabel(providerType: string) {
   return providerTemplateForType(providerType)?.label ?? providerType;
 }
 
-export function protocolLabel(protocol: UpstreamProtocol) {
+export type ProtocolTagVariant = "primary" | "success" | "warning" | "default";
+
+export function protocolLabel(protocol: string | null) {
   return protocol === "responses"
     ? "Responses"
-    : protocol === "anthropic"
+    : protocol === "anthropic" || protocol === "anthropic_messages"
       ? "Anthropic Messages"
-      : "Chat Completions";
+      : protocol === "openai" || protocol === "chat_completions"
+        ? "Chat Completions"
+        : "-";
+}
+
+export function protocolTagVariant(
+  protocol: string | null,
+): ProtocolTagVariant {
+  return protocol === "responses"
+    ? "success"
+    : protocol === "anthropic" || protocol === "anthropic_messages"
+      ? "warning"
+      : protocol === "openai" || protocol === "chat_completions"
+        ? "primary"
+        : "default";
 }
 
 function template(

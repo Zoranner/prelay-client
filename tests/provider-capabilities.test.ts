@@ -38,13 +38,18 @@ const provider = (overrides: Partial<Provider> = {}): Provider => ({
 });
 
 test("协议测试使用服务端解析的上游协议能力", () => {
-  expect(providerProtocolOptions(provider())).toEqual(["responses", "anthropic"]);
+  expect(providerProtocolOptions(provider())).toEqual([
+    "responses",
+    "anthropic",
+  ]);
 });
 
 test("协议测试不再自行从供应商类型推导默认协议", () => {
-  expect(providerProtocolOptions(provider({ provider_type: "anthropic", upstream_protocols: ["openai"] }))).toEqual([
-    "openai",
-  ]);
+  expect(
+    providerProtocolOptions(
+      provider({ provider_type: "anthropic", upstream_protocols: ["openai"] }),
+    ),
+  ).toEqual(["openai"]);
 });
 
 test("供应商表格中的协议按 Chat Completions、Responses、Anthropic 排序", () => {
@@ -97,17 +102,26 @@ test("API 服务默认使用 Chat Completions 协议地址", () => {
   );
 });
 
-test("GoToken 位于套餐服务首位并提供三种官方协议地址", () => {
+test("GoToken 位于套餐服务首位并使用官网基础地址", () => {
   expect(PROVIDER_TEMPLATE_GROUPS[0]?.options[0]).toMatchObject({
     value: "gotoken",
     label: "GoToken 套餐",
     providerType: "gotoken",
-    baseUrl: "https://gotoken.cc/v1",
+    baseUrl: "https://gotoken.cc",
     protocols: ["responses", "openai", "anthropic"],
     protocolBaseUrls: {
-      responses: "https://gotoken.cc",
       openai: "https://gotoken.cc/v1",
       anthropic: "https://gotoken.cc/v1",
     },
   });
+});
+
+test("供应商预设不重复填写与 Base URL 相同的协议地址", () => {
+  for (const group of PROVIDER_TEMPLATE_GROUPS) {
+    for (const template of group.options) {
+      for (const protocolBaseUrl of Object.values(template.protocolBaseUrls)) {
+        expect(protocolBaseUrl).not.toBe(template.baseUrl);
+      }
+    }
+  }
 });

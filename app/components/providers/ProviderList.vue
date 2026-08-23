@@ -1,9 +1,10 @@
 <script setup lang="ts">
-import { Badge, Button, Table } from "stellar-ui";
+import { Badge, Button, Table, Tag } from "stellar-ui";
 import type { Provider } from "~/stores/relay";
 import { providerProtocolOptions } from "~/utils/providerCapabilities";
 import {
   protocolLabel,
+  protocolTagVariant,
   providerLabel,
   PROVIDER_TEMPLATE_GROUPS,
 } from "~/utils/providerTemplates";
@@ -13,11 +14,14 @@ type ProviderRow = Provider & Record<string, unknown>;
 const props = defineProps<{
   loading?: boolean;
   providers: Provider[];
-  pingStates: Record<string, {
-    checking: boolean;
-    ok?: boolean;
-    latencyMs?: number | null;
-  }>;
+  pingStates: Record<
+    string,
+    {
+      checking: boolean;
+      ok?: boolean;
+      latencyMs?: number | null;
+    }
+  >;
 }>();
 const emit = defineEmits<{
   edit: [provider: Provider];
@@ -31,7 +35,13 @@ const columns = [
   { key: "protocols", title: "协议", width: 260, ellipsis: true },
   { key: "models", title: "模型", width: 104, align: "right" as const },
   { key: "status", title: "状态", width: 128 },
-  { key: "actions", title: "操作", width: 132, align: "right" as const, fixed: "right" as const },
+  {
+    key: "actions",
+    title: "操作",
+    width: 132,
+    align: "right" as const,
+    fixed: "right" as const,
+  },
 ];
 const rows = computed<ProviderRow[]>(() => props.providers as ProviderRow[]);
 
@@ -53,7 +63,8 @@ function pingStatus(providerId: string) {
       variant: "success" as const,
     };
   }
-  if (state?.ok === false) return { label: "连接失败", variant: "danger" as const };
+  if (state?.ok === false)
+    return { label: "连接失败", variant: "danger" as const };
   return { label: "未检查", variant: "default" as const };
 }
 </script>
@@ -79,16 +90,23 @@ function pingStatus(providerId: string) {
     </template>
     <template #cell-protocols="{ row }">
       <div class="protocols">
-        <Badge v-for="protocol in providerProtocolOptions(row)" :key="protocol" variant="info">
+        <Tag
+          v-for="protocol in providerProtocolOptions(row)"
+          :key="protocol"
+          size="small"
+          :variant="protocolTagVariant(protocol)"
+        >
           {{ protocolLabel(protocol) }}
-        </Badge>
+        </Tag>
       </div>
     </template>
     <template #cell-models="{ row }">
       {{ row.models.length || "待新增" }}
     </template>
     <template #cell-status="{ row }">
-      <Badge :variant="pingStatus(row.id).variant">{{ pingStatus(row.id).label }}</Badge>
+      <Badge :variant="pingStatus(row.id).variant">{{
+        pingStatus(row.id).label
+      }}</Badge>
     </template>
     <template #cell-actions="{ row }">
       <div class="actions">
@@ -101,8 +119,23 @@ function pingStatus(providerId: string) {
           title="测试连接"
           @click.stop="emit('ping', row)"
         />
-        <Button square size="small" icon="ph:pencil-simple" aria-label="编辑供应商" title="编辑供应商" @click.stop="emit('edit', row)" />
-        <Button square size="small" variant="danger" icon="ph:trash" aria-label="删除供应商" title="删除供应商" @click.stop="emit('remove', row)" />
+        <Button
+          square
+          size="small"
+          icon="ph:pencil-simple"
+          aria-label="编辑供应商"
+          title="编辑供应商"
+          @click.stop="emit('edit', row)"
+        />
+        <Button
+          square
+          size="small"
+          variant="danger"
+          icon="ph:trash"
+          aria-label="删除供应商"
+          title="删除供应商"
+          @click.stop="emit('remove', row)"
+        />
       </div>
     </template>
   </Table>
