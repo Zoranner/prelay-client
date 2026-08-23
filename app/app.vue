@@ -73,7 +73,7 @@ function switchRelayAddress() {
       </Result>
     </div>
     <DesktopPreferencesDialog v-model:visible="desktopPreferencesVisible" />
-    <NotificationContainer position="top-right" :max="3" />
+    <NotificationContainer position="top-right" :max="5" />
   </div>
 </template>
 
