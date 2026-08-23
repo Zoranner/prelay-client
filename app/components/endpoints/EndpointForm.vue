@@ -125,15 +125,18 @@ function selectProvider(form: ModelForm, group?: ModelGroup) {
 
 function addMapping(form: ModelForm, fixedModelName?: string) {
   const upstreamModel = form.upstream_model.trim();
-  const modelName =
-    fixedModelName ?? (form.model_name.trim() || upstreamModel);
+  const modelName = fixedModelName ?? (form.model_name.trim() || upstreamModel);
   if (!form.provider_id || !upstreamModel) {
     notifications.danger("请选择供应商和上游模型。", {
       title: "模型配置不完整",
     });
     return false;
   }
-  if (!modelsForProvider(form.provider_id).some((item) => item.model_name === upstreamModel)) {
+  if (
+    !modelsForProvider(form.provider_id).some(
+      (item) => item.model_name === upstreamModel,
+    )
+  ) {
     notifications.danger("请选择该供应商已配置的模型。", {
       title: "上游模型无效",
     });
@@ -233,7 +236,9 @@ function submit() {
                 <Select
                   v-model="newModelForm.upstream_model"
                   label="上游模型"
-                  :disabled="!modelsForProvider(newModelForm.provider_id).length"
+                  :disabled="
+                    !modelsForProvider(newModelForm.provider_id).length
+                  "
                   :options="upstreamModelOptions(newModelForm.provider_id)"
                 />
                 <Input
@@ -256,11 +261,7 @@ function submit() {
         </div>
       </div>
       <div class="model-list">
-        <div
-          v-for="group in modelGroups"
-          :key="group.name"
-          class="model-group"
-        >
+        <div v-for="group in modelGroups" :key="group.name" class="model-group">
           <div class="model-group__header">
             <code>{{ group.name }}</code>
             <div class="model-group__actions">
@@ -287,8 +288,15 @@ function submit() {
                     <Select
                       v-model="newProviderForm.upstream_model"
                       label="上游模型"
-                      :disabled="!availableUpstreamModels(newProviderForm.provider_id, group).length"
-                      :options="upstreamModelOptions(newProviderForm.provider_id, group)"
+                      :disabled="
+                        !availableUpstreamModels(
+                          newProviderForm.provider_id,
+                          group,
+                        ).length
+                      "
+                      :options="
+                        upstreamModelOptions(newProviderForm.provider_id, group)
+                      "
                     />
                   </div>
                 </template>
@@ -341,10 +349,11 @@ function submit() {
   display: grid;
   gap: var(--spacing-lg);
 }
+.endpoint-form {
+  padding: var(--spacing-lg);
+}
 .form-section {
   margin: 0;
-  border: 1px solid var(--st-border);
-  padding: var(--spacing-lg);
 }
 .form-section h3,
 .form-section p {

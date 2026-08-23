@@ -68,12 +68,10 @@ test("接入点模型从列表上下文新增而非底部统一编辑器", () =>
 
 test("接入点模型分组新增供应商时排除已绑定的上游模型", () => {
   expect(endpointForm).toContain("function availableUpstreamModels");
-  expect(endpointForm).toContain(
-    "mapping.model.provider_id === providerId",
-  );
+  expect(endpointForm).toContain("mapping.model.provider_id === providerId");
   expect(endpointForm).toContain("mapping.model.upstream_model");
-  expect(endpointForm).toContain(
-    ':options="upstreamModelOptions(newProviderForm.provider_id, group)"',
+  expect(endpointForm).toMatch(
+    /:options="\s*upstreamModelOptions\(newProviderForm\.provider_id, group\)\s*"/,
   );
   expect(endpointForm).toContain(
     '@change="selectProvider(newProviderForm, group)"',
@@ -118,6 +116,8 @@ test("接入点表格以模型标签展示前三个模型并汇总其余数量",
   expect(endpointList).toContain('layout="auto"');
   expect(endpointList).toContain("row.models.slice(0, 3)");
   expect(endpointList).toContain("+{{ row.models.length - 3 }}");
+  expect(endpointList).toContain("<Tag");
+  expect(endpointList).not.toContain("<Badge");
 });
 
 test("接入点编辑抽屉将操作固定在 Drawer footer", () => {

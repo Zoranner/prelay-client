@@ -25,7 +25,10 @@ test("供应商和接入点页面通过 Stellar UI 的 PanelSection、Table 和 
     expect(content).toContain("v-model:visible");
   }
 
-  for (const component of ["components/providers/ProviderList.vue", "components/endpoints/EndpointList.vue"]) {
+  for (const component of [
+    "components/providers/ProviderList.vue",
+    "components/endpoints/EndpointList.vue",
+  ]) {
     const content = source(component);
     expect(content).toContain('from "stellar-ui"');
     expect(content).toContain("<Table");
@@ -45,4 +48,14 @@ test("供应商和接入点表单保留历史业务字段，并用 Stellar UI �
   expect(endpointForm).toContain("newModelForm");
   expect(endpointForm).toContain("新增模型");
   expect(endpointForm).toContain("<Select");
+});
+
+test("编辑抽屉的表单章节不再嵌套边框", () => {
+  const providerForm = source("components/providers/ProviderForm.vue");
+  const endpointForm = source("components/endpoints/EndpointForm.vue");
+
+  for (const form of [providerForm, endpointForm]) {
+    expect(form).toMatch(/\.\w+-form\s*\{\s*padding: var\(--spacing-lg\);/);
+    expect(form).not.toMatch(/\.form-section\s*\{[^}]*border:/s);
+  }
 });
