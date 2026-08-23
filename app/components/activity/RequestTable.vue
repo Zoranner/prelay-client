@@ -116,7 +116,6 @@ function closeMetadata(visible: boolean) {
           v-model="statusFilter"
           aria-label="状态筛选"
           :options="statusOptions"
-          size="small"
           variant="button"
         />
         <Select
@@ -124,7 +123,6 @@ function closeMetadata(visible: boolean) {
           aria-label="显示条数"
           :model-value="limit"
           :options="limitOptions"
-          size="small"
           @update:model-value="updateLimit"
         />
       </div>

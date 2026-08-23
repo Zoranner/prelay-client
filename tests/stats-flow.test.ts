@@ -73,6 +73,12 @@ test("活动页只读取和展示请求明细", () => {
   expect(table).toContain(':loading="pending"');
   expect(table).toContain("RadioGroup");
   expect(table).toContain('variant="button"');
+  expect(table).not.toMatch(
+    /<RadioGroup\b[^>]*\baria-label="状态筛选"[^>]*\bsize="small"/,
+  );
+  expect(table).not.toMatch(
+    /<Select\b[^>]*\baria-label="显示条数"[^>]*\bsize="small"/,
+  );
   expect(table).toContain('class="activity-toolbar__controls"');
   expect(table).toContain('class="activity-toolbar__limit"');
   expect(table).not.toContain('v-for="option in statusOptions"');
