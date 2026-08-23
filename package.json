@@ -22,6 +22,7 @@
   },
   "dependencies": {
     "@iconify-json/ph": "^1.2.2",
+    "@lobehub/icons-static-svg": "^1.94.0",
     "@tauri-apps/api": "^2.0.0",
     "echarts": "^6.1.0",
     "stellar-ui": "link:stellar-ui"

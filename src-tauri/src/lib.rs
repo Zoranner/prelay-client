@@ -2,6 +2,7 @@
 
 use tauri::Manager;
 
+pub mod agent_extensions;
 pub mod api_client;
 pub mod autostart;
 pub mod commands;
@@ -69,6 +70,7 @@ pub fn run() {
             commands::endpoints::endpoints_save,
             commands::endpoints::endpoints_delete,
             commands::endpoints::endpoints_regenerate_token,
+            commands::extensions::extensions_list,
             commands::stats::stats_overview,
             commands::stats::stats_timeline,
             commands::stats::stats_requests,

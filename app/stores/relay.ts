@@ -136,6 +136,28 @@ export interface RequestLog {
   metadata_json: string | null;
 }
 
+export type AgentClient = "codex" | "claudeCode";
+export type AgentExtensionKind = "mcp" | "skill" | "plugin";
+export type AgentExtensionStatus = "enabled" | "disabled" | "error";
+
+export interface AgentExtension {
+  kind: AgentExtensionKind;
+  name: string;
+  version: string | null;
+  sourcePath: string;
+  status: AgentExtensionStatus;
+  errorMessage: string | null;
+}
+
+export interface AgentClientExtensions {
+  client: AgentClient;
+  extensions: AgentExtension[];
+}
+
+export interface AgentExtensionsSnapshot {
+  clients: AgentClientExtensions[];
+}
+
 export function useRelayStore() {
   const bootstrap = useState<BootstrapState | null>("relay-bootstrap", () => null);
 

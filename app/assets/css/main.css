@@ -7,6 +7,11 @@
   --pr-statusbar-height: var(--height-status);
   --pr-workbench-gap: var(--spacing-lg);
   --pr-workbench-padding: var(--spacing-lg);
+  --pr-monochrome-icon-filter: brightness(0) invert(1);
+}
+
+html.light {
+  --pr-monochrome-icon-filter: brightness(0);
 }
 
 .pr-desktop-shell {
