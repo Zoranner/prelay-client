@@ -4,14 +4,14 @@ import { existsSync, readFileSync } from "node:fs";
 const source = (path: string) =>
   readFileSync(new URL(`../app/${path}`, import.meta.url), "utf8");
 
-test("桌面壳层按工作流组织客户端入口", () => {
+test("桌面壳层按仪表盘组织客户端入口", () => {
   const app = source("app.vue");
-  const navigation = source("components/workbench/WorkbenchShell.vue");
+  const navigation = source("components/dashboard/DashboardShell.vue");
   const titlebar = source("components/shell/AppTitlebar.vue");
 
-  expect(app).toContain("WorkbenchShell");
+  expect(app).toContain("DashboardShell");
   expect(navigation).toContain("SidebarItem");
-  expect(navigation).toContain('label: "工作台"');
+  expect(navigation).toContain('label: "仪表盘"');
   expect(navigation).toContain('label: "供应商"');
   expect(navigation).toContain('label: "接入点"');
   expect(navigation).toContain('label: "活动"');
@@ -20,7 +20,7 @@ test("桌面壳层按工作流组织客户端入口", () => {
   expect(app).not.toContain("app-nav");
 });
 
-test("工作台按选定范围展示指标、趋势和统计列表", () => {
+test("仪表盘按选定范围展示指标、趋势和统计列表", () => {
   const page = source("pages/index.vue");
   const overview = source("components/dashboard/StatsOverview.vue");
   const rangeSelect = source("components/dashboard/StatsRangeSelect.vue");

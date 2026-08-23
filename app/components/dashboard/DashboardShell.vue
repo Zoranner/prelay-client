@@ -2,7 +2,7 @@
 import { Avatar as DiceBearAvatar, Style } from "@dicebear/core";
 import cutouts from "@dicebear/styles/cutouts.json";
 import { Avatar, Sidebar, SidebarItem } from "stellar-ui";
-import WorkbenchStatusbar from "~/components/workbench/WorkbenchStatusbar.vue";
+import DashboardStatusbar from "~/components/dashboard/DashboardStatusbar.vue";
 import { type BootstrapState, useRelayStore } from "~/stores/relay";
 
 defineProps<{
@@ -13,7 +13,7 @@ const route = useRoute();
 const { invokeCommand } = useRelayCommand();
 const { bootstrap, setBootstrap } = useRelayStore();
 const navigation = [
-  { label: "工作台", path: "/", icon: "ph:squares-four" },
+  { label: "仪表盘", path: "/", icon: "ph:squares-four" },
   { label: "供应商", path: "/providers", icon: "ph:plugs-connected" },
   { label: "接入点", path: "/endpoints", icon: "ph:key" },
   { label: "扩展", path: "/extensions", icon: "ph:puzzle-piece" },
@@ -39,8 +39,8 @@ onMounted(async () => {
 </script>
 
 <template>
-  <div class="workbench-shell">
-    <div class="workbench-body">
+  <div class="dashboard-shell">
+    <div class="dashboard-body">
       <Sidebar variant="rail" :show-header="false">
         <SidebarItem
           v-for="item in navigation"
@@ -51,7 +51,7 @@ onMounted(async () => {
           :to="item.path"
         />
         <template #footer>
-          <div class="workbench-user" :title="displayName">
+          <div class="dashboard-user" :title="displayName">
             <Avatar
               :src="avatarSrc"
               :alt="displayName"
@@ -63,16 +63,16 @@ onMounted(async () => {
         </template>
       </Sidebar>
 
-      <main class="workbench-main">
+      <main class="dashboard-main">
         <slot />
       </main>
     </div>
-    <WorkbenchStatusbar :relay-url="relayUrl" />
+    <DashboardStatusbar :relay-url="relayUrl" />
   </div>
 </template>
 
 <style scoped>
-.workbench-shell {
+.dashboard-shell {
   display: grid;
   width: 100%;
   height: 100%;
@@ -83,21 +83,21 @@ onMounted(async () => {
   color: var(--st-text-primary);
 }
 
-.workbench-body {
+.dashboard-body {
   display: grid;
   min-width: 0;
   min-height: 0;
   grid-template-columns: auto minmax(0, 1fr);
 }
 
-.workbench-main {
+.dashboard-main {
   min-width: 0;
   min-height: 0;
   overflow: hidden;
   background: var(--st-bg-base);
 }
 
-.workbench-user {
+.dashboard-user {
   display: grid;
   width: 100%;
   justify-items: center;
@@ -107,7 +107,7 @@ onMounted(async () => {
   font-size: 11px;
 }
 
-.workbench-user span {
+.dashboard-user span {
   width: 100%;
   overflow: hidden;
   text-align: center;

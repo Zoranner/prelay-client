@@ -30,21 +30,21 @@ onMounted(async () => {
 </script>
 
 <template>
-  <footer class="workbench-statusbar">
-    <div class="workbench-statusbar__connection">
+  <footer class="dashboard-statusbar">
+    <div class="dashboard-statusbar__connection">
       <span
-        class="workbench-statusbar__dot"
-        :class="{ 'workbench-statusbar__dot--connected': isConnected }"
+        class="dashboard-statusbar__dot"
+        :class="{ 'dashboard-statusbar__dot--connected': isConnected }"
         :title="statusTitle"
       />
       <span
-        class="workbench-statusbar__address"
+        class="dashboard-statusbar__address"
         :title="relayUrl ?? '未配置接入点地址'"
       >
         {{ relayUrl ?? "未配置接入点地址" }}
       </span>
       <button
-        class="workbench-statusbar__switch"
+        class="dashboard-statusbar__switch"
         type="button"
         aria-label="切换接入点地址"
         title="切换接入点地址"
@@ -53,14 +53,14 @@ onMounted(async () => {
         <Icon icon="ph:arrows-left-right" />
       </button>
     </div>
-    <span class="workbench-statusbar__version"
+    <span class="dashboard-statusbar__version"
       >v{{ clientVersion ?? "-" }}</span
     >
   </footer>
 </template>
 
 <style scoped>
-.workbench-statusbar {
+.dashboard-statusbar {
   display: flex;
   min-width: 0;
   height: var(--pr-statusbar-height);
@@ -75,14 +75,14 @@ onMounted(async () => {
   font-size: 12px;
 }
 
-.workbench-statusbar__connection {
+.dashboard-statusbar__connection {
   display: flex;
   min-width: 0;
   align-items: center;
   gap: var(--spacing-sm);
 }
 
-.workbench-statusbar__dot {
+.dashboard-statusbar__dot {
   width: 8px;
   height: 8px;
   flex: 0 0 auto;
@@ -90,17 +90,17 @@ onMounted(async () => {
   background: var(--st-danger);
 }
 
-.workbench-statusbar__dot--connected {
+.dashboard-statusbar__dot--connected {
   background: var(--st-success);
 }
 
-.workbench-statusbar__address {
+.dashboard-statusbar__address {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.workbench-statusbar__switch {
+.dashboard-statusbar__switch {
   display: grid;
   width: 18px;
   height: 18px;
@@ -113,21 +113,21 @@ onMounted(async () => {
   cursor: pointer;
 }
 
-.workbench-statusbar__switch :deep(svg) {
+.dashboard-statusbar__switch :deep(svg) {
   width: 14px;
   height: 14px;
 }
 
-.workbench-statusbar__switch:hover {
+.dashboard-statusbar__switch:hover {
   color: var(--st-text-primary);
 }
 
-.workbench-statusbar__switch:focus-visible {
+.dashboard-statusbar__switch:focus-visible {
   outline: 1px solid var(--st-border-focus);
   outline-offset: 1px;
 }
 
-.workbench-statusbar__version {
+.dashboard-statusbar__version {
   flex: 0 0 auto;
 }
 </style>

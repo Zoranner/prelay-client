@@ -63,12 +63,12 @@ test("桌面窗口只保留自绘标题栏和内容工作区", () => {
     "utf8",
   );
   const shell = readFileSync(
-    new URL("../app/components/workbench/WorkbenchShell.vue", import.meta.url),
+    new URL("../app/components/dashboard/DashboardShell.vue", import.meta.url),
     "utf8",
   );
   const statusbar = readFileSync(
     new URL(
-      "../app/components/workbench/WorkbenchStatusbar.vue",
+      "../app/components/dashboard/DashboardStatusbar.vue",
       import.meta.url,
     ),
     "utf8",
@@ -80,15 +80,15 @@ test("桌面窗口只保留自绘标题栏和内容工作区", () => {
   expect(titlebar).toContain("data-tauri-drag-region");
   expect(titlebar).toContain("getCurrentWindow");
   expect(shell).not.toContain("<AppTitlebar");
-  expect(shell).toContain("WorkbenchStatusbar");
+  expect(shell).toContain("DashboardStatusbar");
   expect(shell).toContain("--pr-statusbar-height");
   expect(shell).toContain('<Sidebar variant="rail" :show-header="false">');
-  expect(statusbar).toContain("workbench-statusbar");
+  expect(statusbar).toContain("dashboard-statusbar");
   expect(statusbar).toContain("getVersion");
   expect(statusbar).toContain("managementApi.error");
   expect(statusbar).toContain("ph:arrows-left-right");
   expect(statusbar).toContain('navigateTo("/setup?change=1")');
-  expect(statusbar).toContain('class="workbench-statusbar__switch"');
+  expect(statusbar).toContain('class="dashboard-statusbar__switch"');
   expect(statusbar).not.toContain("<Button");
 });
 
@@ -116,12 +116,12 @@ test("桌面和网页标题栏复用 Prelay 图标资产", () => {
   );
 });
 
-test("工作台头像使用 DiceBear Cutouts 预设", () => {
+test("仪表盘头像使用 DiceBear Cutouts 预设", () => {
   const packageJson = JSON.parse(
     readFileSync(new URL("../package.json", import.meta.url), "utf8"),
   );
   const shell = readFileSync(
-    new URL("../app/components/workbench/WorkbenchShell.vue", import.meta.url),
+    new URL("../app/components/dashboard/DashboardShell.vue", import.meta.url),
     "utf8",
   );
 
@@ -166,7 +166,7 @@ test("设置入口打开全局桌面偏好弹窗", () => {
     "utf8",
   );
   const shell = readFileSync(
-    new URL("../app/components/workbench/WorkbenchShell.vue", import.meta.url),
+    new URL("../app/components/dashboard/DashboardShell.vue", import.meta.url),
     "utf8",
   );
   const titlebar = readFileSync(

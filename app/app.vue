@@ -4,7 +4,7 @@ import { listen } from "@tauri-apps/api/event";
 import { Button, NotificationContainer, Result } from "stellar-ui";
 import AppTitlebar from "~/components/shell/AppTitlebar.vue";
 import DesktopPreferencesDialog from "~/components/settings/DesktopPreferencesDialog.vue";
-import WorkbenchShell from "~/components/workbench/WorkbenchShell.vue";
+import DashboardShell from "~/components/dashboard/DashboardShell.vue";
 
 const managementApi = useRelayManagementApiStatus();
 const managementApiError = computed(() => managementApi.error.value);
@@ -54,9 +54,9 @@ function switchRelayAddress() {
 <template>
   <div class="app-root">
     <AppTitlebar />
-    <WorkbenchShell v-if="!isSetupRoute" :relay-url="relayUrl">
+    <DashboardShell v-if="!isSetupRoute" :relay-url="relayUrl">
       <NuxtPage :key="workspacePageKey" />
-    </WorkbenchShell>
+    </DashboardShell>
     <NuxtPage v-else />
     <div
       v-if="managementApiError && canShowManagementError"

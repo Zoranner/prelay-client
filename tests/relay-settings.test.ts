@@ -20,7 +20,7 @@ test("服务地址只在全屏接入点页通过连接命令确认", () => {
   const setup = source("pages/setup.vue");
   const settingsPage = source("pages/settings.vue");
   const middleware = source("middleware/setup.global.ts");
-  const statusbar = source("components/workbench/WorkbenchStatusbar.vue");
+  const statusbar = source("components/dashboard/DashboardStatusbar.vue");
 
   expect(settings).toContain('"relay_settings_connect"');
   expect(setup).toContain("await settings.connect(relayUrl.value)");

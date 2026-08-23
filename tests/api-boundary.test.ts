@@ -35,7 +35,7 @@ test("Nuxt 管理页面只通过固定的 Tauri command 调用服务端", () => 
   expect(commands).toContain("invoke");
 });
 
-test("工作台使用同一范围读取概览、趋势、模型和供应商统计", () => {
+test("仪表盘使用同一范围读取概览、趋势、模型和供应商统计", () => {
   const page = source("pages/index.vue");
 
   expect(page).toContain('invokeCommand<StatsOverview>("stats_overview", range)');

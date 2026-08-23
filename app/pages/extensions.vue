@@ -74,7 +74,7 @@ onMounted(loadExtensions);
 </script>
 
 <template>
-  <main class="page-workbench">
+  <main class="page-dashboard">
     <PanelSection title="扩展">
       <template #header-actions>
         <Button
@@ -125,12 +125,12 @@ onMounted(loadExtensions);
 </template>
 
 <style scoped>
-.page-workbench {
+.page-dashboard {
   display: flex;
   height: 100%;
   min-height: 0;
   flex-direction: column;
-  padding: var(--pr-workbench-padding);
+  padding: var(--pr-dashboard-padding);
 }
 
 .extensions-content {

@@ -66,8 +66,8 @@ watch(selectedRange, loadDashboard);
 </script>
 
 <template>
-  <main class="page-workbench">
-    <PanelSection title="工作台">
+  <main class="page-dashboard">
+    <PanelSection title="仪表盘">
       <template #header-actions>
         <StatsRangeSelect v-model="selectedRange" />
         <Button :disabled="pending" @click="loadDashboard">
@@ -96,12 +96,12 @@ watch(selectedRange, loadDashboard);
 </template>
 
 <style scoped>
-.page-workbench {
+.page-dashboard {
   display: flex;
   height: 100%;
   min-height: 0;
   flex-direction: column;
-  padding: var(--pr-workbench-padding);
+  padding: var(--pr-dashboard-padding);
 }
 
 .dashboard-content {

@@ -5,8 +5,8 @@
   --pr-titlebar-height: 44px;
   --st-overlay-inset: 0px;
   --pr-statusbar-height: var(--height-status);
-  --pr-workbench-gap: var(--spacing-lg);
-  --pr-workbench-padding: var(--spacing-lg);
+  --pr-dashboard-gap: var(--spacing-lg);
+  --pr-dashboard-padding: var(--spacing-lg);
   --pr-monochrome-icon-filter: brightness(0) invert(1);
 }
 

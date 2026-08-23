@@ -4,12 +4,12 @@ import { readFileSync } from "node:fs";
 const source = (path: string) =>
   readFileSync(new URL(`../app/${path}`, import.meta.url), "utf8");
 
-test("桌面客户端按参考工程采用 shell、workbench 和业务域目录", () => {
+test("桌面客户端按参考工程采用 shell、dashboard 和业务域目录", () => {
   const app = source("app.vue");
-  const shell = source("components/workbench/WorkbenchShell.vue");
+  const shell = source("components/dashboard/DashboardShell.vue");
   const styles = source("assets/css/main.css");
 
-  expect(app).toContain("WorkbenchShell");
+  expect(app).toContain("DashboardShell");
   expect(shell).toContain('from "stellar-ui"');
   expect(shell).toContain("Sidebar");
   expect(styles).toContain('@import "stellar-ui/styles"');

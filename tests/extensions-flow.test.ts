@@ -5,7 +5,7 @@ const source = (path: string) =>
   readFileSync(new URL(`../app/${path}`, import.meta.url), "utf8");
 
 test("扩展页自动识别本机 Codex 与 Claude Code 扩展", () => {
-  const navigation = source("components/workbench/WorkbenchShell.vue");
+  const navigation = source("components/dashboard/DashboardShell.vue");
   const page = source("pages/extensions.vue");
   const list = source("components/extensions/ExtensionList.vue");
 

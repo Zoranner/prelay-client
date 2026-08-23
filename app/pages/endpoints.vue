@@ -134,7 +134,7 @@ onMounted(load);
 </script>
 
 <template>
-  <main class="page-workbench">
+  <main class="page-dashboard">
     <PanelSection title="接入点">
       <template #header-actions>
         <Button :disabled="pending" @click="load">
@@ -183,11 +183,11 @@ onMounted(load);
 </template>
 
 <style scoped>
-.page-workbench {
+.page-dashboard {
   display: flex;
   height: 100%;
   min-height: 0;
   flex-direction: column;
-  padding: var(--pr-workbench-padding);
+  padding: var(--pr-dashboard-padding);
 }
 </style>
