@@ -34,8 +34,12 @@ test("仪表盘按选定范围展示指标、趋势和统计列表", () => {
   expect(page).toContain('"stats_providers"');
   expect(page).toContain('"stats_timeline"');
   expect(page).toContain("StatsRangeSelect");
-  expect(page).toContain('const selectedRange = ref<StatsRange>("today")');
+  expect(page).toContain('const selectedRange = ref<StatsRange>("this_week")');
   expect(page).toContain("{ range: selectedRange.value }");
+  expect(page.indexOf('{{ pending ? "刷新中..." : "刷新" }}')).toBeLessThan(
+    page.indexOf('<StatsRangeSelect v-model="selectedRange" />'),
+  );
+  expect(page).not.toContain("查看活动");
   expect(page).not.toContain("ModelDistributionChart");
   expect(page).toContain("TokenUsageTrendChart");
   expect(page).toContain("StatsBreakdownTable");
@@ -58,9 +62,9 @@ test("仪表盘按选定范围展示指标、趋势和统计列表", () => {
   expect(rangeSelect).toContain("上周");
   expect(rangeSelect).toContain("本月");
   expect(rangeSelect).toContain("上月");
-  expect(rangeSelect).toContain("本年");
+  expect(rangeSelect).toContain("今年");
   expect(rangeSelect).toContain("去年");
-  expect(rangeSelect).toContain("总计");
+  expect(rangeSelect).not.toContain("总计");
   expect(page).toContain("供应商统计");
   expect(page).toContain("模型统计");
   expect(table).toContain("fixed-header");

@@ -42,17 +42,16 @@ const groups: Array<{ label: string; options: RangeOption[] }> = [
   {
     label: "按年",
     options: [
-      { label: "本年", value: "this_year" },
+      { label: "今年", value: "this_year" },
       { label: "去年", value: "last_year" },
     ],
   },
 ];
 
-const allOption: RangeOption = { label: "总计", value: "all" };
 const selectedLabel = computed(() =>
-  [...groups.flatMap((group) => group.options), allOption].find(
-    (option) => option.value === props.modelValue,
-  )?.label ?? "今日",
+  groups
+    .flatMap((group) => group.options)
+    .find((option) => option.value === props.modelValue)?.label ?? "本周",
 );
 
 function selectRange(value: StatsRange, close: () => void) {
@@ -83,12 +82,6 @@ function selectRange(value: StatsRange, close: () => void) {
           />
           <MenuDivider v-if="groupIndex < groups.length - 1" />
         </template>
-        <MenuDivider />
-        <MenuItem
-          :active="allOption.value === modelValue"
-          :label="allOption.label"
-          @click="selectRange(allOption.value, close)"
-        />
       </div>
     </template>
   </DropdownMenu>

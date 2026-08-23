@@ -18,7 +18,7 @@ const overview = ref<StatsOverview | null>(null);
 const models = ref<ModelStats[]>([]);
 const providers = ref<ProviderStats[]>([]);
 const timeline = ref<TokenUsageTimelinePoint[]>([]);
-const selectedRange = ref<StatsRange>("today");
+const selectedRange = ref<StatsRange>("this_week");
 
 const modelRows = computed(() =>
   models.value.map((row, index) => ({
@@ -69,11 +69,10 @@ watch(selectedRange, loadDashboard);
   <main class="page-dashboard">
     <PanelSection title="仪表盘">
       <template #header-actions>
-        <StatsRangeSelect v-model="selectedRange" />
         <Button :disabled="pending" @click="loadDashboard">
           {{ pending ? "刷新中..." : "刷新" }}
         </Button>
-        <Button variant="primary" @click="navigateTo('/stats')">查看活动</Button>
+        <StatsRangeSelect v-model="selectedRange" />
       </template>
       <div class="dashboard-content">
         <StatsOverviewPanel :overview="overview" />

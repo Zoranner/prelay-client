@@ -42,7 +42,7 @@ test("仪表盘使用同一范围读取概览、趋势、模型和供应商统�
   expect(page).toContain('invokeCommand<ModelStats[]>("stats_models", range)');
   expect(page).toContain('invokeCommand<ProviderStats[]>("stats_providers", range)');
   expect(page).toContain('invokeCommand<TokenUsageTimelinePoint[]>("stats_timeline", range)');
-  expect(page).toContain("查看活动");
+  expect(page).not.toContain("查看活动");
 });
 
 test("全屏管理服务错误读取嵌套 Ref 的当前值", () => {
