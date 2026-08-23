@@ -17,9 +17,8 @@ function formatLatency(value: number | null | undefined) {
 }
 
 const cacheHitRate = computed(() => {
-  const inputTokens = props.overview?.input_tokens ?? 0;
+  const totalInputTokens = props.overview?.total_input_tokens ?? 0;
   const cacheReadTokens = props.overview?.cache_read_tokens ?? 0;
-  const totalInputTokens = inputTokens + cacheReadTokens;
   if (!totalInputTokens) return "-";
   return `${((cacheReadTokens / totalInputTokens) * 100).toFixed(1)}%`;
 });
@@ -38,7 +37,8 @@ const metrics = computed(() => [
   {
     title: "总 Token",
     value: formatTokens(
-      (props.overview?.input_tokens ?? 0) + (props.overview?.output_tokens ?? 0),
+      (props.overview?.total_input_tokens ?? 0) +
+        (props.overview?.output_tokens ?? 0),
     ),
     icon: "ph:chart-line-up",
   },

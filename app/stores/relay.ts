@@ -69,6 +69,7 @@ export interface StatsOverview {
   successful_requests: number;
   failed_requests: number;
   input_tokens: number;
+  total_input_tokens: number;
   output_tokens: number;
   cache_read_tokens: number;
   cache_write_tokens: number;
@@ -78,6 +79,7 @@ export interface StatsOverview {
 export interface TokenUsageTimelinePoint {
   bucket: string;
   input_tokens: number;
+  total_input_tokens: number;
   output_tokens: number;
   cache_read_tokens: number;
   cache_write_tokens: number;

@@ -33,11 +33,15 @@ function formatBucket(bucket: string) {
   }).format(date);
 }
 
-const categories = computed(() => props.points.map((point) => formatBucket(point.bucket)));
+const categories = computed(() =>
+  props.points.map((point) => formatBucket(point.bucket)),
+);
 const cacheHitRates = computed(() =>
   props.points.map((point) => {
-    const totalInput = point.input_tokens + point.cache_read_tokens;
-    return totalInput ? Number(((point.cache_read_tokens / totalInput) * 100).toFixed(1)) : 0;
+    const totalInput = point.total_input_tokens;
+    return totalInput
+      ? Number(((point.cache_read_tokens / totalInput) * 100).toFixed(1))
+      : 0;
   }),
 );
 
@@ -109,7 +113,11 @@ function renderChart() {
         name: "命中率",
         min: 0,
         max: 100,
-        axisLabel: { formatter: "{value}%", color: colors.mutedText, margin: 10 },
+        axisLabel: {
+          formatter: "{value}%",
+          color: colors.mutedText,
+          margin: 10,
+        },
         splitLine: { show: false },
       },
     ],

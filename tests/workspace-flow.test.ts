@@ -23,7 +23,9 @@ test("工作台按选定范围展示指标、趋势和统计列表", () => {
   const overview = source("components/dashboard/StatsOverview.vue");
   const rangeSelect = source("components/dashboard/StatsRangeSelect.vue");
   const table = source("components/dashboard/StatsBreakdownTable.vue");
-  const tokenUsageTrend = source("components/dashboard/TokenUsageTrendChart.vue");
+  const tokenUsageTrend = source(
+    "components/dashboard/TokenUsageTrendChart.vue",
+  );
 
   expect(page).toContain('"stats_overview"');
   expect(page).toContain('"stats_models"');
@@ -37,11 +39,15 @@ test("工作台按选定范围展示指标、趋势和统计列表", () => {
   expect(page).toContain("StatsBreakdownTable");
   expect(overview).toContain("平均响应");
   expect(overview).toContain("缓存命中率");
+  expect(overview).toContain("total_input_tokens");
+  expect(overview).not.toContain("inputTokens + cacheReadTokens");
   expect(overview).toContain("请求数");
   expect(overview).toContain("总 Token");
   expect(overview).toContain("输入 Token");
   expect(overview).toContain("输出 Token");
-  expect(overview).toContain("grid-template-columns: repeat(6, minmax(0, 1fr))");
+  expect(overview).toContain(
+    "grid-template-columns: repeat(6, minmax(0, 1fr))",
+  );
   expect(overview).not.toContain("今日请求");
   expect(overview).not.toContain("累计 Token");
   expect(rangeSelect).toContain("今日");
@@ -73,6 +79,10 @@ test("工作台按选定范围展示指标、趋势和统计列表", () => {
   expect(tokenUsageTrend).toContain('name: "缓存写入"');
   expect(tokenUsageTrend).toContain('name: "缓存读取"');
   expect(tokenUsageTrend).toContain("缓存命中率");
+  expect(tokenUsageTrend).toContain("total_input_tokens");
+  expect(tokenUsageTrend).not.toContain(
+    "point.input_tokens + point.cache_read_tokens",
+  );
   expect(tokenUsageTrend).toContain('"--st-text-secondary"');
   expect(tokenUsageTrend).toContain('"prelay:theme-changed"');
   expect(tokenUsageTrend).not.toContain('"#cbd5e1"');
@@ -80,7 +90,7 @@ test("工作台按选定范围展示指标、趋势和统计列表", () => {
   expect(tokenUsageTrend).not.toContain('name: "输出 Token"');
   expect(tokenUsageTrend).not.toContain('name: "缓存写入 Token"');
   expect(tokenUsageTrend).not.toContain('name: "缓存读取 Token"');
-  expect(tokenUsageTrend).toContain("type: \"line\"");
+  expect(tokenUsageTrend).toContain('type: "line"');
 });
 
 test("首次启动和服务配置拥有独立页面", () => {
