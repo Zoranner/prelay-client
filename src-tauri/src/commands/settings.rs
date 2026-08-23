@@ -126,7 +126,8 @@ pub async fn connect_and_save_relay_settings(
         .acquire_lifecycle_lock()
         .await
         .map_err(|error| ClientError::new("credential_store_error", error))?;
-    let client = ApiClient::new(&relay_url, &state.credentials)?;
+    let client =
+        ApiClient::new(&relay_url, &state.credentials)?.with_display_name(&identity.display_name);
     client
         .ensure_registered_once(&identity, &state.registration_gate)
         .await?;

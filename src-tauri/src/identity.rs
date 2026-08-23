@@ -4,7 +4,7 @@ use serde::Serialize;
 pub struct WindowsIdentity {
     pub machine_id: String,
     pub account_sid: String,
-    pub username: String,
+    pub display_name: String,
 }
 
 pub trait IdentitySource {
@@ -20,9 +20,36 @@ impl IdentitySource for WindowsIdentitySource {
         Ok(WindowsIdentity {
             machine_id: machine_id()?,
             account_sid: current_account_sid()?,
-            username: std::env::var("USERNAME").unwrap_or_default(),
+            display_name: current_display_name()
+                .unwrap_or_else(|_| std::env::var("USERNAME").unwrap_or_default()),
         })
     }
+}
+
+#[cfg(windows)]
+fn current_display_name() -> Result<String, String> {
+    use windows::{
+        core::PWSTR,
+        Win32::Security::Authentication::Identity::{GetUserNameExW, NameDisplay},
+    };
+
+    let mut length = 0;
+    unsafe {
+        let _ = GetUserNameExW(NameDisplay, None, &mut length);
+    }
+    if length == 0 {
+        return Err("unable to determine current Windows display name size".into());
+    }
+
+    let mut value = vec![0_u16; length as usize];
+    let read = unsafe { GetUserNameExW(NameDisplay, Some(PWSTR(value.as_mut_ptr())), &mut length) };
+    if !read {
+        return Err(format!(
+            "unable to read current Windows display name: {}",
+            std::io::Error::last_os_error()
+        ));
+    }
+    string_from_wide(&value).ok_or_else(|| "Windows display name is not valid UTF-16".into())
 }
 
 #[cfg(not(windows))]

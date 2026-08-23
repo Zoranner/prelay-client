@@ -11,7 +11,8 @@ use crate::{
 #[derive(Debug, Serialize)]
 pub struct BootstrapResponse {
     pub relay_url: String,
-    pub username: String,
+    pub display_name: String,
+    pub avatar_seed: String,
     pub has_device_credential: bool,
 }
 
@@ -27,7 +28,8 @@ pub fn collect_bootstrap(
 
     Ok(BootstrapResponse {
         relay_url,
-        username: identity.username,
+        display_name: identity.display_name,
+        avatar_seed: avatar_seed(&identity.account_sid),
         has_device_credential,
     })
 }
@@ -36,4 +38,14 @@ pub fn collect_bootstrap(
 pub async fn bootstrap(state: State<'_, NativeState>) -> Result<BootstrapResponse, ClientError> {
     let api_client = authenticated_api(&state).await?;
     collect_bootstrap(&state.identity, &api_client)
+}
+
+fn avatar_seed(account_sid: &str) -> String {
+    const OFFSET_BASIS: u64 = 0xcbf29ce484222325;
+    const PRIME: u64 = 0x00000100000001b3;
+
+    let hash = account_sid.bytes().fold(OFFSET_BASIS, |hash, byte| {
+        (hash ^ u64::from(byte)).wrapping_mul(PRIME)
+    });
+    format!("{hash:016x}")
 }

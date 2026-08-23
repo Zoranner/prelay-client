@@ -15,7 +15,7 @@ impl FakeWindowsIdentity {
             identity: WindowsIdentity {
                 machine_id: machine_id.into(),
                 account_sid: account_sid.into(),
-                username: "Ada".into(),
+                display_name: "Ada".into(),
             },
         }
     }
@@ -36,11 +36,13 @@ fn bootstrap_only_exposes_display_identity_and_credential_status() {
 
     let response = collect_bootstrap(&identity, &api_client).unwrap();
 
-    assert_eq!(response.username, "Ada");
+    assert_eq!(response.display_name, "Ada");
+    assert_eq!(response.avatar_seed, "3f1bf7a2cfc2b426");
     assert_eq!(response.relay_url, "https://relay.example.test");
     assert!(response.has_device_credential);
     let response = serde_json::to_value(response).unwrap();
     assert!(response.get("machine_id").is_none());
     assert!(response.get("account_sid").is_none());
+    assert!(response.get("avatar_seed").is_some());
     assert!(response.get("device_credential").is_none());
 }

@@ -5,7 +5,7 @@
 ## 前后端边界
 
 - Nuxt 页面经 `app/composables` 和 Tauri command 调用原生层；管理 API 请求、设备身份读取、device credential、连接设置及其生命周期只由 `src-tauri` 负责。不要让浏览器层直接请求管理 API 或持有凭据。
-- 首次连接只保存服务地址。身份由 `machine_id + account_sid` 定位，设备凭据由服务端签发；`username` 仅用于显示。
+- 首次连接只保存服务地址。身份由 `machine_id + account_sid` 定位，设备凭据由服务端签发；`display_name` 仅用于显示。
 - Provider、Endpoint、模型映射、Endpoint Token、统计和诊断的 DTO 以 `crates/protocol` 子模块为准。变更任何传输结构前，先检查 `prelay-protocol` 与 `prelay-server` 的兼容性。
 - 未保存表单的模型发现和协议测试可使用临时已鉴权调用，但 API Key 不得持久化或回显；已保存 Provider 的 Ping 只检查地址可达性，不替代模型发现。
 

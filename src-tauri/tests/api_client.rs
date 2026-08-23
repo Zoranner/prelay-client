@@ -74,10 +74,16 @@ fn first_registration_persists_and_sends_a_client_generated_credential() {
             assert!(request.contains("\"machine_id\":\"machine-a\""));
             assert!(request.contains("\"account_sid\":\"S-1-5-21-100\""));
             assert!(request.contains("\"credential\":\""));
+            assert!(request.contains("\"display_name\":\"Ada\""));
+            assert!(request
+                .to_ascii_lowercase()
+                .contains("x-prelay-display-name: qwrh"));
         },
     );
     let store = MemoryCredentialStore::default();
-    let client = ApiClient::new(base_url, &store).expect("create client");
+    let client = ApiClient::new(base_url, &store)
+        .expect("create client")
+        .with_display_name("Ada");
 
     tauri::async_runtime::block_on(client.ensure_registered(&identity()))
         .expect("register identity");
@@ -88,6 +94,24 @@ fn first_registration_persists_and_sends_a_client_generated_credential() {
         .expect("load credential")
         .expect("client credential is persisted");
     assert!(credential.current.len() >= 43);
+}
+
+#[test]
+fn authenticated_management_request_sends_the_display_name() {
+    let (base_url, server) = one_response_server("200 OK", r#"{}"#, |request| {
+        assert!(request.contains("Authorization: Bearer device-secret"));
+        assert!(request
+            .to_ascii_lowercase()
+            .contains("x-prelay-display-name: 5l2g5aw9"));
+    });
+    let store = MemoryCredentialStore::with_record("device-secret", None);
+    let client = ApiClient::new(base_url, &store)
+        .expect("create client")
+        .with_display_name("你好");
+
+    tauri::async_runtime::block_on(client.get::<serde_json::Value>("/api/providers"))
+        .expect("authenticated request succeeds");
+    server.join().expect("join test relay");
 }
 
 #[test]
@@ -471,7 +495,7 @@ fn identity() -> WindowsIdentity {
     WindowsIdentity {
         machine_id: "machine-a".into(),
         account_sid: "S-1-5-21-100".into(),
-        username: "Ada".into(),
+        display_name: "Ada".into(),
     }
 }
 

@@ -57,7 +57,8 @@ async fn authenticated_api_with_identity<'a>(
         .acquire_lifecycle_lock()
         .await
         .map_err(|error| ClientError::new("credential_store_error", error))?;
-    let client = ApiClient::new(relay_url, &state.credentials)?;
+    let client =
+        ApiClient::new(relay_url, &state.credentials)?.with_display_name(&identity.display_name);
     client
         .ensure_registered_once(identity, &state.registration_gate)
         .await?;
@@ -137,7 +138,7 @@ mod tests {
             let identity = WindowsIdentity {
                 machine_id: "machine-a".into(),
                 account_sid: "S-1-5-21-100".into(),
-                username: "Ada".into(),
+                display_name: "Ada".into(),
             };
             let (base_url, registration_events, server) = registration_server();
             let (first_ready, first_ready_rx) = oneshot::channel();

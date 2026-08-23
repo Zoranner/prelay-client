@@ -63,6 +63,7 @@ pub struct ApiClient<'a> {
     base_url: String,
     credential_store: &'a dyn CredentialStore,
     http: reqwest::Client,
+    display_name: Option<String>,
 }
 
 impl<'a> ApiClient<'a> {
@@ -75,7 +76,13 @@ impl<'a> ApiClient<'a> {
             base_url,
             credential_store,
             http: reqwest::Client::new(),
+            display_name: None,
         })
+    }
+
+    pub fn with_display_name(mut self, display_name: &str) -> Self {
+        self.display_name = (!display_name.trim().is_empty()).then(|| display_name.trim().into());
+        self
     }
 
     pub fn has_stored_credential(&self) -> Result<bool, ClientError> {
@@ -212,6 +219,7 @@ impl<'a> ApiClient<'a> {
                     machine_id: identity.machine_id.clone(),
                     account_sid: identity.account_sid.clone(),
                     credential,
+                    display_name: self.display_name.clone(),
                 }),
                 None,
             )
@@ -308,6 +316,12 @@ impl<'a> ApiClient<'a> {
         let mut request = self.http.request(method, self.url(path)?);
         if let Some(credential) = credential {
             request = request.header(AUTHORIZATION, format!("Bearer {credential}"));
+        }
+        if let Some(display_name) = &self.display_name {
+            request = request.header(
+                "x-prelay-display-name",
+                URL_SAFE_NO_PAD.encode(display_name.as_bytes()),
+            );
         }
         if let Some(body) = body {
             request = request.json(body);
