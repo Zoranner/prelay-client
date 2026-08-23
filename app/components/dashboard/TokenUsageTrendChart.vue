@@ -41,10 +41,36 @@ const cacheHitRates = computed(() =>
   }),
 );
 
+function themeColor(name: string) {
+  return getComputedStyle(document.documentElement)
+    .getPropertyValue(name)
+    .trim();
+}
+
 function renderChart() {
   if (!chart) return;
+  const colors = {
+    primary: themeColor("--st-primary"),
+    success: themeColor("--st-success"),
+    warning: themeColor("--st-warning"),
+    info: themeColor("--st-info"),
+    danger: themeColor("--st-danger"),
+    elevated: themeColor("--st-bg-elevated"),
+    border: themeColor("--st-border"),
+    borderSubtle: themeColor("--st-border-subtle"),
+    divider: themeColor("--st-border-divider"),
+    primaryText: themeColor("--st-text-primary"),
+    secondaryText: themeColor("--st-text-secondary"),
+    mutedText: themeColor("--st-text-muted"),
+  };
   chart.setOption({
-    color: ["#38bdf8", "#34d399", "#fbbf24", "#a78bfa", "#fb7185"],
+    color: [
+      colors.primary,
+      colors.success,
+      colors.warning,
+      colors.info,
+      colors.danger,
+    ],
     grid: { top: 62, right: 54, bottom: 40, left: 54 },
     legend: {
       top: 0,
@@ -52,38 +78,38 @@ function renderChart() {
       itemWidth: 22,
       itemHeight: 12,
       itemGap: 20,
-      textStyle: { color: "#cbd5e1", fontSize: 14 },
+      textStyle: { color: colors.secondaryText, fontSize: 14 },
     },
     tooltip: {
       trigger: "axis",
-      backgroundColor: "#1a1f2e",
-      borderColor: "#334155",
+      backgroundColor: colors.elevated,
+      borderColor: colors.border,
       borderWidth: 1,
       padding: [10, 12],
-      textStyle: { color: "#f1f5f9" },
+      textStyle: { color: colors.primaryText },
     },
     xAxis: {
       type: "category",
       data: categories.value,
       boundaryGap: true,
-      axisLine: { lineStyle: { color: "#475569" } },
+      axisLine: { lineStyle: { color: colors.borderSubtle } },
       axisTick: { show: false, alignWithLabel: true },
-      axisLabel: { color: "#94a3b8", hideOverlap: true, margin: 10 },
+      axisLabel: { color: colors.mutedText, hideOverlap: true, margin: 10 },
     },
     yAxis: [
       {
         type: "value",
         name: "用量",
         minInterval: 1,
-        axisLabel: { color: "#94a3b8", margin: 10 },
-        splitLine: { lineStyle: { color: "#2d3748", type: "dashed" } },
+        axisLabel: { color: colors.mutedText, margin: 10 },
+        splitLine: { lineStyle: { color: colors.divider, type: "dashed" } },
       },
       {
         type: "value",
         name: "命中率",
         min: 0,
         max: 100,
-        axisLabel: { formatter: "{value}%", color: "#94a3b8", margin: 10 },
+        axisLabel: { formatter: "{value}%", color: colors.mutedText, margin: 10 },
         splitLine: { show: false },
       },
     ],
@@ -138,6 +164,7 @@ onMounted(() => {
   if (!chartElement.value) return;
   chart = echarts.init(chartElement.value);
   renderChart();
+  window.addEventListener("prelay:theme-changed", renderChart);
   resizeObserver = new ResizeObserver(() => chart?.resize());
   resizeObserver.observe(chartElement.value);
 });
@@ -145,6 +172,7 @@ onMounted(() => {
 watch([categories, cacheHitRates, () => props.range], renderChart);
 
 onBeforeUnmount(() => {
+  window.removeEventListener("prelay:theme-changed", renderChart);
   resizeObserver?.disconnect();
   chart?.dispose();
 });

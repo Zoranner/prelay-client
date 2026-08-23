@@ -29,6 +29,7 @@ export function useDesktopPreferences() {
       (theme === "system" &&
         window.matchMedia("(prefers-color-scheme: light)").matches);
     document.documentElement.classList.toggle("light", useLightTheme);
+    window.dispatchEvent(new Event("prelay:theme-changed"));
   }
 
   async function load() {
@@ -54,5 +55,5 @@ export function useDesktopPreferences() {
     return saved;
   }
 
-  return { preferences, loaded, load, save };
+  return { preferences, loaded, applyTheme, load, save };
 }

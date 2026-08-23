@@ -84,7 +84,7 @@ onUnmounted(() => unlistenResized?.());
         class="window-action-close"
         square
         size="small"
-        variant="danger"
+        variant="ghost"
         icon="ph:x"
         aria-label="关闭"
         title="关闭"

@@ -12,9 +12,16 @@ const themeOptions = [
 ];
 
 watch(visible, async (isVisible) => {
-  if (!isVisible) return;
+  if (!isVisible) {
+    desktopPreferences.applyTheme(desktopPreferences.preferences.value.theme);
+    return;
+  }
   const preferences = await desktopPreferences.load();
   Object.assign(draft, preferences);
+});
+
+watch(() => draft.theme, (theme) => {
+  if (visible.value) desktopPreferences.applyTheme(theme);
 });
 
 async function save() {

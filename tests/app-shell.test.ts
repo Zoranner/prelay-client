@@ -111,6 +111,9 @@ test("桌面和网页标题栏复用 Prelay 图标资产", () => {
   expect(titlebar).toContain('import prelayIcon from "~/assets/images/prelay-icon.png"');
   expect(titlebar).toContain('<img :src="prelayIcon" alt=""');
   expect(titlebar).not.toContain(">PR</span>");
+  expect(titlebar).toMatch(
+    /class="window-action-close"[\s\S]{0,120}variant="ghost"/,
+  );
 });
 
 test("托盘设置菜单打开全局设置弹窗", () => {
@@ -119,6 +122,22 @@ test("托盘设置菜单打开全局设置弹窗", () => {
   expect(app).toContain('listen("tray:open-settings"');
   expect(app).toContain("desktopPreferencesDialog.open");
   expect(app).toContain("unlistenTraySettings");
+});
+
+test("仅桌面宿主为全屏遮罩保留窗口边框、标题栏和状态栏", () => {
+  const styles = readFileSync(
+    new URL("../app/assets/css/main.css", import.meta.url),
+    "utf8",
+  );
+
+  expect(appSource()).toMatch(
+    /document\.documentElement\.classList\.toggle\(\s*"pr-desktop-shell",\s*isDesktopRuntime,\s*\)/,
+  );
+  expect(styles).toContain("--st-overlay-inset: 0px;");
+  expect(styles).toContain(".pr-desktop-shell");
+  expect(styles).toMatch(
+    /--st-overlay-inset:\s*calc\(var\(--pr-titlebar-height\) \+ 1px\) 1px\s+calc\(var\(--pr-statusbar-height\) \+ 1px\) 1px;/,
+  );
 });
 
 test("设置入口打开全局桌面偏好弹窗", () => {
@@ -143,12 +162,15 @@ test("设置入口打开全局桌面偏好弹窗", () => {
   expect(dialog).toContain('title="设置"');
   expect(preferences).toContain('"desktop_preferences_get"');
   expect(preferences).toContain('"desktop_preferences_save"');
+  expect(preferences).toContain("applyTheme,");
   expect(dialog).toContain("外观主题");
   expect(dialog).toContain("开机自启");
   expect(dialog).toContain("静默启动");
   expect(dialog).toContain("最小化到托盘");
   expect(dialog).toContain("<Toggle");
   expect(dialog).not.toContain("<Checkbox");
+  expect(dialog).toContain("watch(() => draft.theme");
+  expect(dialog).toContain("desktopPreferences.applyTheme");
   expect(shell).toContain("openDesktopPreferences");
   expect(shell).not.toContain('to="/settings"');
 });

@@ -3,9 +3,15 @@
 
 :root {
   --pr-titlebar-height: 44px;
+  --st-overlay-inset: 0px;
   --pr-statusbar-height: var(--height-status);
   --pr-workbench-gap: var(--spacing-lg);
   --pr-workbench-padding: var(--spacing-lg);
+}
+
+.pr-desktop-shell {
+  --st-overlay-inset: calc(var(--pr-titlebar-height) + 1px) 1px
+    calc(var(--pr-statusbar-height) + 1px) 1px;
 }
 
 * {

@@ -73,6 +73,9 @@ test("工作台按选定范围展示指标、趋势和统计列表", () => {
   expect(tokenUsageTrend).toContain('name: "缓存写入"');
   expect(tokenUsageTrend).toContain('name: "缓存读取"');
   expect(tokenUsageTrend).toContain("缓存命中率");
+  expect(tokenUsageTrend).toContain('"--st-text-secondary"');
+  expect(tokenUsageTrend).toContain('"prelay:theme-changed"');
+  expect(tokenUsageTrend).not.toContain('"#cbd5e1"');
   expect(tokenUsageTrend).not.toContain('name: "输入 Token"');
   expect(tokenUsageTrend).not.toContain('name: "输出 Token"');
   expect(tokenUsageTrend).not.toContain('name: "缓存写入 Token"');

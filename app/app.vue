@@ -20,16 +20,25 @@ const workspacePageKey = ref(0);
 let unlistenTraySettings: UnlistenFn | undefined;
 
 onMounted(async () => {
+  const isDesktopRuntime = "__TAURI_INTERNALS__" in globalThis;
+  document.documentElement.classList.toggle(
+    "pr-desktop-shell",
+    isDesktopRuntime,
+  );
+
   managementApi.clear();
   await desktopPreferences.load();
-  if (!("__TAURI_INTERNALS__" in globalThis)) return;
+  if (!isDesktopRuntime) return;
 
   unlistenTraySettings = await listen("tray:open-settings", () => {
     desktopPreferencesDialog.open();
   });
 });
 
-onUnmounted(() => unlistenTraySettings?.());
+onUnmounted(() => {
+  document.documentElement.classList.remove("pr-desktop-shell");
+  unlistenTraySettings?.();
+});
 
 function reloadApplication() {
   managementApi.clear();
