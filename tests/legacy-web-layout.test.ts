@@ -22,7 +22,8 @@ test("供应商和接入点页面通过 Stellar UI 的 PanelSection、Table 和 
     const content = source(page);
     expect(content).toContain('from "stellar-ui"');
     expect(content).toContain("PanelSection");
-    expect(content).toContain("v-model:visible");
+    expect(content).toContain(":visible=");
+    expect(content).toContain("@update:visible");
   }
 
   for (const component of [

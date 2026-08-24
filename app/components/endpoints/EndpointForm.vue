@@ -18,6 +18,7 @@ const emit = defineEmits<{
     },
   ];
   cancel: [];
+  "dirty-change": [dirty: boolean];
 }>();
 
 type ModelForm = {
@@ -59,6 +60,15 @@ const providerOptions = computed(() => [
     value: provider.id,
   })),
 ]);
+let initialDraft = "";
+
+function serializeDraft() {
+  return JSON.stringify({
+    name: name.value,
+    protocol: protocol.value,
+    models: models.value,
+  });
+}
 
 watch(
   () => props.endpoint,
@@ -70,8 +80,15 @@ watch(
     newProviderForm.value = emptyModelForm();
     showAddModel.value = false;
     activeProviderGroup.value = null;
+    initialDraft = serializeDraft();
+    emit("dirty-change", false);
   },
   { immediate: true },
+);
+
+watch(
+  serializeDraft,
+  (draft) => emit("dirty-change", draft !== initialDraft),
 );
 
 function emptyModelForm(): ModelForm {
@@ -207,7 +224,7 @@ function submit() {
   <form id="endpoint-form" class="endpoint-form" @submit.prevent="submit">
     <section class="form-section">
       <h3>接入点配置</h3>
-      <Input v-model="name" label="名称" placeholder="Codex 主接入点" />
+      <Input v-model="name" label="名称" placeholder="Codex" />
     </section>
     <section class="form-section">
       <div class="section-header">

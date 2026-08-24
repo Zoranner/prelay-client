@@ -14,10 +14,10 @@ const endpointList = readFileSync(
   "utf8",
 );
 
-test("接入点页面提供模型映射、根 v1 地址和 Token 重置", () => {
+test("接入点页面提供模型映射和 Token 重置", () => {
   expect(endpointPage).toContain('"endpoints_save"');
   expect(endpointPage).toContain('"endpoints_regenerate_token"');
-  expect(endpointPage).toContain("/v1/");
+  expect(endpointPage).not.toContain("https://relay.rd.kim");
   expect(endpointPage).toContain("upstream_model");
   expect(endpointPage).not.toContain("/proxy");
   expect(endpointPage).toContain("useConfirm");
@@ -89,7 +89,8 @@ test("新建接入点保持旧网页的名称和模型配置内容", () => {
 });
 
 test("接入点页面的页面级命令使用简短文案", () => {
-  expect(endpointPage).toMatch(/@click="createEndpoint">\s*新增\s*<\/Button>/);
+  expect(endpointPage).toContain('@click="createEndpoint"');
+  expect(endpointPage).toContain("新增");
   expect(endpointPage).toContain('pending ? "保存中..." : "保存"');
 });
 

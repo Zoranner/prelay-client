@@ -4,20 +4,49 @@ import type { DesktopPreferences } from "~/composables/useDesktopPreferences";
 
 const visible = defineModel<boolean>("visible", { default: false });
 const desktopPreferences = useDesktopPreferences();
+const workspaceExit = useWorkspaceExitGuard();
 const draft = reactive<DesktopPreferences>({ ...desktopPreferences.preferences.value });
+const loading = ref(false);
+const saving = ref(false);
+const savedDraft = ref("");
+let exitRegistration: ReturnType<typeof workspaceExit.register> | undefined;
 const themeOptions = [
   { label: "跟随系统", value: "system", icon: "ph:desktop" },
   { label: "浅色", value: "light", icon: "ph:sun" },
   { label: "深色", value: "dark", icon: "ph:moon" },
 ];
 
+const isDirty = computed(() => JSON.stringify(draft) !== savedDraft.value);
+
+function closeImmediately() {
+  visible.value = false;
+}
+
+async function requestClose() {
+  if (exitRegistration) await exitRegistration.requestExit();
+  else closeImmediately();
+}
+
 watch(visible, async (isVisible) => {
   if (!isVisible) {
     desktopPreferences.applyTheme(desktopPreferences.preferences.value.theme);
+    exitRegistration?.unregister();
+    exitRegistration = undefined;
     return;
   }
-  const preferences = await desktopPreferences.load();
-  Object.assign(draft, preferences);
+
+  exitRegistration = workspaceExit.register({
+    close: closeImmediately,
+    state: () => (loading.value || saving.value ? "blocked" : isDirty.value ? "discard" : "allow"),
+  });
+  loading.value = true;
+  try {
+    const preferences = await desktopPreferences.load();
+    Object.assign(draft, preferences);
+    savedDraft.value = JSON.stringify(preferences);
+  } finally {
+    loading.value = false;
+  }
 });
 
 watch(() => draft.theme, (theme) => {
@@ -25,18 +54,26 @@ watch(() => draft.theme, (theme) => {
 });
 
 async function save() {
-  await desktopPreferences.save({ ...draft });
-  visible.value = false;
+  saving.value = true;
+  try {
+    await desktopPreferences.save({ ...draft });
+    savedDraft.value = JSON.stringify(draft);
+    closeImmediately();
+  } finally {
+    saving.value = false;
+  }
 }
 </script>
 
 <template>
   <Modal
-    v-model:visible="visible"
+    :visible="visible"
     title="设置"
     size="large"
+    :blocked="loading || saving || isDirty"
     :show-cancel="false"
     :show-confirm="false"
+    @update:visible="(nextVisible) => nextVisible ? (visible = true) : void requestClose()"
   >
     <div class="desktop-preferences-dialog">
       <div class="preferences-item preferences-item--theme">
@@ -86,8 +123,8 @@ async function save() {
     </div>
 
     <template #footer>
-      <Button @click="visible = false">取消</Button>
-      <Button variant="primary" @click="save">保存</Button>
+      <Button :disabled="saving" @click="requestClose">取消</Button>
+      <Button variant="primary" :disabled="saving" @click="save">保存</Button>
     </template>
   </Modal>
 </template>

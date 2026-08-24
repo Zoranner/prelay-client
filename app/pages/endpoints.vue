@@ -21,15 +21,14 @@ type EndpointFormPayload = {
 const { pending, invokeCommand } = useRelayCommand();
 const { confirm: confirmAction } = useConfirm();
 const notifications = useNotification();
+const workspaceExit = useWorkspaceExitGuard();
 const { bootstrap, setBootstrap } = useRelayStore();
 const providers = ref<Provider[]>([]);
 const endpoints = ref<RelayEndpoint[]>([]);
 const editingEndpoint = ref<RelayEndpoint | null>(null);
 const showForm = ref(false);
-const endpoint = computed(
-  () =>
-    `${(bootstrap.value?.relay_url ?? "https://relay.rd.kim").replace(/\/$/, "")}/v1/`,
-);
+const formDirty = ref(false);
+let exitRegistration: ReturnType<typeof workspaceExit.register> | undefined;
 
 async function load() {
   try {
@@ -121,14 +120,46 @@ async function copy(value: string) {
 }
 
 function edit(item: RelayEndpoint) {
+  formDirty.value = false;
   editingEndpoint.value = item;
   showForm.value = true;
 }
 
 function createEndpoint() {
+  formDirty.value = false;
   editingEndpoint.value = null;
   showForm.value = true;
 }
+
+function closeFormImmediately() {
+  formDirty.value = false;
+  editingEndpoint.value = null;
+  showForm.value = false;
+}
+
+function requestCloseForm() {
+  if (exitRegistration) void exitRegistration.requestExit();
+  else closeFormImmediately();
+}
+
+function updateFormVisibility(visible: boolean) {
+  if (visible) showForm.value = true;
+  else requestCloseForm();
+}
+
+watch(showForm, (visible) => {
+  if (!visible) {
+    exitRegistration?.unregister();
+    exitRegistration = undefined;
+    return;
+  }
+  exitRegistration = workspaceExit.register({
+    close: closeFormImmediately,
+    state: () => (pending.value ? "blocked" : formDirty.value ? "discard" : "allow"),
+  });
+});
+
+onBeforeUnmount(() => exitRegistration?.unregister());
 
 onMounted(load);
 </script>
@@ -140,13 +171,17 @@ onMounted(load);
         <Button :disabled="pending" @click="load">
           {{ pending ? "刷新中..." : "刷新" }}
         </Button>
-        <Button variant="primary" :disabled="pending" @click="createEndpoint">
+        <Button
+          variant="primary"
+          icon="ph:plus"
+          :disabled="pending"
+          @click="createEndpoint"
+        >
           新增
         </Button>
       </template>
       <EndpointList
         :endpoints="endpoints"
-        :endpoint="endpoint"
         :pending="pending"
         @edit="edit"
         @remove="deleteEndpoint"
@@ -155,20 +190,22 @@ onMounted(load);
       />
     </PanelSection>
     <Drawer
-      v-model:visible="showForm"
+      :visible="showForm"
       :title="editingEndpoint ? '编辑接入点' : '新建接入点'"
       size="xlarge"
-      @cancel="showForm = false"
+      :blocked="pending || formDirty"
+      @update:visible="updateFormVisibility"
     >
       <EndpointForm
         :endpoint="editingEndpoint"
         :providers="providers"
         :pending="pending"
+        @dirty-change="formDirty = $event"
         @save="saveEndpoint"
-        @cancel="showForm = false"
+        @cancel="requestCloseForm"
       />
       <template #footer>
-        <Button @click="showForm = false">取消</Button>
+        <Button @click="requestCloseForm">取消</Button>
         <Button
           form="endpoint-form"
           type="submit"

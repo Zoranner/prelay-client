@@ -23,11 +23,14 @@ type ProviderFormPayload = {
 const { pending, invokeCommand } = useRelayCommand();
 const { confirm: confirmAction } = useConfirm();
 const notifications = useNotification();
+const workspaceExit = useWorkspaceExitGuard();
 const providers = ref<Provider[]>([]);
 const editingProvider = ref<Provider | null>(null);
 const showForm = ref(false);
 const loadingProviders = ref(false);
 const pingStates = ref<Record<string, ProviderPingState>>({});
+const formDirty = ref(false);
+let exitRegistration: ReturnType<typeof workspaceExit.register> | undefined;
 
 type ProviderPingState = {
   checking: boolean;
@@ -143,14 +146,46 @@ function testProtocolFromForm(input: {
 }
 
 function editProvider(provider: Provider) {
+  formDirty.value = false;
   editingProvider.value = provider;
   showForm.value = true;
 }
 
 function newProvider() {
+  formDirty.value = false;
   editingProvider.value = null;
   showForm.value = true;
 }
+
+function closeFormImmediately() {
+  formDirty.value = false;
+  showForm.value = false;
+  editingProvider.value = null;
+}
+
+function requestCloseForm() {
+  if (exitRegistration) void exitRegistration.requestExit();
+  else closeFormImmediately();
+}
+
+function updateFormVisibility(visible: boolean) {
+  if (visible) showForm.value = true;
+  else requestCloseForm();
+}
+
+watch(showForm, (visible) => {
+  if (!visible) {
+    exitRegistration?.unregister();
+    exitRegistration = undefined;
+    return;
+  }
+  exitRegistration = workspaceExit.register({
+    close: closeFormImmediately,
+    state: () => (pending.value ? "blocked" : formDirty.value ? "discard" : "allow"),
+  });
+});
+
+onBeforeUnmount(() => exitRegistration?.unregister());
 
 onMounted(loadProviders);
 </script>
@@ -162,7 +197,7 @@ onMounted(loadProviders);
         <Button :disabled="loadingProviders" @click="loadProviders">
           {{ loadingProviders ? "刷新中..." : "刷新" }}
         </Button>
-        <Button variant="primary" @click="newProvider">新增</Button>
+        <Button variant="primary" icon="ph:plus" @click="newProvider">新增</Button>
       </template>
       <ProviderList
         :loading="loadingProviders"
@@ -174,10 +209,11 @@ onMounted(loadProviders);
       />
     </PanelSection>
     <Drawer
-      v-model:visible="showForm"
+      :visible="showForm"
       :title="editingProvider ? '编辑供应商' : '新增供应商'"
       size="xlarge"
-      @cancel="showForm = false"
+      :blocked="pending || formDirty"
+      @update:visible="updateFormVisibility"
     >
       <ProviderForm
         :provider="editingProvider"
@@ -185,10 +221,11 @@ onMounted(loadProviders);
         :discover-models="discoverModelsFromForm"
         :test-protocol="testProtocolFromForm"
         @save="saveProvider"
-        @cancel="showForm = false"
+        @dirty-change="formDirty = $event"
+        @cancel="requestCloseForm"
       />
       <template #footer>
-        <Button @click="showForm = false">取消</Button>
+        <Button @click="requestCloseForm">取消</Button>
         <Button
           form="provider-form"
           type="submit"

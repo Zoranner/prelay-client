@@ -47,6 +47,7 @@ const emit = defineEmits<{
     },
   ];
   cancel: [];
+  "dirty-change": [dirty: boolean];
 }>();
 
 type ProviderOperationInput = {
@@ -99,6 +100,28 @@ const providerTemplateOptions = PROVIDER_TEMPLATE_GROUPS.flatMap((group) =>
     value: option.value,
   })),
 );
+let initialDraft = "";
+
+function serializeDraft() {
+  return JSON.stringify({
+    name: name.value,
+    providerType: providerType.value,
+    baseUrl: baseUrl.value,
+    apiKey: apiKey.value,
+    models: models.value,
+    upstreamProtocols: upstreamProtocols.value,
+    protocolBaseUrls,
+    toolCalls: toolCalls.value,
+    reasoning: reasoning.value,
+    toolChoice: toolChoice.value,
+    parallelToolCalls: parallelToolCalls.value,
+    systemMessages: systemMessages.value,
+    structuredOutputs: structuredOutputs.value,
+    streamingUsage: streamingUsage.value,
+    maxContextTokens: maxContextTokens.value,
+    maxOutputTokens: maxOutputTokens.value,
+  });
+}
 
 watch(
   () => props.provider,
@@ -139,8 +162,15 @@ watch(
     streamingUsage.value = provider?.capabilities?.streaming_usage ?? null;
     maxContextTokens.value = provider?.capabilities?.max_context_tokens ?? null;
     maxOutputTokens.value = provider?.capabilities?.max_output_tokens ?? null;
+    initialDraft = serializeDraft();
+    emit("dirty-change", false);
   },
   { immediate: true },
+);
+
+watch(
+  serializeDraft,
+  (draft) => emit("dirty-change", draft !== initialDraft),
 );
 
 function isProtocol(value: string): value is UpstreamProtocol {

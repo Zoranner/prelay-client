@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { getVersion } from "@tauri-apps/api/app";
-import { Button } from "stellar-ui";
+import { Button, useConfirm } from "stellar-ui";
 
 const props = defineProps<{
   relayUrl: string | null;
@@ -8,12 +8,15 @@ const props = defineProps<{
 
 const managementApi = useRelayManagementApiStatus();
 const clientUpdate = useClientUpdate();
+const workspaceExit = useWorkspaceExitGuard();
+const { isOpen: isConfirmOpen } = useConfirm();
 const clientVersion = ref<string | null>(null);
+const isSwitchingRelayAddress = ref(false);
 const isConnected = computed(
   () => Boolean(props.relayUrl) && !managementApi.error.value,
 );
 const statusTitle = computed(() =>
-  isConnected.value ? "已连接管理服务" : "管理服务不可用",
+  isConnected.value ? "服务地址已连接" : "服务地址不可用",
 );
 const updateState = computed(() => clientUpdate.state.value);
 const updateIcon = computed(() => {
@@ -25,7 +28,7 @@ const updateIcon = computed(() => {
     case "downloading":
       return "ph:circle-notch";
     case "ready":
-      return "ph:install";
+      return "ph:arrow-square-in";
     default:
       return "";
   }
@@ -48,7 +51,17 @@ const isUpdatePending = computed(
   () => updateState.value === "checking" || updateState.value === "downloading",
 );
 
-function switchRelayAddress() {
+async function switchRelayAddress() {
+  if (isSwitchingRelayAddress.value || isConfirmOpen.value) return;
+
+  isSwitchingRelayAddress.value = true;
+  const canExit = await workspaceExit.requestExit({
+    confirmText: "放弃并切换",
+    message: "切换服务地址会丢弃当前未保存的修改。",
+  });
+  isSwitchingRelayAddress.value = false;
+  if (!canExit) return;
+
   managementApi.clear();
   void navigateTo("/setup?change=1");
 }
@@ -81,17 +94,19 @@ onMounted(async () => {
       />
       <span
         class="dashboard-statusbar__address"
-        :title="relayUrl ?? '未配置接入点地址'"
+        :title="relayUrl ?? '未配置服务地址'"
       >
-        {{ relayUrl ?? "未配置接入点地址" }}
+        {{ relayUrl ?? "未配置服务地址" }}
       </span>
       <Button
         square
         size="tiny"
-        variant="ghost"
+        variant="text"
+        class="dashboard-statusbar__switch-relay"
         icon="ph:arrows-left-right"
-        aria-label="切换接入点地址"
-        title="切换接入点地址"
+        aria-label="切换服务地址"
+        title="切换服务地址"
+        :disabled="isSwitchingRelayAddress || isConfirmOpen"
         @click="switchRelayAddress"
       />
     </div>
@@ -109,8 +124,10 @@ onMounted(async () => {
         v-if="updateIcon"
         square
         size="tiny"
-        variant="ghost"
-        :class="{ 'dashboard-statusbar__update-action--spinning': isUpdatePending }"
+        variant="text"
+        :class="{
+          'dashboard-statusbar__update-action--spinning': isUpdatePending,
+        }"
         :icon="updateIcon"
         :disabled="isUpdatePending"
         :aria-label="updateTitle"
@@ -160,6 +177,10 @@ onMounted(async () => {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.dashboard-statusbar__switch-relay {
+  margin-left: calc(var(--spacing-xs) - var(--spacing-sm));
 }
 
 .dashboard-statusbar__update {
