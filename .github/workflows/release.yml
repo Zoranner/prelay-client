@@ -165,7 +165,7 @@ jobs:
         uses: softprops/action-gh-release@v3
         with:
           name: Prelay Client ${{ needs.prepare.outputs.version }}
-          body: Desktop packages: Windows MSI and NSIS.
+          body: "Desktop packages: Windows MSI and NSIS."
           files: |
             artifacts/*.msi
             artifacts/*.exe
