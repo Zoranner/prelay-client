@@ -24,7 +24,12 @@ onMounted(loadRequests);
   <main class="page-dashboard">
     <PanelSection title="活动">
       <template #header-actions>
-        <Button :disabled="pending" @click="loadRequests">
+        <Button
+          variant="primary"
+          icon="ph:arrows-clockwise"
+          :disabled="pending"
+          @click="loadRequests"
+        >
           {{ pending ? "刷新中..." : "刷新" }}
         </Button>
       </template>

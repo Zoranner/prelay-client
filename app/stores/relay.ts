@@ -122,6 +122,7 @@ export interface RequestLog {
   endpoint_name: string | null;
   provider_name: string | null;
   model_requested: string | null;
+  model_upstream: string | null;
   status: string;
   http_status: number | null;
   error_code: string | null;

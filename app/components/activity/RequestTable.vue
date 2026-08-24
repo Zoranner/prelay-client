@@ -3,17 +3,23 @@ import type { RequestLog } from "~/stores/relay";
 import {
   Badge,
   Button,
-  Drawer,
   Icon,
+  Modal,
   RadioGroup,
   Select,
   Table,
   Tag,
 } from "stellar-ui";
-import { formatDiagnosticMetadata } from "~/utils/diagnosticMetadata";
+import {
+  requestDiagnostics,
+  type RequestDiagnostics,
+} from "~/utils/diagnosticMetadata";
 import { protocolLabel, protocolTagVariant } from "~/utils/providerTemplates";
 
-type RequestTableRow = RequestLog & Record<string, unknown>;
+type RequestTableRow = RequestLog &
+  Record<string, unknown> & {
+    diagnostics: RequestDiagnostics | null;
+  };
 
 const props = defineProps<{
   limit: number;
@@ -39,20 +45,20 @@ const statusOptions = [
 const requestColumns = [
   { key: "created_at", title: "时间", width: 176, ellipsis: true },
   { key: "endpoint_name", title: "接入点" },
-  { key: "provider", title: "供应商 / 模型" },
+  { key: "model_requested", title: "请求模型", ellipsis: true },
+  { key: "upstream", title: "供应商 / 上游模型" },
   { key: "protocol_in", title: "协议" },
   { key: "mode", title: "模式", width: 80, ellipsis: true },
-  { key: "status", title: "状态", width: 80, ellipsis: true },
+  { key: "status", title: "状态", width: 112, ellipsis: true },
   { key: "input", title: "输入" },
   { key: "output", title: "输出" },
   { key: "latency", title: "耗时" },
-  {
-    key: "actions",
-    title: "操作",
-    width: 64,
-    align: "center" as const,
-    fixed: "right" as const,
-  },
+];
+const diagnosticColumns = [
+  { key: "diagnostic", title: "诊断", width: 340, ellipsis: true },
+  { key: "severity", title: "级别", width: 88 },
+  { key: "count", title: "次数", width: 72 },
+  { key: "paths", title: "路径样例", width: 320, ellipsis: true },
 ];
 const visibleRequests = computed(() =>
   statusFilter.value === "all"
@@ -60,12 +66,30 @@ const visibleRequests = computed(() =>
     : props.requests.filter((row) => row.status === statusFilter.value),
 );
 const tableRows = computed<RequestTableRow[]>(
-  () => visibleRequests.value as RequestTableRow[],
+  () =>
+    visibleRequests.value.map((request) => ({
+      ...request,
+      model_upstream: request.model_upstream ?? "-",
+      diagnostics: requestDiagnostics(request.metadata_json),
+    })),
 );
-const selectedMetadata = ref<string | null>(null);
-const metadataDrawerOpen = computed(() => selectedMetadata.value !== null);
-const metadataDetail = computed(() =>
-  formatDiagnosticMetadata(selectedMetadata.value),
+const selectedDiagnostics = ref<RequestDiagnostics | null>(null);
+const workspaceExit = useWorkspaceExitGuard();
+let diagnosticsExitRegistration:
+  | ReturnType<typeof workspaceExit.register>
+  | undefined;
+const diagnosticsDialogOpen = computed({
+  get: () => selectedDiagnostics.value !== null,
+  set: (visible: boolean) => {
+    if (!visible) selectedDiagnostics.value = null;
+  },
+});
+const diagnosticRows = computed(() =>
+  selectedDiagnostics.value?.diagnostics.map((diagnostic) => ({
+    ...diagnostic,
+    diagnostic: `${diagnostic.code}\n${diagnostic.message}`,
+    paths: diagnostic.paths.join("\n") || "-",
+  })) ?? [],
 );
 
 function statusTitle(row: RequestLog) {
@@ -74,9 +98,9 @@ function statusTitle(row: RequestLog) {
   );
 }
 
-function providerModelTitle(row: RequestLog) {
+function upstreamTitle(row: RequestTableRow) {
   return (
-    [row.provider_name, row.model_requested].filter(Boolean).join("\n") || "-"
+    [row.provider_name, row.model_upstream].filter(Boolean).join("\n") || "-"
   );
 }
 
@@ -84,15 +108,25 @@ function formatMetric(value: number | null, unit = "") {
   return value === null ? "-" : `${value.toLocaleString()}${unit}`;
 }
 
-function hasMetadata(metadata: string | null) {
-  return Boolean(formatDiagnosticMetadata(metadata));
+function openDiagnostics(diagnostics: RequestDiagnostics) {
+  selectedDiagnostics.value = diagnostics;
 }
 
-function openMetadata(metadata: string | null) {
-  if (hasMetadata(metadata)) {
-    selectedMetadata.value = metadata;
+watch(diagnosticsDialogOpen, (isOpen) => {
+  if (!isOpen) {
+    diagnosticsExitRegistration?.unregister();
+    diagnosticsExitRegistration = undefined;
+    return;
   }
-}
+  diagnosticsExitRegistration = workspaceExit.register({
+    close: () => {
+      selectedDiagnostics.value = null;
+    },
+    state: () => "allow",
+  });
+});
+
+onBeforeUnmount(() => diagnosticsExitRegistration?.unregister());
 
 function updateLimit(value: string | number | boolean | null) {
   if (typeof value === "number") {
@@ -101,11 +135,6 @@ function updateLimit(value: string | number | boolean | null) {
   }
 }
 
-function closeMetadata(visible: boolean) {
-  if (!visible) {
-    selectedMetadata.value = null;
-  }
-}
 </script>
 
 <template>
@@ -144,13 +173,13 @@ function closeMetadata(visible: boolean) {
             >{{ row.endpoint_name ?? "-" }}</span
           >
         </template>
-        <template #cell-provider="{ row }">
-          <div class="activity-provider-model" :title="providerModelTitle(row)">
+        <template #cell-upstream="{ row }">
+          <div class="activity-provider-model" :title="upstreamTitle(row)">
             <span class="activity-provider-model__provider">{{
               row.provider_name ?? "-"
             }}</span>
             <span class="activity-provider-model__model">{{
-              row.model_requested ?? "-"
+              row.model_upstream
             }}</span>
           </div>
         </template>
@@ -173,12 +202,24 @@ function closeMetadata(visible: boolean) {
           }}
         </template>
         <template #cell-status="{ row }">
-          <Badge
-            :variant="row.status === 'failed' ? 'danger' : 'success'"
-            :title="statusTitle(row)"
-          >
-            {{ row.http_status ?? row.status }}
-          </Badge>
+          <div class="activity-status">
+            <Badge
+              :variant="row.status === 'failed' ? 'danger' : 'success'"
+              :title="statusTitle(row)"
+            >
+              {{ row.http_status ?? row.status }}
+            </Badge>
+            <Button
+              v-if="row.diagnostics"
+              square
+              size="tiny"
+              variant="text"
+              icon="ph:warning-circle"
+              aria-label="查看请求诊断"
+              title="查看请求诊断"
+              @click="openDiagnostics(row.diagnostics)"
+            />
+          </div>
         </template>
         <template #cell-input="{ row }">
           <div class="activity-metric">
@@ -216,17 +257,6 @@ function closeMetadata(visible: boolean) {
             </span>
           </div>
         </template>
-        <template #cell-actions="{ row }">
-          <Button
-            square
-            size="small"
-            icon="ph:brackets-curly"
-            aria-label="查看元数据"
-            title="查看元数据"
-            :disabled="!hasMetadata(row.metadata_json)"
-            @click="openMetadata(row.metadata_json)"
-          />
-        </template>
         <template #cell-created_at="{ row }">
           {{ new Date(row.created_at).toLocaleString() }}
         </template>
@@ -234,17 +264,53 @@ function closeMetadata(visible: boolean) {
     </div>
   </div>
 
-  <Drawer
-    :visible="metadataDrawerOpen"
-    title="请求元数据"
+  <Modal
+    v-model:visible="diagnosticsDialogOpen"
+    title="请求诊断"
+    size="xlarge"
+    height="min(680px, calc(100dvh - 4rem))"
+    :show-cancel="false"
     :show-confirm="false"
-    @update:visible="closeMetadata"
   >
-    <pre
-      v-if="metadataDetail"
-      class="max-h-96 overflow-auto whitespace-pre-wrap break-all"
-      >{{ metadataDetail }}</pre>
-  </Drawer>
+    <div v-if="selectedDiagnostics" class="diagnostics-detail">
+      <div
+        v-if="selectedDiagnostics.streamIssue"
+        class="diagnostics-stream-issue"
+      >
+        <Icon icon="ph:warning" />
+        {{ selectedDiagnostics.streamIssue }}
+      </div>
+      <Table
+        v-if="diagnosticRows.length"
+        class="diagnostics-detail__table"
+        :columns="diagnosticColumns"
+        :data="diagnosticRows"
+        fixed-header
+        layout="fixed"
+        row-key="code"
+      >
+        <template #cell-diagnostic="{ row }">
+          <div class="diagnostics-entry" :title="row.diagnostic">
+            <span class="diagnostics-entry__code">{{ row.code }}</span>
+            <span class="diagnostics-entry__message">{{ row.message }}</span>
+          </div>
+        </template>
+        <template #cell-severity="{ row }">
+          <Badge :variant="row.severity === 'warning' ? 'warning' : 'default'">
+            {{ row.severity === "warning" ? "警告" : "提示" }}
+          </Badge>
+        </template>
+        <template #cell-paths="{ row }">
+          <span class="diagnostics-paths" :title="row.paths">{{
+            row.paths
+          }}</span>
+        </template>
+      </Table>
+    </div>
+    <template #footer>
+      <Button @click="diagnosticsDialogOpen = false">关闭</Button>
+    </template>
+  </Modal>
 </template>
 
 <style scoped>
@@ -330,6 +396,61 @@ function closeMetadata(visible: boolean) {
   width: 12px;
   height: 12px;
   flex: 0 0 auto;
+}
+
+.activity-status {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+}
+
+.diagnostics-detail {
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  padding: var(--spacing-lg);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.diagnostics-detail__table {
+  width: 100%;
+  min-height: 0;
+  flex: 1;
+}
+
+.diagnostics-stream-issue {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  margin-bottom: var(--spacing-md);
+  color: var(--st-color-warning);
+}
+
+.diagnostics-entry {
+  display: grid;
+  gap: var(--spacing-2xs);
+  min-width: 0;
+}
+
+.diagnostics-entry__code,
+.diagnostics-entry__message,
+.diagnostics-paths {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.diagnostics-entry__code {
+  color: var(--st-text-primary);
+}
+
+.diagnostics-entry__message,
+.diagnostics-paths {
+  color: var(--st-text-muted);
+  font-size: 12px;
 }
 
 @media (max-width: 560px) {

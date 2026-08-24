@@ -32,7 +32,6 @@ test("活动页只读取和展示请求明细", () => {
   expect(table).toContain('title: "输入"');
   expect(table).toContain('title: "输出"');
   expect(table).toContain('title: "耗时"');
-  expect(table).toContain('title: "操作"');
   expect(table).not.toContain('title: "缓存读"');
   expect(table).not.toContain('title: "缓存写"');
   expect(table).not.toContain('title: "首 Token"');
@@ -41,11 +40,11 @@ test("活动页只读取和展示请求明细", () => {
   expect(table).not.toContain("端点");
   expect(table).toContain("模式");
   expect(table).toContain("接入点");
-  expect(table).toContain("供应商 / 模型");
+  expect(table).toContain("供应商 / 上游模型");
   expect(table).not.toContain('<th class="text-left">错误</th>');
   expect(table).not.toContain("上游请求 ID");
-  expect(table).toContain("cell-actions");
-  expect(table).toContain('fixed: "right"');
+  expect(table).toContain("cell-status");
+  expect(table).toContain("查看请求诊断");
   expect(table).toContain("activity-provider-model");
   expect(table).toContain("activity-metric");
   expect(table).toContain("activity-content-nowrap");
@@ -61,8 +60,8 @@ test("活动页只读取和展示请求明细", () => {
   );
   expect(table).not.toContain("max-content");
   expect(stellarTable).toContain("style.minWidth = style.width");
-  expect(table).toContain("Drawer");
-  expect(table).toContain("metadataDrawerOpen");
+  expect(table).toContain("Modal");
+  expect(table).toContain("diagnosticsDialogOpen");
   expect(table).not.toContain("<details");
   expect(table).toContain("requestColumns");
   expect(table).toContain("fixed-header");
@@ -85,14 +84,13 @@ test("活动页只读取和展示请求明细", () => {
   const columns = [
     "时间",
     "接入点",
-    "供应商 / 模型",
+    "供应商 / 上游模型",
     "协议",
     "模式",
     "状态",
     "输入",
     "输出",
     "耗时",
-    "操作",
   ];
   for (const [index, column] of columns.entries()) {
     expect(table.indexOf(`title: "${column}"`)).toBeGreaterThan(
