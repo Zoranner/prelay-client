@@ -5,10 +5,12 @@ import { toRelayError } from "~/utils/errors";
 
 interface DownloadedClientUpdate {
   version: string;
+  fileName: string;
 }
 
 const visible = ref(false);
 const version = ref<string | null>(null);
+const fileName = ref<string | null>(null);
 const preparing = ref(false);
 const installing = ref(false);
 
@@ -26,6 +28,7 @@ export function useClientUpdate() {
       if (!update) return;
 
       version.value = update.version;
+      fileName.value = update.fileName;
       visible.value = true;
     } catch (caught) {
       const error = toRelayError(caught);
@@ -38,11 +41,14 @@ export function useClientUpdate() {
   }
 
   async function install() {
-    if (!version.value || installing.value) return;
+    if (!version.value || !fileName.value || installing.value) return;
 
     installing.value = true;
     try {
-      await invoke("client_update_install", { version: version.value });
+      await invoke("client_update_install", {
+        version: version.value,
+        fileName: fileName.value,
+      });
     } catch (caught) {
       const error = toRelayError(caught);
       notifications.danger(error.message, { title: "启动安装程序失败" });

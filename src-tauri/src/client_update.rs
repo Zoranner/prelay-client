@@ -4,7 +4,7 @@ use std::{
     time::{SystemTime, UNIX_EPOCH},
 };
 
-use prelay_protocol::ClientUpdateResponse;
+use prelay_protocol::{ClientUpdateResponse, ClientUpdateTarget};
 use serde::Serialize;
 use tauri::{AppHandle, Manager};
 
@@ -16,6 +16,7 @@ const CURRENT_VERSION: &str = env!("CARGO_PKG_VERSION");
 #[serde(rename_all = "camelCase")]
 pub struct DownloadedClientUpdate {
     pub version: String,
+    pub file_name: String,
 }
 
 #[tauri::command]
@@ -23,12 +24,17 @@ pub async fn client_update_prepare(
     app: AppHandle,
     state: tauri::State<'_, NativeState>,
 ) -> Result<Option<DownloadedClientUpdate>, ClientError> {
-    if !cfg!(target_os = "windows") {
-        return Ok(None);
-    }
+    let target = match current_update_target() {
+        Some(target) => target,
+        None => return Ok(None),
+    };
 
     let client = authenticated_api(&state).await?;
-    let update: ClientUpdateResponse = match client.get("/api/client-update").await {
+    let update_path = format!(
+        "/api/client-update?platform={}&architecture={}",
+        target.platform, target.architecture
+    );
+    let update: ClientUpdateResponse = match client.get(&update_path).await {
         Ok(update) => update,
         Err(error) if error.code() == "client_update_unavailable" => return Ok(None),
         Err(error) => return Err(error),
@@ -41,7 +47,12 @@ pub async fn client_update_prepare(
         .path()
         .app_cache_dir()
         .map_err(|error| ClientError::new("client_update_storage_error", error.to_string()))?;
-    let installer_path = installer_path(&app_cache_directory, &update.version)?;
+    let installer_path = installer_path(
+        &app_cache_directory,
+        &target,
+        &update.version,
+        &update.file_name,
+    )?;
     if !installer_path.is_file() {
         let bytes = client.get_bytes(&update.download_path).await?;
         write_installer(&installer_path, &bytes)
@@ -50,23 +61,28 @@ pub async fn client_update_prepare(
 
     Ok(Some(DownloadedClientUpdate {
         version: update.version,
+        file_name: update.file_name,
     }))
 }
 
 #[tauri::command]
-pub async fn client_update_install(app: AppHandle, version: String) -> Result<(), ClientError> {
-    if !cfg!(target_os = "windows") {
-        return Err(ClientError::new(
+pub async fn client_update_install(
+    app: AppHandle,
+    version: String,
+    file_name: String,
+) -> Result<(), ClientError> {
+    let target = current_update_target().ok_or_else(|| {
+        ClientError::new(
             "client_update_unsupported_platform",
             "client updates are only supported on Windows",
-        ));
-    }
+        )
+    })?;
 
     let app_cache_directory = app
         .path()
         .app_cache_dir()
         .map_err(|error| ClientError::new("client_update_storage_error", error.to_string()))?;
-    let installer_path = installer_path(&app_cache_directory, &version)?;
+    let installer_path = installer_path(&app_cache_directory, &target, &version, &file_name)?;
     if !installer_path.is_file() {
         return Err(ClientError::new(
             "client_update_not_downloaded",
@@ -80,16 +96,47 @@ pub async fn client_update_install(app: AppHandle, version: String) -> Result<()
     Ok(())
 }
 
-fn installer_path(app_cache_directory: &Path, version: &str) -> Result<PathBuf, ClientError> {
-    if !is_safe_version(version) {
+fn current_update_target() -> Option<ClientUpdateTarget> {
+    if !cfg!(target_os = "windows") {
+        return None;
+    }
+    let architecture = if cfg!(target_arch = "x86_64") {
+        "x64"
+    } else if cfg!(target_arch = "x86") {
+        "x86"
+    } else if cfg!(target_arch = "aarch64") {
+        "arm64"
+    } else {
+        return None;
+    };
+    Some(ClientUpdateTarget {
+        platform: "windows".to_string(),
+        architecture: architecture.to_string(),
+    })
+}
+
+fn installer_path(
+    app_cache_directory: &Path,
+    target: &ClientUpdateTarget,
+    version: &str,
+    file_name: &str,
+) -> Result<PathBuf, ClientError> {
+    if !is_safe_version(version)
+        || !is_safe_path_component(&target.platform)
+        || !is_safe_path_component(&target.architecture)
+        || !is_safe_file_name(file_name)
+    {
         return Err(ClientError::new(
-            "invalid_client_update_version",
-            "client update version is invalid",
+            "invalid_client_update",
+            "client update package is invalid",
         ));
     }
     Ok(app_cache_directory
         .join("updates")
-        .join(format!("prelay-client-{version}.exe")))
+        .join(&target.platform)
+        .join(&target.architecture)
+        .join(version)
+        .join(file_name))
 }
 
 fn write_installer(path: &Path, bytes: &[u8]) -> std::io::Result<()> {
@@ -127,6 +174,23 @@ fn is_safe_version(value: &str) -> bool {
         })
 }
 
+fn is_safe_path_component(value: &str) -> bool {
+    !value.is_empty()
+        && value
+            .chars()
+            .all(|character| character.is_ascii_alphanumeric() || matches!(character, '-' | '_'))
+}
+
+fn is_safe_file_name(value: &str) -> bool {
+    !value.is_empty()
+        && Path::new(value)
+            .file_name()
+            .is_some_and(|file_name| file_name == value)
+        && value.chars().all(|character| {
+            character.is_ascii_alphanumeric() || matches!(character, '.' | '-' | '_')
+        })
+}
+
 fn parse_version(value: &str) -> Option<[u64; 3]> {
     let parts = value.split('.').collect::<Vec<_>>();
     (parts.len() == 3).then_some(())?;
@@ -140,13 +204,33 @@ fn parse_version(value: &str) -> Option<[u64; 3]> {
 #[cfg(test)]
 mod tests {
     use super::{installer_path, is_newer_version};
+    use prelay_protocol::ClientUpdateTarget;
 
     #[test]
     fn compares_release_versions_and_rejects_unsafe_file_names() {
         assert!(is_newer_version("0.2.0", "0.1.0"));
         assert!(!is_newer_version("0.1.0", "0.1.0"));
         assert!(!is_newer_version("next", "0.1.0"));
-        assert!(installer_path(std::path::Path::new("updates"), "0.2.0").is_ok());
-        assert!(installer_path(std::path::Path::new("updates"), "../0.2.0").is_err());
+        let target = ClientUpdateTarget {
+            platform: "windows".to_string(),
+            architecture: "x64".to_string(),
+        };
+        assert_eq!(
+            installer_path(
+                std::path::Path::new("cache"),
+                &target,
+                "0.2.0",
+                "Prelay_0.2.0_x64-setup.exe",
+            )
+            .unwrap(),
+            std::path::Path::new("cache/updates/windows/x64/0.2.0/Prelay_0.2.0_x64-setup.exe")
+        );
+        assert!(installer_path(
+            std::path::Path::new("cache"),
+            &target,
+            "../0.2.0",
+            "Prelay_0.2.0_x64-setup.exe",
+        )
+        .is_err());
     }
 }
