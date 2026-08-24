@@ -19,7 +19,7 @@ async function install() {
     :show-confirm="false"
   >
     <p class="client-update-dialog__copy">
-      Prelay {{ version }} 已下载，安装完成后将自动重启应用。
+      Prelay {{ version }} 已下载。开始安装后，当前应用将退出。
     </p>
 
     <template #footer>
@@ -31,7 +31,7 @@ async function install() {
         :loading="clientUpdate.installing.value"
         @click="install"
       >
-        安装并重启
+        开始安装
       </Button>
     </template>
   </Modal>
