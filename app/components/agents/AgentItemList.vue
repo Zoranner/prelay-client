@@ -1,11 +1,11 @@
 <script setup lang="ts">
 import { Badge, Button, Table, useNotification } from "stellar-ui";
-import type { AgentExtension } from "~/stores/relay";
+import type { AgentItem } from "~/stores/relay";
 
-type ExtensionRow = AgentExtension & { id: string } & Record<string, unknown>;
+type AgentItemRow = AgentItem & { id: string } & Record<string, unknown>;
 
 const props = defineProps<{
-  extensions: AgentExtension[];
+  items: AgentItem[];
 }>();
 const notifications = useNotification();
 
@@ -13,21 +13,21 @@ const columns = [
   { key: "name", title: "名称", width: 180, ellipsis: true },
   { key: "version", title: "版本", width: 120, ellipsis: true },
   { key: "status", title: "状态", width: 88 },
-  { key: "sourcePath", title: "来源", ellipsis: true },
+  { key: "sourcePath", title: "来源", minWidth: 360, ellipsis: true },
 ];
 
-const rows = computed<ExtensionRow[]>(() =>
-  props.extensions.map((extension) => ({
-    ...extension,
-    id: `${extension.kind}-${extension.name}-${extension.sourcePath}`,
+const rows = computed<AgentItemRow[]>(() =>
+  props.items.map((item) => ({
+    ...item,
+    id: `${item.kind}-${item.name}-${item.sourcePath}`,
   })),
 );
-function statusLabel(status: AgentExtension["status"]) {
+function statusLabel(status: AgentItem["status"]) {
   return { enabled: "启用", disabled: "禁用", error: "错误" }[status];
 }
 
 function statusVariant(
-  status: AgentExtension["status"],
+  status: AgentItem["status"],
 ): "success" | "default" | "danger" {
   switch (status) {
     case "enabled":
@@ -51,16 +51,16 @@ async function copySourcePath(sourcePath: string) {
 
 <template>
   <Table
-    class="extension-table"
+    class="agent-item-table"
     :columns="columns"
     :data="rows"
-    empty-text="未发现扩展"
+    empty-text="未发现条目"
     fixed-header
     layout="fixed"
     row-key="id"
   >
     <template #cell-name="{ row }">
-      <div class="extension-name">
+      <div class="agent-item-name">
         <span>{{ row.name }}</span>
         <small v-if="row.errorMessage">{{ row.errorMessage }}</small>
       </div>
@@ -69,9 +69,10 @@ async function copySourcePath(sourcePath: string) {
       {{ row.version || "-" }}
     </template>
     <template #cell-sourcePath="{ row }">
-      <div class="extension-source">
+      <div class="agent-item-source">
         <span :title="row.sourcePath">{{ row.sourcePath }}</span>
         <Button
+          class="agent-item-source__copy"
           square
           size="small"
           variant="ghost"
@@ -91,28 +92,35 @@ async function copySourcePath(sourcePath: string) {
 </template>
 
 <style scoped>
-.extension-table {
+.agent-item-table {
   min-height: 0;
   flex: 1;
 }
 
-.extension-table :deep(.relative) {
-  overflow-x: hidden;
+.agent-item-table :deep(.relative) {
+  overflow-x: auto;
 }
 
-.extension-name {
+.agent-item-table :deep(.inline-block) {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+}
+
+.agent-item-name {
   display: grid;
   gap: 2px;
 }
 
-.extension-source {
+.agent-item-source {
   display: flex;
+  width: 100%;
   min-width: 0;
   align-items: center;
   gap: var(--spacing-xs);
 }
 
-.extension-source > span {
+.agent-item-source > span {
   min-width: 0;
   flex: 1;
   overflow: hidden;
@@ -120,7 +128,11 @@ async function copySourcePath(sourcePath: string) {
   white-space: nowrap;
 }
 
-.extension-name > small {
+.agent-item-source__copy {
+  flex: 0 0 auto;
+}
+
+.agent-item-name > small {
   color: var(--st-text-danger);
   font-size: 12px;
 }

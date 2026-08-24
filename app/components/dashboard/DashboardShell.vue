@@ -16,7 +16,7 @@ const navigation = [
   { label: "仪表盘", path: "/", icon: "ph:squares-four" },
   { label: "供应商", path: "/providers", icon: "ph:plugs-connected" },
   { label: "接入点", path: "/endpoints", icon: "ph:key" },
-  { label: "扩展", path: "/extensions", icon: "ph:puzzle-piece" },
+  { label: "智能体", path: "/agents", icon: "ph:robot" },
   { label: "活动", path: "/stats", icon: "ph:chart-line-up" },
 ];
 const displayName = computed(() => bootstrap.value?.display_name ?? "当前用户");

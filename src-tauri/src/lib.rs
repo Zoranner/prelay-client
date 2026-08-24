@@ -2,11 +2,12 @@
 
 use tauri::Manager;
 
-pub mod agent_extensions;
+pub mod agent_settings;
+pub mod agents;
 pub mod api_client;
 pub mod autostart;
-pub mod commands;
 pub mod client_update;
+pub mod commands;
 pub mod credential_store;
 pub mod desktop_preferences;
 pub mod identity;
@@ -56,9 +57,9 @@ pub fn run() {
         ))
         .invoke_handler(tauri::generate_handler![
             commands::bootstrap::bootstrap,
-            commands::settings::relay_settings_get,
             client_update::client_update_prepare,
             client_update::client_update_install,
+            commands::settings::relay_settings_get,
             commands::settings::relay_settings_save,
             commands::settings::relay_settings_connect,
             commands::settings::desktop_preferences_get,
@@ -73,7 +74,9 @@ pub fn run() {
             commands::endpoints::endpoints_save,
             commands::endpoints::endpoints_delete,
             commands::endpoints::endpoints_regenerate_token,
-            commands::extensions::extensions_list,
+            commands::agents::agents_list,
+            commands::agents::agent_settings_get,
+            commands::agents::agent_settings_save,
             commands::stats::stats_overview,
             commands::stats::stats_timeline,
             commands::stats::stats_requests,
@@ -83,6 +86,10 @@ pub fn run() {
         ])
         .setup(|app| {
             let app_data_dir = app.path().app_data_dir()?;
+            if let Some(home) = std::env::var_os("USERPROFILE") {
+                agent_settings::initialize_missing_user_settings(&std::path::PathBuf::from(home))
+                    .map_err(std::io::Error::other)?;
+            }
             let state = NativeState::for_app_data_dir(app_data_dir);
             let start_silently = autostart::should_start_silently(&state.desktop_preferences)
                 .map_err(std::io::Error::other)?;

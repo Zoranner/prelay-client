@@ -138,25 +138,63 @@ export interface RequestLog {
 }
 
 export type AgentClient = "codex" | "claudeCode";
-export type AgentExtensionKind = "mcp" | "skill" | "plugin";
-export type AgentExtensionStatus = "enabled" | "disabled" | "error";
+export type AgentItemKind = "mcp" | "skill" | "plugin";
+export type AgentItemStatus = "enabled" | "disabled" | "error";
 
-export interface AgentExtension {
-  kind: AgentExtensionKind;
+export interface AgentItem {
+  kind: AgentItemKind;
   name: string;
   version: string | null;
   sourcePath: string;
-  status: AgentExtensionStatus;
+  status: AgentItemStatus;
   errorMessage: string | null;
 }
 
-export interface AgentClientExtensions {
+export interface AgentClientItems {
   client: AgentClient;
-  extensions: AgentExtension[];
+  items: AgentItem[];
 }
 
-export interface AgentExtensionsSnapshot {
-  clients: AgentClientExtensions[];
+export interface AgentItemsSnapshot {
+  clients: AgentClientItems[];
+}
+
+export interface AgentSettingsSnapshot {
+  codex: Partial<{
+    endpointName: string;
+    baseUrl: string;
+    customToken: string;
+    model: string;
+    reasoningEffort: string;
+    personality: string;
+    webSearch: boolean;
+    sandbox: string;
+    disableResponseStorage: boolean;
+    maxThreads: number;
+    maxDepth: number;
+    jobMaxRuntimeSeconds: number;
+    networkAccess: boolean;
+    shellEnvironmentInherit: string;
+    windowsSandbox: string;
+    features: Partial<{
+      memories: boolean;
+      goals: boolean;
+      workspaceDependencies: boolean;
+    }>;
+    rules: string;
+  }>;
+  claudeCode: Partial<{
+    baseUrl: string;
+    endpointToken: string;
+    opusModel: string;
+    sonnetModel: string;
+    haikuModel: string;
+    subagentModel: string;
+    effort: string;
+    language: string;
+    permissionMode: string;
+    rules: string;
+  }>;
 }
 
 export function useRelayStore() {
