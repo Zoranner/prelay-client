@@ -32,7 +32,7 @@ onMounted(async () => {
   await desktopPreferences.load();
   if (!isDesktopRuntime) return;
 
-  if (relayUrl.value) void clientUpdate.prepare();
+  if (relayUrl.value) void clientUpdate.check();
 
   unlistenTraySettings = await listen("tray:open-settings", () => {
     desktopPreferencesDialog.open();

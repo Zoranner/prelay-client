@@ -23,13 +23,32 @@ pub struct DownloadedClientUpdate {
 pub async fn client_update_prepare(
     app: AppHandle,
     state: tauri::State<'_, NativeState>,
+    version: Option<String>,
+    file_name: Option<String>,
+) -> Result<Option<DownloadedClientUpdate>, ClientError> {
+    match (version, file_name) {
+        (None, None) => check_for_client_update(&state).await,
+        (Some(version), Some(file_name)) => {
+            let update = DownloadedClientUpdate { version, file_name };
+            download_client_update(app, &state, &update).await?;
+            Ok(Some(update))
+        }
+        _ => Err(ClientError::new(
+            "invalid_client_update",
+            "client update package is invalid",
+        )),
+    }
+}
+
+async fn check_for_client_update(
+    state: &NativeState,
 ) -> Result<Option<DownloadedClientUpdate>, ClientError> {
     let target = match current_update_target() {
         Some(target) => target,
         None => return Ok(None),
     };
 
-    let client = authenticated_api(&state).await?;
+    let client = authenticated_api(state).await?;
     let update_path = format!(
         "/api/client-update?platform={}&architecture={}",
         target.platform, target.architecture
@@ -43,6 +62,31 @@ pub async fn client_update_prepare(
         return Ok(None);
     }
 
+    if !is_safe_version(&update.version) || !is_safe_file_name(&update.file_name) {
+        return Err(ClientError::new(
+            "invalid_client_update",
+            "client update package is invalid",
+        ));
+    }
+
+    Ok(Some(DownloadedClientUpdate {
+        version: update.version,
+        file_name: update.file_name,
+    }))
+}
+
+async fn download_client_update(
+    app: AppHandle,
+    state: &NativeState,
+    update: &DownloadedClientUpdate,
+) -> Result<(), ClientError> {
+    let target = current_update_target().ok_or_else(|| {
+        ClientError::new(
+            "client_update_unsupported_platform",
+            "client updates are only supported on Windows",
+        )
+    })?;
+
     let app_cache_directory = app
         .path()
         .app_cache_dir()
@@ -54,15 +98,17 @@ pub async fn client_update_prepare(
         &update.file_name,
     )?;
     if !installer_path.is_file() {
-        let bytes = client.get_bytes(&update.download_path).await?;
+        let client = authenticated_api(state).await?;
+        let download_path = format!(
+            "/api/client-update/download?platform={}&architecture={}",
+            target.platform, target.architecture
+        );
+        let bytes = client.get_bytes(&download_path).await?;
         write_installer(&installer_path, &bytes)
             .map_err(|error| ClientError::new("client_update_storage_error", error.to_string()))?;
     }
 
-    Ok(Some(DownloadedClientUpdate {
-        version: update.version,
-        file_name: update.file_name,
-    }))
+    Ok(())
 }
 
 #[tauri::command]

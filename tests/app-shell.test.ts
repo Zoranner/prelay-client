@@ -88,8 +88,34 @@ test("桌面窗口只保留自绘标题栏和内容工作区", () => {
   expect(statusbar).toContain("managementApi.error");
   expect(statusbar).toContain("ph:arrows-left-right");
   expect(statusbar).toContain('navigateTo("/setup?change=1")');
-  expect(statusbar).toContain('class="dashboard-statusbar__switch"');
-  expect(statusbar).not.toContain("<Button");
+  expect(statusbar).toContain("<Button");
+  expect(statusbar).toContain('size="tiny"');
+  expect(statusbar).toContain("clientUpdate.check()");
+  expect(statusbar).toContain("clientUpdate.download()");
+  expect(statusbar).toContain("clientUpdate.openInstallDialog()");
+});
+
+test("客户端更新在检查、下载和待安装之间保持明确状态", () => {
+  const update = readFileSync(
+    new URL("../app/composables/useClientUpdate.ts", import.meta.url),
+    "utf8",
+  );
+  const dialog = readFileSync(
+    new URL(
+      "../app/components/settings/ClientUpdateDialog.vue",
+      import.meta.url,
+    ),
+    "utf8",
+  );
+
+  expect(update).toMatch(
+    /"idle"[\s|]+"checking"[\s|]+"available"[\s|]+"downloading"[\s|]+"ready"/,
+  );
+  expect(update).toContain('"client_update_prepare"');
+  expect(update).toContain('invoke("client_update_prepare", {');
+  expect(update).toContain("state.value = \"downloading\"");
+  expect(update).toContain("state.value = \"ready\"");
+  expect(dialog).toContain("稍后安装");
 });
 
 test("桌面和网页标题栏复用 Prelay 图标资产", () => {

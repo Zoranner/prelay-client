@@ -1,12 +1,13 @@
 <script setup lang="ts">
 import { getVersion } from "@tauri-apps/api/app";
-import { Icon } from "stellar-ui";
+import { Button } from "stellar-ui";
 
 const props = defineProps<{
   relayUrl: string | null;
 }>();
 
 const managementApi = useRelayManagementApiStatus();
+const clientUpdate = useClientUpdate();
 const clientVersion = ref<string | null>(null);
 const isConnected = computed(
   () => Boolean(props.relayUrl) && !managementApi.error.value,
@@ -14,10 +15,51 @@ const isConnected = computed(
 const statusTitle = computed(() =>
   isConnected.value ? "已连接管理服务" : "管理服务不可用",
 );
+const updateState = computed(() => clientUpdate.state.value);
+const updateIcon = computed(() => {
+  switch (updateState.value) {
+    case "checking":
+      return "ph:spinner-gap";
+    case "available":
+      return "ph:download-simple";
+    case "downloading":
+      return "ph:circle-notch";
+    case "ready":
+      return "ph:install";
+    default:
+      return "";
+  }
+});
+const updateTitle = computed(() => {
+  switch (updateState.value) {
+    case "checking":
+      return "正在检查更新";
+    case "available":
+      return `下载 Prelay ${clientUpdate.version.value}`;
+    case "downloading":
+      return "正在下载更新";
+    case "ready":
+      return `安装 Prelay ${clientUpdate.version.value}`;
+    default:
+      return "检查更新";
+  }
+});
+const isUpdatePending = computed(
+  () => updateState.value === "checking" || updateState.value === "downloading",
+);
 
 function switchRelayAddress() {
   managementApi.clear();
   void navigateTo("/setup?change=1");
+}
+
+function checkForUpdate() {
+  if (updateState.value === "idle") void clientUpdate.check();
+}
+
+function handleUpdateAction() {
+  if (updateState.value === "available") void clientUpdate.download();
+  if (updateState.value === "ready") clientUpdate.openInstallDialog();
 }
 
 onMounted(async () => {
@@ -43,19 +85,39 @@ onMounted(async () => {
       >
         {{ relayUrl ?? "未配置接入点地址" }}
       </span>
-      <button
-        class="dashboard-statusbar__switch"
-        type="button"
+      <Button
+        square
+        size="tiny"
+        variant="ghost"
+        icon="ph:arrows-left-right"
         aria-label="切换接入点地址"
         title="切换接入点地址"
         @click="switchRelayAddress"
-      >
-        <Icon icon="ph:arrows-left-right" />
-      </button>
+      />
     </div>
-    <span class="dashboard-statusbar__version"
-      >v{{ clientVersion ?? "-" }}</span
-    >
+    <div class="dashboard-statusbar__update">
+      <button
+        class="dashboard-statusbar__version"
+        type="button"
+        :title="updateTitle"
+        :disabled="isUpdatePending"
+        @click="checkForUpdate"
+      >
+        v{{ clientVersion ?? "-" }}
+      </button>
+      <Button
+        v-if="updateIcon"
+        square
+        size="tiny"
+        variant="ghost"
+        :class="{ 'dashboard-statusbar__update-action--spinning': isUpdatePending }"
+        :icon="updateIcon"
+        :disabled="isUpdatePending"
+        :aria-label="updateTitle"
+        :title="updateTitle"
+        @click="handleUpdateAction"
+      />
+    </div>
   </footer>
 </template>
 
@@ -100,34 +162,42 @@ onMounted(async () => {
   white-space: nowrap;
 }
 
-.dashboard-statusbar__switch {
-  display: grid;
-  width: 18px;
-  height: 18px;
+.dashboard-statusbar__update {
+  display: flex;
   flex: 0 0 auto;
+  align-items: center;
+  gap: var(--spacing-xs);
+}
+
+.dashboard-statusbar__version {
   padding: 0;
-  place-items: center;
   border: 0;
   background: transparent;
   color: inherit;
   cursor: pointer;
+  font: inherit;
 }
 
-.dashboard-statusbar__switch :deep(svg) {
-  width: 14px;
-  height: 14px;
-}
-
-.dashboard-statusbar__switch:hover {
+.dashboard-statusbar__version:hover:not(:disabled) {
   color: var(--st-text-primary);
 }
 
-.dashboard-statusbar__switch:focus-visible {
+.dashboard-statusbar__version:focus-visible {
   outline: 1px solid var(--st-border-focus);
-  outline-offset: 1px;
+  outline-offset: 2px;
 }
 
-.dashboard-statusbar__version {
-  flex: 0 0 auto;
+.dashboard-statusbar__version:disabled {
+  cursor: default;
+}
+
+.dashboard-statusbar__update-action--spinning :deep(svg) {
+  animation: dashboard-statusbar-spin 0.8s linear infinite;
+}
+
+@keyframes dashboard-statusbar-spin {
+  to {
+    transform: rotate(1turn);
+  }
 }
 </style>
