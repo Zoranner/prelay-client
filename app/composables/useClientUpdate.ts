@@ -9,11 +9,7 @@ interface DownloadedClientUpdate {
 }
 
 export type ClientUpdateState =
-  | "idle"
-  | "checking"
-  | "available"
-  | "downloading"
-  | "ready";
+  "idle" | "checking" | "available" | "downloading" | "ready";
 
 const visible = ref(false);
 const version = ref<string | null>(null);
@@ -52,11 +48,7 @@ export function useClientUpdate() {
   }
 
   async function download() {
-    if (
-      state.value !== "available" ||
-      !version.value ||
-      !fileName.value
-    ) {
+    if (state.value !== "available" || !version.value || !fileName.value) {
       return;
     }
 
