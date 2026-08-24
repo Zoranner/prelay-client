@@ -37,11 +37,11 @@ pub async fn client_update_prepare(
         return Ok(None);
     }
 
-    let app_data_directory = app
+    let app_cache_directory = app
         .path()
-        .app_data_dir()
+        .app_cache_dir()
         .map_err(|error| ClientError::new("client_update_storage_error", error.to_string()))?;
-    let installer_path = installer_path(&app_data_directory, &update.version)?;
+    let installer_path = installer_path(&app_cache_directory, &update.version)?;
     if !installer_path.is_file() {
         let bytes = client.get_bytes(&update.download_path).await?;
         write_installer(&installer_path, &bytes)
@@ -62,11 +62,11 @@ pub async fn client_update_install(app: AppHandle, version: String) -> Result<()
         ));
     }
 
-    let app_data_directory = app
+    let app_cache_directory = app
         .path()
-        .app_data_dir()
+        .app_cache_dir()
         .map_err(|error| ClientError::new("client_update_storage_error", error.to_string()))?;
-    let installer_path = installer_path(&app_data_directory, &version)?;
+    let installer_path = installer_path(&app_cache_directory, &version)?;
     if !installer_path.is_file() {
         return Err(ClientError::new(
             "client_update_not_downloaded",
@@ -80,15 +80,14 @@ pub async fn client_update_install(app: AppHandle, version: String) -> Result<()
     Ok(())
 }
 
-fn installer_path(app_data_directory: &Path, version: &str) -> Result<PathBuf, ClientError> {
+fn installer_path(app_cache_directory: &Path, version: &str) -> Result<PathBuf, ClientError> {
     if !is_safe_version(version) {
         return Err(ClientError::new(
             "invalid_client_update_version",
             "client update version is invalid",
         ));
     }
-    Ok(app_data_directory
-        .join("Prelay")
+    Ok(app_cache_directory
         .join("updates")
         .join(format!("prelay-client-{version}.exe")))
 }
