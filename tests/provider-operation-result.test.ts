@@ -43,7 +43,7 @@ test("协议测试成功时使用服务端返回的协议字段", () => {
   });
 
   expect(feedback.success).toBe(true);
-  expect(feedback.message).toBe("responses 协议测试完成。");
+  expect(feedback.message).toBe("Responses 协议测试完成。");
   expect(feedback.metrics).toBe("延迟 240 ms；首 Token 110 ms");
 });
 

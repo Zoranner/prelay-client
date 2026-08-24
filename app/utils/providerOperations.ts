@@ -1,3 +1,5 @@
+import { protocolLabel } from "~/utils/providerTemplates";
+
 export interface ProviderOperationResult {
   ok: boolean;
   protocol: string | null;
@@ -30,13 +32,15 @@ export function getProviderOperationFeedback(
     };
   }
 
+  const protocol = protocolLabel(result.protocol);
+
   return {
     success: true,
     message:
       models.length > 0
         ? `发现模型：${models.join("、")}`
         : result.protocol
-          ? `${result.protocol} 协议测试完成。`
+          ? `${protocol === "-" ? result.protocol : protocol} 协议测试完成。`
           : "操作完成。",
     metrics: metrics.join("；") || null,
   };
