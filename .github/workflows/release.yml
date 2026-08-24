@@ -95,13 +95,14 @@ jobs:
             artifact_path: |
               src-tauri/target/release/bundle/msi/*.msi
               src-tauri/target/release/bundle/nsis/*.exe
-          - runner: ubuntu-latest
-            platform: linux-x86_64
-            bundles: deb,appimage
-            artifact_name: prelay-client-linux-x86_64
-            artifact_path: |
-              src-tauri/target/release/bundle/deb/*.deb
-              src-tauri/target/release/bundle/appimage/*.AppImage
+          # Linux desktop support is not ready for release yet.
+          # - runner: ubuntu-latest
+          #   platform: linux-x86_64
+          #   bundles: deb,appimage
+          #   artifact_name: prelay-client-linux-x86_64
+          #   artifact_path: |
+          #     src-tauri/target/release/bundle/deb/*.deb
+          #     src-tauri/target/release/bundle/appimage/*.AppImage
     runs-on: ${{ matrix.runner }}
     steps:
       - uses: actions/checkout@v5
@@ -112,20 +113,20 @@ jobs:
 
       - uses: oven-sh/setup-bun@v2
 
-      - name: Install Linux desktop dependencies
-        if: runner.os == 'Linux'
-        shell: bash
-        run: |
-          set -euo pipefail
-          sudo apt-get update
-          sudo apt-get install -y \
-            build-essential \
-            libayatana-appindicator3-dev \
-            librsvg2-dev \
-            libssl-dev \
-            libwebkit2gtk-4.1-dev \
-            libxdo-dev \
-            patchelf
+      # - name: Install Linux desktop dependencies
+      #   if: runner.os == 'Linux'
+      #   shell: bash
+      #   run: |
+      #     set -euo pipefail
+      #     sudo apt-get update
+      #     sudo apt-get install -y \
+      #       build-essential \
+      #       libayatana-appindicator3-dev \
+      #       librsvg2-dev \
+      #       libssl-dev \
+      #       libwebkit2gtk-4.1-dev \
+      #       libxdo-dev \
+      #       patchelf
 
       - name: Build desktop client
         shell: bash
@@ -164,12 +165,10 @@ jobs:
         uses: softprops/action-gh-release@v3
         with:
           name: Prelay Client ${{ needs.prepare.outputs.version }}
-          body: Desktop packages: Windows MSI and NSIS; Linux DEB and AppImage.
+          body: Desktop packages: Windows MSI and NSIS.
           files: |
             artifacts/*.msi
             artifacts/*.exe
-            artifacts/*.deb
-            artifacts/*.AppImage
             artifacts/SHA256SUMS
           fail_on_unmatched_files: true
           overwrite_files: true
