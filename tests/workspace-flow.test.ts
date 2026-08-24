@@ -36,7 +36,7 @@ test("仪表盘按选定范围展示指标、趋势和统计列表", () => {
   expect(page).toContain("StatsRangeSelect");
   expect(page).toContain('const selectedRange = ref<StatsRange>("this_week")');
   expect(page).toContain("{ range: selectedRange.value }");
-  expect(page.indexOf('{{ pending ? "刷新中..." : "刷新" }}')).toBeLessThan(
+  expect(page.indexOf('{{ pending ? "刷新中..." : "刷新" }}')).toBeGreaterThan(
     page.indexOf('<StatsRangeSelect v-model="selectedRange" />'),
   );
   expect(page).not.toContain("查看活动");

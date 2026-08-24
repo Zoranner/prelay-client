@@ -69,10 +69,15 @@ watch(selectedRange, loadDashboard);
   <main class="page-dashboard">
     <PanelSection title="仪表盘">
       <template #header-actions>
-        <Button :disabled="pending" @click="loadDashboard">
+        <StatsRangeSelect v-model="selectedRange" />
+        <Button
+          variant="primary"
+          icon="ph:arrows-clockwise"
+          :disabled="pending"
+          @click="loadDashboard"
+        >
           {{ pending ? "刷新中..." : "刷新" }}
         </Button>
-        <StatsRangeSelect v-model="selectedRange" />
       </template>
       <div class="dashboard-content">
         <StatsOverviewPanel :overview="overview" />
