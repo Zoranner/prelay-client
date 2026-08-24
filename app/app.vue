@@ -3,6 +3,7 @@ import type { UnlistenFn } from "@tauri-apps/api/event";
 import { listen } from "@tauri-apps/api/event";
 import { Button, NotificationContainer, Result } from "stellar-ui";
 import AppTitlebar from "~/components/shell/AppTitlebar.vue";
+import ClientUpdateDialog from "~/components/settings/ClientUpdateDialog.vue";
 import DesktopPreferencesDialog from "~/components/settings/DesktopPreferencesDialog.vue";
 import DashboardShell from "~/components/dashboard/DashboardShell.vue";
 
@@ -11,6 +12,7 @@ const managementApiError = computed(() => managementApi.error.value);
 const relaySettings = useRelaySettings();
 const desktopPreferences = useDesktopPreferences();
 const desktopPreferencesDialog = useDesktopPreferencesDialog();
+const clientUpdate = useClientUpdate();
 const { visible: desktopPreferencesVisible } = desktopPreferencesDialog;
 const relayUrl = computed(() => relaySettings.relayUrl.value);
 const route = useRoute();
@@ -29,6 +31,8 @@ onMounted(async () => {
   managementApi.clear();
   await desktopPreferences.load();
   if (!isDesktopRuntime) return;
+
+  if (relayUrl.value) void clientUpdate.prepare();
 
   unlistenTraySettings = await listen("tray:open-settings", () => {
     desktopPreferencesDialog.open();
@@ -73,6 +77,10 @@ function switchRelayAddress() {
       </Result>
     </div>
     <DesktopPreferencesDialog v-model:visible="desktopPreferencesVisible" />
+    <ClientUpdateDialog
+      v-model:visible="clientUpdate.visible.value"
+      v-model:version="clientUpdate.version.value"
+    />
     <NotificationContainer position="top-right" :max="5" />
   </div>
 </template>

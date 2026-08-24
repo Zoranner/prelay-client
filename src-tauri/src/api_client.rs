@@ -161,6 +161,15 @@ impl<'a> ApiClient<'a> {
             .await
     }
 
+    pub async fn get_bytes(&self, path: &str) -> Result<Vec<u8>, ClientError> {
+        self.send_authenticated_response(Method::GET, path)
+            .await?
+            .bytes()
+            .await
+            .map(|bytes| bytes.to_vec())
+            .map_err(network_error)
+    }
+
     pub async fn post<T: DeserializeOwned, B: Serialize + ?Sized>(
         &self,
         path: &str,
@@ -286,6 +295,33 @@ impl<'a> ApiClient<'a> {
         }
     }
 
+    async fn send_authenticated_response(
+        &self,
+        method: Method,
+        path: &str,
+    ) -> Result<reqwest::Response, ClientError> {
+        let record = self.load_credential_record()?;
+        let preferred = record.preferred().to_owned();
+        match self.send_response(method.clone(), path, preferred).await {
+            Ok(response) => {
+                if record.pending.is_some() {
+                    self.credential_store
+                        .confirm_pending()
+                        .map_err(credential_store_error)?;
+                }
+                Ok(response)
+            }
+            Err(error) if record.pending.is_some() && error.code() == "invalid_credential" => {
+                let response = self.send_response(method, path, record.current).await?;
+                self.credential_store
+                    .discard_pending()
+                    .map_err(credential_store_error)?;
+                Ok(response)
+            }
+            Err(error) => Err(error),
+        }
+    }
+
     async fn send_empty(
         &self,
         method: Method,
@@ -301,6 +337,30 @@ impl<'a> ApiClient<'a> {
             .map_err(network_error)?;
         if response.status().is_success() {
             Ok(())
+        } else {
+            Err(response_error(response).await)
+        }
+    }
+
+    async fn send_response(
+        &self,
+        method: Method,
+        path: &str,
+        credential: String,
+    ) -> Result<reqwest::Response, ClientError> {
+        let mut request = self
+            .http
+            .request(method, self.url(path)?)
+            .header(AUTHORIZATION, format!("Bearer {credential}"));
+        if let Some(display_name) = &self.display_name {
+            request = request.header(
+                "x-prelay-display-name",
+                URL_SAFE_NO_PAD.encode(display_name.as_bytes()),
+            );
+        }
+        let response = request.send().await.map_err(network_error)?;
+        if response.status().is_success() {
+            Ok(response)
         } else {
             Err(response_error(response).await)
         }

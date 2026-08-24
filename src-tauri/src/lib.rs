@@ -6,6 +6,7 @@ pub mod agent_extensions;
 pub mod api_client;
 pub mod autostart;
 pub mod commands;
+pub mod client_update;
 pub mod credential_store;
 pub mod desktop_preferences;
 pub mod identity;
@@ -56,6 +57,8 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             commands::bootstrap::bootstrap,
             commands::settings::relay_settings_get,
+            client_update::client_update_prepare,
+            client_update::client_update_install,
             commands::settings::relay_settings_save,
             commands::settings::relay_settings_connect,
             commands::settings::desktop_preferences_get,
