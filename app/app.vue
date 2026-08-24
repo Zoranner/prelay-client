@@ -68,11 +68,11 @@ function switchRelayAddress() {
     >
       <Result
         status="error"
-        title="无法连接管理服务"
-        description="当前无法访问 Prelay 管理 API。"
+        title="无法连接服务地址"
+        description="当前无法访问配置的服务地址。"
       >
         <p class="app-error-detail">{{ managementApiError.message }}</p>
-        <Button @click="switchRelayAddress">切换接入点地址</Button>
+        <Button @click="switchRelayAddress">切换服务地址</Button>
         <Button variant="primary" @click="reloadApplication"> 重新加载 </Button>
       </Result>
     </div>

@@ -205,5 +205,9 @@ export function useRelayStore() {
     bootstrap.value = value;
   }
 
-  return { bootstrap, setBootstrap };
+  function clearBootstrap() {
+    bootstrap.value = null;
+  }
+
+  return { bootstrap, setBootstrap, clearBootstrap };
 }

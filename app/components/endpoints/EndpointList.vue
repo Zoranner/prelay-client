@@ -6,7 +6,6 @@ type EndpointRow = RelayEndpoint & Record<string, unknown>;
 
 const props = defineProps<{
   endpoints: RelayEndpoint[];
-  endpoint: string;
   pending?: boolean;
 }>();
 const emit = defineEmits<{

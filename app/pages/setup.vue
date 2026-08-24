@@ -1,9 +1,11 @@
 <script setup lang="ts">
 import { Button, Card, Input, useNotification } from "stellar-ui";
+import { useRelayStore } from "~/stores/relay";
 
 const settings = useRelaySettings();
 const { pending } = useRelayCommand();
 const notifications = useNotification();
+const { clearBootstrap } = useRelayStore();
 const route = useRoute();
 const isChangingAddress = computed(() => route.query.change === "1");
 const relayUrl = ref(
@@ -17,7 +19,8 @@ function returnToWorkspace() {
 async function save() {
   try {
     await settings.connect(relayUrl.value);
-    notifications.success("管理服务已连接");
+    clearBootstrap();
+    notifications.success("服务地址已连接");
     await navigateTo("/");
   } catch {
     // The command composable exposes the stable error to this view.
@@ -40,7 +43,7 @@ async function save() {
     />
     <Card class="setup-card" :hoverable="false">
       <form class="setup-form" @submit.prevent="save">
-        <p class="setup-form__eyebrow">连接管理服务</p>
+        <p class="setup-form__eyebrow">连接服务地址</p>
         <p>
           输入部署的服务地址。供应商配置、接入点与请求记录将按当前 Windows
           身份保存在该服务中。
