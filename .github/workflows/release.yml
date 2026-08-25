@@ -162,21 +162,25 @@ jobs:
           path: artifacts
           merge-multiple: true
 
-      - name: Generate checksums
+      - name: Generate package checksums
         working-directory: artifacts
         shell: bash
         run: |
           set -euo pipefail
-          find . -type f -print0 | sort -z | xargs -0 sha256sum > SHA256SUMS
+          find . -type f \( -name '*.msi' -o -name '*.exe' \) -print0 |
+            while IFS= read -r -d '' package; do
+              sha256sum "$package" > "$package.sha256"
+            done
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v3
         with:
           name: Prelay Client ${{ needs.prepare.outputs.version }}
-          body: "Desktop packages: Windows MSI and NSIS."
+          body: "Desktop packages: Windows MSI and NSIS, each with a matching .sha256 file."
           files: |
             artifacts/**/*.msi
             artifacts/**/*.exe
-            artifacts/SHA256SUMS
+            artifacts/**/*.msi.sha256
+            artifacts/**/*.exe.sha256
           fail_on_unmatched_files: true
           overwrite_files: true
