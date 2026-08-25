@@ -1,5 +1,5 @@
 import { ref } from "vue";
-import { useConfirm, useOverlayManager } from "stellar-ui";
+import { useConfirm, useOverlayManager } from "@stellar/ui";
 
 export type WorkspaceExitState = "allow" | "discard" | "blocked";
 

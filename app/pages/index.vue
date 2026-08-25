@@ -6,7 +6,7 @@ import type {
   StatsRange,
   TokenUsageTimelinePoint,
 } from "~/stores/relay";
-import { Button } from "stellar-ui";
+import { Button } from "@stellar/ui";
 import StatsRangeSelect from "~/components/dashboard/StatsRangeSelect.vue";
 import StatsBreakdownTable from "~/components/dashboard/StatsBreakdownTable.vue";
 import StatsOverviewPanel from "~/components/dashboard/StatsOverview.vue";

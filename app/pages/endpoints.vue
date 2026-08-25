@@ -6,7 +6,7 @@ import {
   type Provider,
   type RelayEndpoint,
 } from "~/stores/relay";
-import { Button, Drawer, useConfirm, useNotification } from "stellar-ui";
+import { Button, Drawer, useConfirm, useNotification } from "@stellar/ui";
 import EndpointForm from "~/components/endpoints/EndpointForm.vue";
 import EndpointList from "~/components/endpoints/EndpointList.vue";
 import PanelSection from "~/components/shell/PanelSection.vue";

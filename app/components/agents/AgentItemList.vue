@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Badge, Button, Table, useNotification } from "stellar-ui";
+import { Badge, Button, Table, useNotification } from "@stellar/ui";
 import type { AgentItem } from "~/stores/relay";
 
 type AgentItemRow = AgentItem & { id: string } & Record<string, unknown>;

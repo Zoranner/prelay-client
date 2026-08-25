@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { UnlistenFn } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
-import { Button } from "stellar-ui";
+import { Button } from "@stellar/ui";
 import prelayIcon from "~/assets/images/prelay-icon.png";
 
 const isMaximized = ref(false);

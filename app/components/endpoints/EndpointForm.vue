@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Button, Input, Popover, Select, useNotification } from "stellar-ui";
+import { Button, Input, Popover, Select, useNotification } from "@stellar/ui";
 import type { EndpointModel, Provider, RelayEndpoint } from "~/stores/relay";
 
 const props = defineProps<{

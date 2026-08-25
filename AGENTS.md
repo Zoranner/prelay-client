@@ -1,6 +1,6 @@
 # prelay-client
 
-`prelay-client` 是 Windows 桌面管理台，采用 Tauri 2、Nuxt 4、Tailwind 4 和 `stellar-ui`。它只管理用户选定服务上的当前设备身份配置，不直接转发 AI 请求或保存 Provider API Key。
+`prelay-client` 是 Windows 桌面管理台，采用 Tauri 2、Nuxt 4、Tailwind 4 和 `@stellar/ui`。它只管理用户选定服务上的当前设备身份配置，不直接转发 AI 请求或保存 Provider API Key。
 
 ## 前后端边界
 
@@ -12,7 +12,7 @@
 ## UI 约定
 
 - `app/` 是 Nuxt 源目录。页面保留工作台、活动、供应商、接入、设置和首次连接的既有职责，不新增平行页面或状态源。
-- 复用 `stellar-ui` 组件、现有 CSS token 和 `@iconify-json/ph` 图标。不要手绘 SVG、把 API 错误吞掉，或为局部页面重建独立样式体系。
+- 复用 `@stellar/ui` 组件、现有 CSS token 和 `@iconify-json/ph` 图标。不要手绘 SVG、把 API 错误吞掉，或为局部页面重建独立样式体系。
 - 工作台是桌面软件而不是营销页面：保持紧凑表格、明确操作状态和固定的一屏工作区边界。涉及视觉改动时，以实际渲染验收，不以 typecheck 或结构测试替代。
 
 ## 开发与验证

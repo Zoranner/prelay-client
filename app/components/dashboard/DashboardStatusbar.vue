@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { getVersion } from "@tauri-apps/api/app";
-import { Button, useConfirm } from "stellar-ui";
+import { Button, useConfirm } from "@stellar/ui";
 
 const props = defineProps<{
   relayUrl: string | null;

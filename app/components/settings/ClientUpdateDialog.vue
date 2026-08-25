@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Button, Modal } from "stellar-ui";
+import { Button, Modal } from "@stellar/ui";
 
 const visible = defineModel<boolean>("visible", { default: false });
 const version = defineModel<string | null>("version", { default: null });

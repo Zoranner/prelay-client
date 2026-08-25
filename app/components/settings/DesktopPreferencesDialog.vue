@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Button, Modal, RadioGroup, Toggle } from "stellar-ui";
+import { Button, Modal, RadioGroup, Toggle } from "@stellar/ui";
 import type { DesktopPreferences } from "~/composables/useDesktopPreferences";
 
 const visible = defineModel<boolean>("visible", { default: false });

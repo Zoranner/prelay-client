@@ -10,9 +10,9 @@ test("桌面客户端按参考工程采用 shell、dashboard 和业务域目录"
   const styles = source("assets/css/main.css");
 
   expect(app).toContain("DashboardShell");
-  expect(shell).toContain('from "stellar-ui"');
+  expect(shell).toContain('from "@stellar/ui"');
   expect(shell).toContain("Sidebar");
-  expect(styles).toContain('@import "stellar-ui/styles"');
+  expect(styles).toContain('@import "@stellar/ui/styles"');
   expect(styles).not.toContain("tokens.css");
   expect(styles).not.toContain("business.css");
 });
@@ -20,7 +20,7 @@ test("桌面客户端按参考工程采用 shell、dashboard 和业务域目录"
 test("供应商和接入点页面通过 Stellar UI 的 PanelSection、Table 和 Drawer 组合", () => {
   for (const page of ["pages/providers.vue", "pages/endpoints.vue"]) {
     const content = source(page);
-    expect(content).toContain('from "stellar-ui"');
+    expect(content).toContain('from "@stellar/ui"');
     expect(content).toContain("PanelSection");
     expect(content).toContain(":visible=");
     expect(content).toContain("@update:visible");
@@ -31,7 +31,7 @@ test("供应商和接入点页面通过 Stellar UI 的 PanelSection、Table 和 
     "components/endpoints/EndpointList.vue",
   ]) {
     const content = source(component);
-    expect(content).toContain('from "stellar-ui"');
+    expect(content).toContain('from "@stellar/ui"');
     expect(content).toContain("<Table");
     expect(content).not.toContain("~/components/display/Table.vue");
   }

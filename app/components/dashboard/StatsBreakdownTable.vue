@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Table } from "stellar-ui";
+import { Table } from "@stellar/ui";
 
 type StatsBreakdownRow = Record<string, unknown> & {
   id: string;

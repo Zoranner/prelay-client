@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { StatsOverview } from "~/stores/relay";
 
-import { Card } from "stellar-ui";
+import { Card } from "@stellar/ui";
 
 const props = defineProps<{ overview: StatsOverview | null }>();
 

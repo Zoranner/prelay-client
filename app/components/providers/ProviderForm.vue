@@ -6,7 +6,7 @@ import {
   Popover,
   Select,
   useNotification,
-} from "stellar-ui";
+} from "@stellar/ui";
 import type {
   Provider,
   ProviderCapabilities,

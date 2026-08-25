@@ -1,5 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
-import { useNotification } from "stellar-ui";
+import { useNotification } from "@stellar/ui";
 
 import { toRelayError } from "~/utils/errors";
 

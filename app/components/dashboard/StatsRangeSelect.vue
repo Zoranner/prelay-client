@@ -5,7 +5,7 @@ import {
   Icon,
   MenuDivider,
   MenuItem,
-} from "stellar-ui";
+} from "@stellar/ui";
 
 import type { StatsRange } from "~/stores/relay";
 

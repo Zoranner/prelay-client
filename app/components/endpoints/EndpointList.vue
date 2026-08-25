@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Button, Table, Tag } from "stellar-ui";
+import { Button, Table, Tag } from "@stellar/ui";
 import type { RelayEndpoint } from "~/stores/relay";
 
 type EndpointRow = RelayEndpoint & Record<string, unknown>;

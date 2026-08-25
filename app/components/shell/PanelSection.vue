@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Card } from "stellar-ui";
+import { Card } from "@stellar/ui";
 
 defineProps<{
   title: string;

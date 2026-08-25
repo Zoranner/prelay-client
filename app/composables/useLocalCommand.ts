@@ -1,6 +1,6 @@
 import { invoke } from "@tauri-apps/api/core";
 import { computed, ref } from "vue";
-import { useNotification } from "stellar-ui";
+import { useNotification } from "@stellar/ui";
 
 import { toRelayError, type RelayError } from "~/utils/errors";
 

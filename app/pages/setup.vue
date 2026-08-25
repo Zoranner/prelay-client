@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Button, Card, Input, useNotification } from "stellar-ui";
+import { Button, Card, Input, useNotification } from "@stellar/ui";
 import { useRelayStore } from "~/stores/relay";
 
 const settings = useRelaySettings();

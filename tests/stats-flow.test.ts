@@ -16,7 +16,7 @@ test("活动页只读取和展示请求明细", () => {
   );
   const stellarTable = readFileSync(
     new URL(
-      "../node_modules/stellar-ui/src/runtime/components/display/Table.vue",
+      "../node_modules/@stellar/ui/src/runtime/components/display/Table.vue",
       import.meta.url,
     ),
     "utf8",

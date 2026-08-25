@@ -11,7 +11,7 @@ import {
   Textarea,
   Toggle,
   useNotification,
-} from "stellar-ui";
+} from "@stellar/ui";
 import type {
   AgentClient,
   AgentItemKind,

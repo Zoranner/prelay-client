@@ -5,7 +5,7 @@ import type {
   UpstreamProtocol,
 } from "~/stores/relay";
 import { type ProviderOperationResult } from "~/utils/providerOperations";
-import { Button, Drawer, useConfirm, useNotification } from "stellar-ui";
+import { Button, Drawer, useConfirm, useNotification } from "@stellar/ui";
 import ProviderForm from "~/components/providers/ProviderForm.vue";
 import ProviderList from "~/components/providers/ProviderList.vue";
 import PanelSection from "~/components/shell/PanelSection.vue";

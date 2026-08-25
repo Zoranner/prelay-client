@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import * as echarts from "echarts";
-import { Card } from "stellar-ui";
+import { Card } from "@stellar/ui";
 
 import type { StatsRange, TokenUsageTimelinePoint } from "~/stores/relay";
 import { parseTimelineBucket } from "~/utils/stats";

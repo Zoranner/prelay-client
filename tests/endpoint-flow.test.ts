@@ -95,7 +95,7 @@ test("接入点页面的页面级命令使用简短文案", () => {
 });
 
 test("接入点表格收缩长名称和 Token 列而保持操作列可用", () => {
-  expect(endpointList).toContain('from "stellar-ui"');
+  expect(endpointList).toContain('from "@stellar/ui"');
   expect(endpointList).toContain("<Table");
   expect(endpointList).toContain("endpoint-name");
   expect(endpointList).toContain('fixed: "right"');

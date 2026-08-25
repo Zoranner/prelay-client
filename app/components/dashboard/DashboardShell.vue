@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { Avatar as DiceBearAvatar, Style } from "@dicebear/core";
 import cutouts from "@dicebear/styles/cutouts.json";
-import { Avatar, Sidebar, SidebarItem } from "stellar-ui";
+import { Avatar, Sidebar, SidebarItem } from "@stellar/ui";
 import DashboardStatusbar from "~/components/dashboard/DashboardStatusbar.vue";
 import { type BootstrapState, useRelayStore } from "~/stores/relay";
 

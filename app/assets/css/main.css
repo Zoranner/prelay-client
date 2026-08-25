@@ -1,5 +1,5 @@
 @import "tailwindcss";
-@import "stellar-ui/styles";
+@import "@stellar/ui/styles";
 
 :root {
   --pr-titlebar-height: 44px;

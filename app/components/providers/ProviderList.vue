@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Badge, Button, Table, Tag } from "stellar-ui";
+import { Badge, Button, Table, Tag } from "@stellar/ui";
 import type { Provider } from "~/stores/relay";
 import { providerProtocolOptions } from "~/utils/providerCapabilities";
 import {

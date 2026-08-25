@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { RequestLog } from "~/stores/relay";
-import { Button } from "stellar-ui";
+import { Button } from "@stellar/ui";
 import RequestTable from "~/components/activity/RequestTable.vue";
 import PanelSection from "~/components/shell/PanelSection.vue";
 

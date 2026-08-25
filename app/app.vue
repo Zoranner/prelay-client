@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { UnlistenFn } from "@tauri-apps/api/event";
 import { listen } from "@tauri-apps/api/event";
-import { Button, NotificationContainer, Result } from "stellar-ui";
+import { Button, NotificationContainer, Result } from "@stellar/ui";
 import AppTitlebar from "~/components/shell/AppTitlebar.vue";
 import ClientUpdateDialog from "~/components/settings/ClientUpdateDialog.vue";
 import DesktopPreferencesDialog from "~/components/settings/DesktopPreferencesDialog.vue";

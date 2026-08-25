@@ -9,7 +9,7 @@ import {
   Select,
   Table,
   Tag,
-} from "stellar-ui";
+} from "@stellar/ui";
 import {
   requestDiagnostics,
   type RequestDiagnostics,
