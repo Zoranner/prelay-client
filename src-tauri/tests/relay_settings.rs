@@ -1,13 +1,12 @@
+#[cfg(windows)]
 use std::{
     io::{Read, Write},
     net::TcpListener,
 };
 
-use prelay_client::{
-    commands::settings::connect_and_save_relay_settings,
-    relay_settings::{FileRelaySettingsStore, RelaySettingsStore},
-    NativeState,
-};
+use prelay_client::relay_settings::{FileRelaySettingsStore, RelaySettingsStore};
+#[cfg(windows)]
+use prelay_client::{commands::settings::connect_and_save_relay_settings, NativeState};
 use tempfile::tempdir;
 
 #[test]
@@ -181,6 +180,7 @@ fn management_connection_failure_does_not_persist_the_relay_url() {
     });
 }
 
+#[cfg(windows)]
 fn read_http_request(stream: &mut std::net::TcpStream) -> String {
     let mut request = Vec::new();
     let mut chunk = [0_u8; 1024];
