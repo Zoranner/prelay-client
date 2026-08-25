@@ -99,7 +99,7 @@ fn first_registration_persists_and_sends_a_client_generated_credential() {
 #[test]
 fn authenticated_management_request_sends_the_display_name() {
     let (base_url, server) = one_response_server("200 OK", r#"{}"#, |request| {
-        assert!(request.contains("Authorization: Bearer device-secret"));
+        assert_header_value(request, "authorization", "Bearer device-secret");
         assert!(request
             .to_ascii_lowercase()
             .contains("x-prelay-display-name: 5l2g5aw9"));
@@ -218,7 +218,7 @@ fn pending_credential_registration_confirms_a_rotation_whose_response_was_lost()
         |requests| {
             assert!(requests[0].starts_with("POST /api/identities HTTP/1.1"));
             assert!(requests[0].contains("\"credential\":\"credential-new\""));
-            assert!(requests[1].contains("Authorization: Bearer credential-new"));
+            assert_header_value(&requests[1], "authorization", "Bearer credential-new");
         },
     );
     let store = MemoryCredentialStore::with_record("credential-old", Some("credential-new"));
@@ -273,7 +273,7 @@ fn rejected_pending_registration_falls_back_to_current_credential() {
 #[test]
 fn accepted_pending_credential_becomes_current_after_an_authenticated_request() {
     let (base_url, server) = one_response_server("200 OK", r#"{}"#, |request| {
-        assert!(request.contains("Authorization: Bearer credential-new"));
+        assert_header_value(request, "authorization", "Bearer credential-new");
     });
     let store = MemoryCredentialStore::with_record("credential-old", Some("credential-new"));
     let client = ApiClient::new(base_url, &store).expect("create client");
@@ -299,8 +299,8 @@ fn rejected_pending_credential_falls_back_to_current_and_is_discarded() {
             ("200 OK", r#"{}"#),
         ],
         |requests| {
-            assert!(requests[0].contains("Authorization: Bearer credential-new"));
-            assert!(requests[1].contains("Authorization: Bearer credential-old"));
+            assert_header_value(&requests[0], "authorization", "Bearer credential-new");
+            assert_header_value(&requests[1], "authorization", "Bearer credential-old");
         },
     );
     let store = MemoryCredentialStore::with_record("credential-old", Some("credential-new"));
@@ -324,7 +324,7 @@ fn server_failure_preserves_pending_credential_for_later_recovery() {
     let (base_url, server) = one_response_server(
         "500 Internal Server Error",
         r#"{"error":{"code":"internal","message":"ignored"}}"#,
-        |request| assert!(request.contains("Authorization: Bearer credential-new")),
+        |request| assert_header_value(request, "authorization", "Bearer credential-new"),
     );
     let store = MemoryCredentialStore::with_record("credential-old", Some("credential-new"));
     let client = ApiClient::new(base_url, &store).expect("create client");
@@ -497,6 +497,28 @@ fn identity() -> WindowsIdentity {
         account_sid: "S-1-5-21-100".into(),
         display_name: "Ada".into(),
     }
+}
+
+#[test]
+fn request_header_matching_is_case_insensitive() {
+    let request = "GET /api/providers HTTP/1.1\r\nauthorization: Bearer device-secret\r\n\r\n";
+
+    assert_header_value(request, "Authorization", "Bearer device-secret");
+}
+
+fn assert_header_value(request: &str, name: &str, expected_value: &str) {
+    let value = request
+        .split("\r\n")
+        .skip(1)
+        .take_while(|line| !line.is_empty())
+        .find_map(|line| {
+            let (header_name, value) = line.split_once(':')?;
+            header_name
+                .eq_ignore_ascii_case(name)
+                .then_some(value.trim())
+        });
+
+    assert_eq!(value, Some(expected_value), "expected {name} header");
 }
 
 fn one_response_server(
