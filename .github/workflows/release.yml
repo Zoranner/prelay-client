@@ -175,8 +175,8 @@ jobs:
           name: Prelay Client ${{ needs.prepare.outputs.version }}
           body: "Desktop packages: Windows MSI and NSIS."
           files: |
-            artifacts/*.msi
-            artifacts/*.exe
+            artifacts/**/*.msi
+            artifacts/**/*.exe
             artifacts/SHA256SUMS
           fail_on_unmatched_files: true
           overwrite_files: true
