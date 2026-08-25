@@ -9,7 +9,7 @@
         "@dicebear/styles": "10.5.0",
         "@iconify-json/ph": "^1.2.2",
         "@lobehub/icons-static-svg": "^1.94.0",
-        "@stellar/ui": "0.1.1",
+        "@stellar/ui": "0.1.2",
         "@tauri-apps/api": "^2.0.0",
         "echarts": "^6.1.0",
       },
@@ -351,7 +351,7 @@
 
     "@speed-highlight/core": ["@speed-highlight/core@1.2.24", "http://pkg.rd.kim/repository/npm-group/@speed-highlight/core/-/core-1.2.24.tgz", {}, "sha512-qeW2e1l78afw8VhRPfPQ1Gjj+KU5XFQ/OFV5ti6eTa9bruO7mJyZtA4vw0ofqmA3tKCkROE9xLk3VZoeRc98nw=="],
 
-    "@stellar/ui": ["@stellar/ui@0.1.1", "https://git.kimo.ink/api/packages/npm-hosted/npm/%40stellar%2Fui/-/0.1.1/ui-0.1.1.tgz", { "dependencies": { "@iconify-json/ph": "^1.2.2", "@types/markdown-it": "^14.1.2", "markdown-it": "^14.1.0", "shiki": "^3.21.0", "tailwind-merge": "^3.0.0", "tailwind-variants": "^3.2.2" }, "peerDependencies": { "@iconify/vue": "^4.3.0", "@nuxt/kit": "^3.0.0", "tailwindcss": "^4.0.0", "vue": "^3.4.0" }, "optionalPeers": ["@nuxt/kit"] }, "sha512-ImOMcmj/gxVp6WhplxLGQxygL9F8kcSSruVHzyU+74p5n0YbXSETiMNZuzYS4H5xnT4nO+iO7w7uXIVC4sA/ug=="],
+    "@stellar/ui": ["@stellar/ui@0.1.2", "https://git.kimo.ink/api/packages/npm-hosted/npm/%40stellar%2Fui/-/0.1.2/ui-0.1.2.tgz", { "dependencies": { "@iconify-json/ph": "^1.2.2", "@types/markdown-it": "^14.1.2", "markdown-it": "^14.1.0", "shiki": "^3.21.0", "tailwind-merge": "^3.0.0", "tailwind-variants": "^3.2.2" }, "peerDependencies": { "@iconify/vue": "^4.3.0", "@nuxt/kit": "^3.0.0", "tailwindcss": "^4.0.0", "vue": "^3.4.0" }, "optionalPeers": ["@nuxt/kit"] }, "sha512-bm3Tq25yARBeAcLgJITALis6CuAJTmMQt2Om+s1ivqomskkfwTRuOhm1JJy6AKqyXFa1yrp9RfXUjxhxM7yYAw=="],
 
     "@tailwindcss/node": ["@tailwindcss/node@4.3.3", "http://pkg.rd.kim/repository/npm-group/@tailwindcss/node/-/node-4.3.3.tgz", { "dependencies": { "@jridgewell/remapping": "^2.3.5", "enhanced-resolve": "^5.24.1", "jiti": "^2.7.0", "lightningcss": "1.32.0", "magic-string": "^0.30.21", "source-map-js": "^1.2.1", "tailwindcss": "4.3.3" } }, "sha512-/T8IKEsf9VTU6tLjgC7+sv2mOPtQxzE2jMw7u4Tt40Tx+QSZxpzh95/H6cMKoja9XuW7iMdLJYBB0o9G1CaAgg=="],
 
