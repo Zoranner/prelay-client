@@ -38,13 +38,20 @@ jobs:
             libwebkit2gtk-4.1-dev \
             libxdo-dev
 
-      - name: Verify frontend
+      - name: Install frontend dependencies
         shell: bash
         run: |
           set -euo pipefail
-          bun install --frozen-lockfile
-          bun run typecheck
-          bun test
+          rm bun.lock
+          bun install
+
+      - name: Typecheck frontend
+        shell: bash
+        run: bun run typecheck
+
+      - name: Run frontend tests
+        shell: bash
+        run: bun test
 
       - name: Verify Rust
         working-directory: src-tauri
@@ -132,7 +139,8 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          bun install --frozen-lockfile
+          rm bun.lock
+          bun install
           bun run tauri build --bundles "${{ matrix.bundles }}"
 
       - name: Upload desktop client artifacts
