@@ -1,8 +1,5 @@
 import { expect, test } from "bun:test";
 import { existsSync, readFileSync } from "node:fs";
-import { renderToString } from "@vue/server-renderer";
-import { createSSRApp, h } from "vue";
-import { Icon } from "@stellar/ui";
 
 const iconPlugin = new URL(
   "../app/plugins/stellar-icons.client.ts",
@@ -14,16 +11,30 @@ test("客户端依赖默认离线可用的组件库图标", () => {
     readFileSync(new URL("../package.json", import.meta.url), "utf8"),
   );
 
-  expect(packageJson.dependencies["@stellar/ui"]).toBe("0.1.2");
+  expect(packageJson.dependencies["@stellar/ui"]).toBe("0.1.3");
   expect(existsSync(iconPlugin)).toBe(false);
 });
 
-test("客户端安装的组件库可离线渲染图标", async () => {
-  const html = await renderToString(
-    createSSRApp({
-      render: () => h(Icon, { icon: "ph:gear-six" }),
-    }),
+test("Nuxt 将应用图标打包到客户端且不使用远程图标服务", () => {
+  const nuxtConfig = readFileSync(
+    new URL("../nuxt.config.ts", import.meta.url),
+    "utf8",
   );
 
-  expect(html).toContain("<svg");
+  expect(nuxtConfig).toContain('modules: ["@nuxt/icon", "@stellar/ui/nuxt"]');
+  expect(nuxtConfig).toContain('provider: "none"');
+  expect(nuxtConfig).toContain("clientBundle:");
+  expect(nuxtConfig).toContain("scan: true");
+  expect(nuxtConfig).toContain('"ph:arrows-in"');
+  expect(nuxtConfig).toContain('"ph:arrows-out"');
+  expect(nuxtConfig).toContain('"ph:spinner-gap"');
+});
+
+test("客户端将图标渲染责任交给 Nuxt 图标模块", () => {
+  const packageJson = JSON.parse(
+    readFileSync(new URL("../package.json", import.meta.url), "utf8"),
+  );
+
+  expect(packageJson.dependencies["@iconify-json/ph"]).toBeDefined();
+  expect(packageJson.dependencies["@stellar/ui"]).toBe("0.1.3");
 });
