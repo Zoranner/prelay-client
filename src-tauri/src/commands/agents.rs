@@ -74,7 +74,12 @@ mod tests {
     fn scans_agents_without_relay_state_or_credentials() {
         let directory = tempdir().unwrap();
 
-        assert!(agents_from_home(directory.path()).clients.is_empty());
+        let snapshot = agents_from_home(directory.path());
+
+        assert!(snapshot
+            .clients
+            .iter()
+            .all(|client| client.items.is_empty()));
     }
 
     #[test]

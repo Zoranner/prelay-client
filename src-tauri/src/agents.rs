@@ -1,5 +1,5 @@
 use std::{
-    fs,
+    env, fs,
     io::Write,
     path::{Path, PathBuf},
 };
@@ -56,19 +56,23 @@ pub struct AgentItemsSnapshot {
 }
 
 pub fn scan_user_items(home: &Path) -> AgentItemsSnapshot {
+    scan_user_items_with_installation(home, agent_command_is_available)
+}
+
+fn scan_user_items_with_installation(
+    home: &Path,
+    is_installed: impl Fn(AgentClient) -> bool,
+) -> AgentItemsSnapshot {
     let mut snapshot = AgentItemsSnapshot::default();
-    add_client_items(
-        &mut snapshot,
-        AgentClient::Codex,
-        home.join(".codex").is_dir(),
-        scan_codex(home),
-    );
-    add_client_items(
-        &mut snapshot,
-        AgentClient::ClaudeCode,
-        home.join(".claude").is_dir() || home.join(".claude.json").is_file(),
-        scan_claude_code(home),
-    );
+    for client in [AgentClient::Codex, AgentClient::ClaudeCode] {
+        if is_installed(client) {
+            let items = match client {
+                AgentClient::Codex => scan_codex(home),
+                AgentClient::ClaudeCode => scan_claude_code(home),
+            };
+            snapshot.clients.push(AgentClientItems { client, items });
+        }
+    }
     snapshot
 }
 
@@ -79,7 +83,25 @@ pub fn uninstall_user_item(
     name: &str,
     source_path: &str,
 ) -> Result<(), String> {
-    let item = scan_user_items(home)
+    uninstall_user_item_with_installation(
+        home,
+        client,
+        kind,
+        name,
+        source_path,
+        agent_command_is_available,
+    )
+}
+
+fn uninstall_user_item_with_installation(
+    home: &Path,
+    client: AgentClient,
+    kind: AgentItemKind,
+    name: &str,
+    source_path: &str,
+    is_installed: impl Fn(AgentClient) -> bool,
+) -> Result<(), String> {
+    let item = scan_user_items_with_installation(home, is_installed)
         .clients
         .into_iter()
         .find(|items| items.client == client)
@@ -105,15 +127,56 @@ pub fn uninstall_user_item(
     }
 }
 
-fn add_client_items(
-    snapshot: &mut AgentItemsSnapshot,
-    client: AgentClient,
-    installed: bool,
-    items: Vec<AgentItem>,
-) {
-    if installed {
-        snapshot.clients.push(AgentClientItems { client, items });
+fn agent_command_is_available(client: AgentClient) -> bool {
+    let command = match client {
+        AgentClient::Codex => "codex",
+        AgentClient::ClaudeCode => "claude",
+    };
+    let paths = env::var_os("PATH")
+        .map(|value| env::split_paths(&value).collect::<Vec<_>>())
+        .unwrap_or_default();
+    let extensions = command_extensions();
+    command_is_available_in(command, &paths, &extensions)
+}
+
+#[cfg(windows)]
+fn command_extensions() -> Vec<String> {
+    let extensions = env::var("PATHEXT")
+        .unwrap_or_else(|_| ".COM;.EXE;.BAT;.CMD".to_string())
+        .split(';')
+        .map(str::trim)
+        .filter(|extension| !extension.is_empty())
+        .map(|extension| {
+            if extension.starts_with('.') {
+                extension.to_string()
+            } else {
+                format!(".{extension}")
+            }
+        })
+        .collect::<Vec<_>>();
+    if extensions.is_empty() {
+        vec![
+            ".COM".to_string(),
+            ".EXE".to_string(),
+            ".BAT".to_string(),
+            ".CMD".to_string(),
+        ]
+    } else {
+        extensions
     }
+}
+
+#[cfg(not(windows))]
+fn command_extensions() -> Vec<String> {
+    vec![String::new()]
+}
+
+fn command_is_available_in(command: &str, paths: &[PathBuf], extensions: &[String]) -> bool {
+    paths.iter().any(|path| {
+        extensions
+            .iter()
+            .any(|extension| path.join(format!("{command}{extension}")).is_file())
+    })
 }
 
 fn scan_codex(home: &Path) -> Vec<AgentItem> {
@@ -501,7 +564,8 @@ mod tests {
     use tempfile::tempdir;
 
     use super::{
-        scan_user_items, uninstall_user_item, AgentClient, AgentItemKind, AgentItemStatus,
+        command_is_available_in, scan_user_items_with_installation,
+        uninstall_user_item_with_installation, AgentClient, AgentItemKind, AgentItemStatus,
     };
 
     #[test]
@@ -544,7 +608,9 @@ enabled = true
             "---\nname: web-research\n---\n",
         );
 
-        let snapshot = scan_user_items(directory.path());
+        let snapshot = scan_user_items_with_installation(directory.path(), |client| {
+            client == AgentClient::Codex
+        });
         assert_eq!(snapshot.clients.len(), 1);
         let codex = snapshot
             .clients
@@ -593,7 +659,9 @@ enabled = true
             "[mcp_servers.invalid",
         );
 
-        let snapshot = scan_user_items(directory.path());
+        let snapshot = scan_user_items_with_installation(directory.path(), |client| {
+            client == AgentClient::Codex
+        });
         let codex = snapshot
             .clients
             .iter()
@@ -612,7 +680,9 @@ enabled = true
             "[plugins.\"search@prelay\"]\nenabled = true\n",
         );
 
-        let snapshot = scan_user_items(directory.path());
+        let snapshot = scan_user_items_with_installation(directory.path(), |client| {
+            client == AgentClient::Codex
+        });
         let plugin = snapshot
             .clients
             .iter()
@@ -654,7 +724,9 @@ enabled = true
             "---\nname: cavecrew\n---\n",
         );
 
-        let snapshot = scan_user_items(directory.path());
+        let snapshot = scan_user_items_with_installation(directory.path(), |client| {
+            client == AgentClient::ClaudeCode
+        });
         let claude_code = snapshot
             .clients
             .iter()
@@ -684,7 +756,9 @@ enabled = true
             "---\nname: cavecrew\n---\n",
         );
 
-        let snapshot = scan_user_items(directory.path());
+        let snapshot = scan_user_items_with_installation(directory.path(), |client| {
+            client == AgentClient::Codex
+        });
         let skill = snapshot
             .clients
             .iter()
@@ -749,7 +823,9 @@ enabled = true
             "---\nname: remove\n---\n",
         );
 
-        let snapshot = scan_user_items(directory.path());
+        let snapshot = scan_user_items_with_installation(directory.path(), |client| {
+            client == AgentClient::Codex
+        });
         let codex = snapshot
             .clients
             .iter()
@@ -770,27 +846,37 @@ enabled = true
                     })
                 })
                 .unwrap();
-            uninstall_user_item(
+            uninstall_user_item_with_installation(
                 directory.path(),
                 AgentClient::Codex,
                 item.kind,
                 &item.name,
                 &item.source_path,
+                |client| client == AgentClient::Codex,
             )
             .unwrap();
         }
 
-        let items = scan_user_items(directory.path()).clients.remove(0).items;
+        let items = scan_user_items_with_installation(directory.path(), |client| {
+            client == AgentClient::Codex
+        })
+        .clients
+        .remove(0)
+        .items;
         assert!(items.iter().any(|item| item.name == "keep"));
         assert!(items.iter().all(|item| item.name != "remove"));
         assert!(items.iter().all(|item| item.name != "remove@prelay"));
     }
 
     #[test]
-    fn omits_clients_without_user_level_artifacts() {
+    fn omits_clients_when_their_commands_are_unavailable() {
         let directory = tempdir().unwrap();
 
-        assert!(scan_user_items(directory.path()).clients.is_empty());
+        assert!(
+            scan_user_items_with_installation(directory.path(), |_| false)
+                .clients
+                .is_empty()
+        );
     }
 
     #[test]
@@ -798,10 +884,41 @@ enabled = true
         let directory = tempdir().unwrap();
         fs::create_dir_all(directory.path().join(".codex")).unwrap();
 
-        let snapshot = scan_user_items(directory.path());
+        let snapshot = scan_user_items_with_installation(directory.path(), |client| {
+            client == AgentClient::Codex
+        });
         assert_eq!(snapshot.clients.len(), 1);
         assert_eq!(snapshot.clients[0].client, AgentClient::Codex);
         assert!(snapshot.clients[0].items.is_empty());
+    }
+
+    #[test]
+    fn omits_configuration_when_the_agent_command_is_unavailable() {
+        let directory = tempdir().unwrap();
+        write(directory.path().join(".claude.json"), "{}");
+
+        let snapshot = scan_user_items_with_installation(directory.path(), |_| false);
+
+        assert!(snapshot.clients.is_empty());
+    }
+
+    #[test]
+    fn finds_windows_command_shims_on_path() {
+        let directory = tempdir().unwrap();
+        let bin = directory.path().join("bin");
+        fs::create_dir_all(&bin).unwrap();
+        fs::write(bin.join("claude.cmd"), "").unwrap();
+
+        assert!(command_is_available_in(
+            "claude",
+            &[bin],
+            &[".exe".to_string(), ".cmd".to_string()]
+        ));
+        assert!(!command_is_available_in(
+            "codex",
+            &[],
+            &[".exe".to_string(), ".cmd".to_string()]
+        ));
     }
 
     fn write(path: impl AsRef<Path>, contents: &str) {
