@@ -204,7 +204,7 @@ onMounted(async () => {
 }
 
 .dashboard-statusbar__version:focus-visible {
-  outline: 1px solid var(--st-border-focus);
+  outline: 1px solid var(--st-border-active);
   outline-offset: 2px;
 }
 

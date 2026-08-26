@@ -73,6 +73,14 @@ test("桌面窗口只保留自绘标题栏和内容工作区", () => {
     ),
     "utf8",
   );
+  const capability = readFileSync(
+    new URL("../src-tauri/capabilities/default.json", import.meta.url),
+    "utf8",
+  );
+  const styles = readFileSync(
+    new URL("../app/assets/css/main.css", import.meta.url),
+    "utf8",
+  );
 
   expect(tauriConfig).toContain('"decorations": false');
   expect(appSource()).toContain("AppTitlebar");
@@ -82,6 +90,10 @@ test("桌面窗口只保留自绘标题栏和内容工作区", () => {
   expect(shell).not.toContain("<AppTitlebar");
   expect(shell).toContain("DashboardStatusbar");
   expect(shell).toContain("--pr-statusbar-height");
+  expect(styles).toContain(
+    "--pr-statusbar-height: var(--height-status);",
+  );
+  expect(capability).toContain('"core:window:allow-start-dragging"');
   expect(shell).toContain('<Sidebar variant="rail" :show-header="false">');
   expect(statusbar).toContain("dashboard-statusbar");
   expect(statusbar).toContain("getVersion");
@@ -182,6 +194,33 @@ test("仅桌面宿主为全屏遮罩保留窗口边框、标题栏和状态栏",
   expect(styles).toMatch(
     /--st-overlay-inset:\s*calc\(var\(--pr-titlebar-height\) \+ 1px\) 1px\s+calc\(var\(--pr-statusbar-height\) \+ 1px\) 1px;/,
   );
+});
+
+test("客户端仅使用组件库已定义的主题令牌", () => {
+  const styles = readFileSync(
+    new URL("../app/assets/css/main.css", import.meta.url),
+    "utf8",
+  );
+  const diagnostics = readFileSync(
+    new URL("../app/components/activity/RequestTable.vue", import.meta.url),
+    "utf8",
+  );
+  const agents = readFileSync(
+    new URL("../app/components/agents/AgentItemList.vue", import.meta.url),
+    "utf8",
+  );
+  const statusbar = readFileSync(
+    new URL(
+      "../app/components/dashboard/DashboardStatusbar.vue",
+      import.meta.url,
+    ),
+    "utf8",
+  );
+
+  expect(styles).not.toContain("--pr-dashboard-gap");
+  expect(diagnostics).not.toContain("--st-color-warning");
+  expect(agents).not.toContain("--st-text-danger");
+  expect(statusbar).not.toContain("--st-border-focus");
 });
 
 test("设置入口打开桌面偏好弹窗", () => {

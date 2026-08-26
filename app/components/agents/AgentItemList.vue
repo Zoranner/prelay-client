@@ -150,7 +150,7 @@ async function copySourcePath(sourcePath: string) {
 }
 
 .agent-item-name > small {
-  color: var(--st-text-danger);
+  color: var(--st-danger);
   font-size: 12px;
 }
 

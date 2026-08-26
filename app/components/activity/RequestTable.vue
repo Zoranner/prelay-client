@@ -426,7 +426,7 @@ function updateLimit(value: string | number | boolean | null) {
   align-items: center;
   gap: var(--spacing-xs);
   margin-bottom: var(--spacing-md);
-  color: var(--st-color-warning);
+  color: var(--st-warning);
 }
 
 .diagnostics-entry {
