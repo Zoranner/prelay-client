@@ -102,6 +102,8 @@ test("智能体页的本地 command 不复用管理服务命令状态", () => {
   expect(page).toContain('"agents_versions"');
   expect(page).toContain("void loadAgentVersions");
   expect(page).toContain("agentsLoading");
+  expect(page).toContain("agentSettingsLoading");
+  expect(page).toContain('v-if="agentSettingsLoading"');
   expect(nativeAgents).toContain("CREATE_NO_WINDOW");
   expect(nativeAgents).toContain("creation_flags(CREATE_NO_WINDOW.0)");
 });

@@ -43,6 +43,7 @@ const { bootstrap, setBootstrap } = useRelayStore();
 const snapshot = ref<AgentItemsSnapshot>({ clients: [] });
 const agentsLoaded = ref(false);
 const agentsLoading = ref(true);
+const agentSettingsLoading = ref(false);
 const endpoints = ref<RelayEndpoint[]>([]);
 const activeClient = ref<AgentClient>("codex");
 const activeSection = ref<AgentSection>("rules");
@@ -53,6 +54,7 @@ let rulesScrollSyncing = false;
 let rulesSaveTimer: ReturnType<typeof setTimeout> | undefined;
 let rulesLoaded = false;
 let agentLoadGeneration = 0;
+let agentSettingsLoadGeneration = 0;
 let suppressRulesSave = false;
 const showSettings = ref(false);
 const agentConfiguration = reactive(createAgentConfiguration());
@@ -436,6 +438,7 @@ async function loadAgentPage() {
     if (!activeClientDetected.value) {
       activeClient.value = availableClients.value[0]?.client ?? "codex";
     }
+    agentSettingsLoading.value = activeClientDetected.value;
     void loadAgentVersions(
       snapshot.value.clients.map(({ client }) => client),
       loadGeneration,
@@ -459,6 +462,8 @@ async function loadAgentPage() {
   }
   if (activeClientDetected.value) {
     await loadAgentSettings(activeClient.value);
+  } else {
+    agentSettingsLoading.value = false;
   }
 }
 
@@ -485,11 +490,19 @@ async function loadAgentVersions(clients: AgentClient[], loadGeneration: number)
 }
 
 async function loadAgentSettings(client: AgentClient) {
+  const loadGeneration = ++agentSettingsLoadGeneration;
   rulesLoaded = false;
+  agentSettingsLoading.value = true;
   try {
     const settings = await invokeLocalCommand<AgentSettings>("agent_settings_get", {
       client,
     });
+    if (
+      loadGeneration !== agentSettingsLoadGeneration ||
+      client !== activeClient.value
+    ) {
+      return;
+    }
     if (settings.client === "codex") {
       const { endpointName, baseUrl, customToken, ...codexSettings } = settings.settings;
       Object.assign(agentConfiguration.codex, codexSettings);
@@ -526,6 +539,10 @@ async function loadAgentSettings(client: AgentClient) {
     rulesLoaded = true;
   } catch {
     // The local command composable exposes the stable error to this view.
+  } finally {
+    if (loadGeneration === agentSettingsLoadGeneration) {
+      agentSettingsLoading.value = false;
+    }
   }
 }
 
@@ -661,46 +678,52 @@ onBeforeUnmount(() => {
           </ListItem>
         </List>
         <div class="agent-main">
-          <div class="agent-toolbar">
-            <RadioGroup
-              v-model="activeSection"
-              :options="sectionOptions"
-              variant="button"
-            />
-            <div class="agent-toolbar__actions">
-              <Button
-                square
-                icon="ph:gear-six"
-                aria-label="编辑设置"
-                title="编辑设置"
-                @click="openSettings"
-              />
-            </div>
-          </div>
-          <section v-if="activeSection === 'rules'" class="agent-rules">
-            <div ref="rulesEditorElement" class="agent-rules__editor">
-              <Textarea
-                v-model="rulesDraft[activeClient]"
-                class="agent-rules__input"
-                aria-label="编辑全局规则"
-                :rows="18"
-                resize="none"
-              />
-            </div>
-            <div ref="rulesPreviewElement" class="agent-rules__preview">
-              <MarkdownViewer
-                :content="activeRules"
-                class="agent-settings__markdown"
-              />
-            </div>
+          <section v-if="agentSettingsLoading" class="agent-main-loading" aria-live="polite">
+            <Icon class="agent-loading__icon" icon="ph:circle-notch" size="24" />
+            <p>正在读取智能体设置...</p>
           </section>
-          <div v-else class="item-results">
-            <AgentItemList
-              :items="sectionItems"
-              :pending="pending"
-              @uninstall="uninstallAgentItem"
-            />
-          </div>
+          <template v-else>
+            <div class="agent-toolbar">
+              <RadioGroup
+                v-model="activeSection"
+                :options="sectionOptions"
+                variant="button"
+              />
+              <div class="agent-toolbar__actions">
+                <Button
+                  square
+                  icon="ph:gear-six"
+                  aria-label="编辑设置"
+                  title="编辑设置"
+                  @click="openSettings"
+                />
+              </div>
+            </div>
+            <section v-if="activeSection === 'rules'" class="agent-rules">
+              <div ref="rulesEditorElement" class="agent-rules__editor">
+                <Textarea
+                  v-model="rulesDraft[activeClient]"
+                  class="agent-rules__input"
+                  aria-label="编辑全局规则"
+                  :rows="18"
+                  resize="none"
+                />
+              </div>
+              <div ref="rulesPreviewElement" class="agent-rules__preview">
+                <MarkdownViewer
+                  :content="activeRules"
+                  class="agent-settings__markdown"
+                />
+              </div>
+            </section>
+            <div v-else class="item-results">
+              <AgentItemList
+                :items="sectionItems"
+                :pending="pending"
+                @uninstall="uninstallAgentItem"
+              />
+            </div>
+          </template>
         </div>
       </div>
       <section v-else class="agent-unavailable" aria-live="polite">
@@ -1055,7 +1078,8 @@ onBeforeUnmount(() => {
   color: var(--st-text-secondary);
 }
 
-.agent-loading {
+.agent-loading,
+.agent-main-loading {
   display: grid;
   flex: 1;
   place-content: center;
@@ -1064,7 +1088,8 @@ onBeforeUnmount(() => {
   color: var(--st-text-secondary);
 }
 
-.agent-loading p {
+.agent-loading p,
+.agent-main-loading p {
   margin: 0;
 }
 
