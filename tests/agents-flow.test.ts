@@ -47,7 +47,7 @@ test("智能体页自动识别本机 Codex 与 Claude Code 扩展", () => {
   expect(page).toContain('class="agent-client-icon-frame"');
   expect(page).toContain("border-radius: var(--radius-md)");
   expect(page).toContain(
-    ".agent-client-list :deep(.st-list-item > div:first-child) {\n  display: flex;\n  width: 32px;",
+    ".agent-client-list :deep(.st-list-item > div:first-child) {\n  display: flex;\n  width: 40px;",
   );
   expect(page).toContain("filter: var(--pr-monochrome-icon-filter)");
   expect(source("assets/css/main.css")).toContain("html.light");

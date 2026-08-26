@@ -955,16 +955,16 @@ onBeforeUnmount(() => {
 
 .agent-client-list :deep(.st-list-item > div:first-child) {
   display: flex;
-  width: 32px;
-  height: 32px;
+  width: 40px;
+  height: 40px;
   align-items: center;
   justify-content: center;
 }
 
 .agent-client-icon-frame {
   display: grid;
-  width: 32px;
-  height: 32px;
+  width: 40px;
+  height: 40px;
   place-items: center;
   border: 1px solid var(--st-border-divider);
   border-radius: var(--radius-md);
@@ -973,8 +973,8 @@ onBeforeUnmount(() => {
 
 .agent-client-icon {
   display: block;
-  width: 24px;
-  height: 24px;
+  width: 28px;
+  height: 28px;
   object-fit: contain;
 }
 
