@@ -436,19 +436,29 @@ fn apply_codex_connection(
     let Some(connection) = connection else {
         return Ok(());
     };
-    let provider_id = document["model_provider"]
-        .as_str()
+    let provider_id = document
+        .as_table()
+        .get("model_provider")
+        .and_then(Item::as_str)
         .filter(|value| !value.trim().is_empty())
         .unwrap_or("custom")
         .to_string();
     document["model_provider"] = value(&provider_id);
 
-    let providers = table_mut(document, "model_providers");
-    if !providers.contains_key(&provider_id) {
-        providers[&provider_id] = Item::Table(Table::new());
+    if !document.as_table().contains_key("model_providers") {
+        document["model_providers"] = Item::Table(Table::new());
     }
-    let provider = providers[&provider_id]
+    let providers = document
         .as_table_mut()
+        .get_mut("model_providers")
+        .and_then(Item::as_table_mut)
+        .ok_or_else(|| "Codex model providers must be a table".to_string())?;
+    if !providers.contains_key(&provider_id) {
+        providers.insert(&provider_id, Item::Table(Table::new()));
+    }
+    let provider = providers
+        .get_mut(&provider_id)
+        .and_then(Item::as_table_mut)
         .ok_or_else(|| "active Codex model provider must be a table".to_string())?;
     match connection {
         CodexConnection::Prelay {
@@ -953,7 +963,83 @@ mod tests {
 
     use tempfile::tempdir;
 
-    use super::{save_claude_code_settings, ClaudeCodeConnection, ClaudeCodeSettings};
+    use crate::agents::AgentClient;
+
+    use super::{
+        read_or_initialize_user_settings, save_claude_code_settings, save_user_settings,
+        ClaudeCodeConnection, ClaudeCodeSettings, CodexConnection,
+    };
+
+    #[test]
+    fn saves_prelay_connection_for_initial_codex_config_without_provider_entries() {
+        let directory = tempdir().unwrap();
+        let codex_root = directory.path().join(".codex");
+        fs::create_dir_all(&codex_root).unwrap();
+        fs::write(
+            codex_root.join("config.toml"),
+            r#"
+model_reasoning_effort = "high"
+personality = "pragmatic"
+sandbox_mode = "workspace-write"
+disable_response_storage = true
+web_search = "live"
+
+[features]
+memories = true
+goals = true
+workspace_dependencies = false
+
+[agents]
+max_threads = 16
+max_depth = 1
+job_max_runtime_seconds = 1800
+
+[sandbox_workspace_write]
+network_access = true
+
+[shell_environment_policy]
+inherit = "all"
+
+[windows]
+sandbox = "unelevated"
+"#,
+        )
+        .unwrap();
+
+        let settings = read_or_initialize_user_settings(directory.path()).unwrap();
+        let connection = CodexConnection::Prelay {
+            endpoint_id: "endpoint-id".to_string(),
+            endpoint_name: "Prelay".to_string(),
+            relay_url: "https://relay.example.test/".to_string(),
+            endpoint_token: "endpoint-token".to_string(),
+        };
+
+        save_user_settings(
+            directory.path(),
+            AgentClient::Codex,
+            &settings,
+            Some(&connection),
+            None,
+        )
+        .unwrap();
+
+        let saved = fs::read_to_string(codex_root.join("config.toml")).unwrap();
+        let config: toml::Value = toml::from_str(&saved).unwrap();
+        assert_eq!(config["model_provider"].as_str(), Some("custom"));
+        assert_eq!(
+            config["model_providers"]["custom"]["name"].as_str(),
+            Some("Prelay")
+        );
+        assert_eq!(
+            config["model_providers"]["custom"]["base_url"].as_str(),
+            Some("https://relay.example.test/v1")
+        );
+
+        let auth: serde_json::Value =
+            serde_json::from_str(&fs::read_to_string(codex_root.join("auth.json")).unwrap())
+                .unwrap();
+        assert_eq!(auth["OPENAI_API_KEY"], "endpoint-token");
+    }
 
     #[test]
     fn saves_claude_code_connection_and_model_aliases() {
