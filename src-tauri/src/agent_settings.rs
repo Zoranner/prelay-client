@@ -6,11 +6,11 @@ use toml_edit::{value, DocumentMut, Item, Table};
 
 use crate::agents::AgentClient;
 
-#[derive(Debug, Clone, Default, Deserialize, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct AgentSettingsSnapshot {
-    pub codex: CodexSettings,
-    pub claude_code: ClaudeCodeSettings,
+#[derive(Debug, Clone, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase", tag = "client", content = "settings")]
+pub enum AgentSettings {
+    Codex(CodexSettings),
+    ClaudeCode(ClaudeCodeSettings),
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -39,6 +39,13 @@ pub enum ClaudeCodeConnection {
         relay_url: String,
         endpoint_token: String,
     },
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase", tag = "client", content = "connection")]
+pub enum AgentConnection {
+    Codex(CodexConnection),
+    ClaudeCode(ClaudeCodeConnection),
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -166,185 +173,30 @@ impl Default for ClaudeCodeSettings {
     }
 }
 
-pub fn read_user_settings(home: &Path) -> AgentSettingsSnapshot {
-    AgentSettingsSnapshot {
-        codex: read_codex_settings(home),
-        claude_code: read_claude_code_settings(home),
+pub fn read_user_settings(home: &Path, client: AgentClient) -> AgentSettings {
+    match client {
+        AgentClient::Codex => AgentSettings::Codex(read_codex_settings(home)),
+        AgentClient::ClaudeCode => AgentSettings::ClaudeCode(read_claude_code_settings(home)),
     }
-}
-
-pub fn read_or_initialize_user_settings(home: &Path) -> Result<AgentSettingsSnapshot, String> {
-    initialize_missing_user_settings(home)?;
-    Ok(read_user_settings(home))
-}
-
-pub fn initialize_missing_user_settings(home: &Path) -> Result<(), String> {
-    let codex_root = home.join(".codex");
-    let codex_config = codex_root.join("config.toml");
-    if codex_root.is_dir() {
-        if !codex_config.exists() {
-            save_codex_settings(home, &CodexSettings::default(), None)?;
-        } else {
-            fill_missing_codex_settings(&codex_config)?;
-            let rules_path = codex_root.join("AGENTS.md");
-            if !rules_path.exists() {
-                write_text(&rules_path, b"")?;
-            }
-        }
-    }
-
-    let claude_root = home.join(".claude");
-    let claude_settings = claude_root.join("settings.json");
-    if claude_root.is_dir() {
-        if !claude_settings.exists() {
-            save_claude_code_settings(home, &ClaudeCodeSettings::default(), None)?;
-        } else {
-            fill_missing_claude_code_settings(&claude_settings)?;
-            let rules_path = claude_root.join("CLAUDE.md");
-            if !rules_path.exists() {
-                write_text(&rules_path, b"")?;
-            }
-        }
-    }
-
-    Ok(())
-}
-
-fn fill_missing_codex_settings(config_path: &Path) -> Result<(), String> {
-    let mut document = read_toml_document(config_path)?;
-    let defaults = CodexSettings::default();
-    let mut changed = remove_deprecated_codex_settings(&mut document);
-
-    changed |= set_missing_item(
-        &mut document,
-        "model_reasoning_effort",
-        defaults.reasoning_effort.as_deref(),
-    );
-    changed |= set_missing_item(
-        &mut document,
-        "personality",
-        defaults.personality.as_deref(),
-    );
-    changed |= set_missing_item(&mut document, "sandbox_mode", defaults.sandbox.as_deref());
-    changed |= set_missing_bool(
-        &mut document,
-        "disable_response_storage",
-        defaults.disable_response_storage,
-    );
-    changed |= set_missing_item(
-        &mut document,
-        "web_search",
-        defaults
-            .web_search
-            .map(|enabled| if enabled { "live" } else { "disabled" }),
-    );
-
-    changed |= fill_missing_table_integers(
-        &mut document,
-        "agents",
-        [
-            ("max_threads", defaults.max_threads),
-            ("max_depth", defaults.max_depth),
-            ("job_max_runtime_seconds", defaults.job_max_runtime_seconds),
-        ],
-    );
-    changed |= fill_missing_table_bools(
-        &mut document,
-        "features",
-        [
-            ("memories", defaults.features.memories),
-            ("goals", defaults.features.goals),
-            (
-                "workspace_dependencies",
-                defaults.features.workspace_dependencies,
-            ),
-        ],
-    );
-    changed |= fill_missing_table_bools(
-        &mut document,
-        "sandbox_workspace_write",
-        [("network_access", defaults.network_access)],
-    );
-    changed |= fill_missing_table_strings(
-        &mut document,
-        "shell_environment_policy",
-        [("inherit", defaults.shell_environment_inherit.as_deref())],
-    );
-    changed |= fill_missing_table_strings(
-        &mut document,
-        "windows",
-        [("sandbox", defaults.windows_sandbox.as_deref())],
-    );
-
-    if changed {
-        write_text(config_path, document.to_string().as_bytes())?;
-    }
-    Ok(())
-}
-
-fn remove_deprecated_codex_settings(document: &mut DocumentMut) -> bool {
-    const DEPRECATED_FEATURES: [&str; 3] =
-        ["responses_websockets_v2", "remote_control", "rmcp_client"];
-
-    let Some(features) = document["features"].as_table_mut() else {
-        return false;
-    };
-    let mut changed = false;
-    for key in DEPRECATED_FEATURES {
-        changed |= features.remove(key).is_some();
-    }
-    changed
-}
-
-fn fill_missing_claude_code_settings(settings_path: &Path) -> Result<(), String> {
-    let mut document = read_json_document(settings_path)?;
-    let Some(root) = document.as_object_mut() else {
-        return Ok(());
-    };
-    let defaults = ClaudeCodeSettings::default();
-    let mut changed = set_missing_json_string(root, "effortLevel", defaults.effort.as_deref())
-        | set_missing_json_string(root, "language", defaults.language.as_deref());
-
-    if !root.contains_key("permissions") {
-        root.insert(
-            "permissions".to_string(),
-            serde_json::json!({ "defaultMode": claude_permission_mode("acceptEdits") }),
-        );
-        changed = true;
-    } else if let Some(permissions) = root
-        .get_mut("permissions")
-        .and_then(serde_json::Value::as_object_mut)
-    {
-        changed |= set_missing_json_string(
-            permissions,
-            "defaultMode",
-            defaults
-                .permission_mode
-                .as_deref()
-                .map(claude_permission_mode),
-        );
-    }
-
-    if changed {
-        let contents = serde_json::to_vec_pretty(&document)
-            .map_err(|error| format!("Claude Code settings cannot be serialized: {error}"))?;
-        write_text(settings_path, &contents)?;
-    }
-    Ok(())
 }
 
 pub fn save_user_settings(
     home: &Path,
-    client: AgentClient,
-    settings: &AgentSettingsSnapshot,
-    codex_connection: Option<&CodexConnection>,
-    claude_code_connection: Option<&ClaudeCodeConnection>,
+    settings: &AgentSettings,
+    connection: Option<&AgentConnection>,
 ) -> Result<(), String> {
-    match client {
-        AgentClient::Codex => save_codex_settings(home, &settings.codex, codex_connection),
-        AgentClient::ClaudeCode => {
-            save_claude_code_settings(home, &settings.claude_code, claude_code_connection)
+    match (settings, connection) {
+        (AgentSettings::Codex(settings), None) => save_codex_settings(home, settings, None),
+        (AgentSettings::Codex(settings), Some(AgentConnection::Codex(connection))) => {
+            save_codex_settings(home, settings, Some(connection))
         }
+        (AgentSettings::ClaudeCode(settings), None) => {
+            save_claude_code_settings(home, settings, None)
+        }
+        (AgentSettings::ClaudeCode(settings), Some(AgentConnection::ClaudeCode(connection))) => {
+            save_claude_code_settings(home, settings, Some(connection))
+        }
+        _ => Err("智能体设置与接入配置不匹配".to_string()),
     }
 }
 
@@ -483,7 +335,7 @@ fn apply_codex_connection(
 
 fn write_codex_auth_token(home: &Path, token: &str) -> Result<(), String> {
     let path = home.join(".codex").join("auth.json");
-    let mut document = read_json_document(&path)?;
+    let mut document = read_json_document(&path, "Codex auth")?;
     let root = document
         .as_object_mut()
         .ok_or_else(|| "Codex auth root must be an object".to_string())?;
@@ -511,7 +363,7 @@ fn save_claude_code_settings(
     connection: Option<&ClaudeCodeConnection>,
 ) -> Result<(), String> {
     let settings_path = home.join(".claude").join("settings.json");
-    let mut document = read_json_document(&settings_path)?;
+    let mut document = read_json_document(&settings_path, "Claude Code settings")?;
     let root = document
         .as_object_mut()
         .ok_or_else(|| "Claude Code settings root must be an object".to_string())?;
@@ -681,12 +533,13 @@ fn read_toml_document(path: &Path) -> Result<DocumentMut, String> {
     }
 }
 
-fn read_json_document(path: &Path) -> Result<serde_json::Value, String> {
+fn read_json_document(path: &Path, description: &str) -> Result<serde_json::Value, String> {
     match fs::read_to_string(path) {
+        Ok(contents) if contents.trim().is_empty() => Ok(serde_json::json!({})),
         Ok(contents) => serde_json::from_str(&contents)
-            .map_err(|error| format!("Claude Code settings are not valid JSON: {error}")),
+            .map_err(|error| format!("{description} is not valid JSON: {error}")),
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(serde_json::json!({})),
-        Err(error) => Err(format!("Claude Code settings cannot be read: {error}")),
+        Err(error) => Err(format!("{description} cannot be read: {error}")),
     }
 }
 
@@ -725,17 +578,6 @@ fn set_item(document: &mut DocumentMut, key: &str, setting: Option<&str>) {
     }
 }
 
-fn set_missing_item(document: &mut DocumentMut, key: &str, setting: Option<&str>) -> bool {
-    if document.as_table().contains_key(key) {
-        return false;
-    }
-    let Some(setting) = setting.filter(|value| !value.trim().is_empty()) else {
-        return false;
-    };
-    document[key] = value(setting);
-    true
-}
-
 fn set_bool(document: &mut DocumentMut, key: &str, setting: Option<bool>) {
     match setting {
         Some(setting) => document[key] = value(setting),
@@ -743,17 +585,6 @@ fn set_bool(document: &mut DocumentMut, key: &str, setting: Option<bool>) {
             document.as_table_mut().remove(key);
         }
     }
-}
-
-fn set_missing_bool(document: &mut DocumentMut, key: &str, setting: Option<bool>) -> bool {
-    if document.as_table().contains_key(key) {
-        return false;
-    }
-    let Some(setting) = setting else {
-        return false;
-    };
-    document[key] = value(setting);
-    true
 }
 
 fn set_table_string(table: &mut Table, key: &str, setting: Option<&str>) {
@@ -783,78 +614,6 @@ fn set_table_integer(table: &mut Table, key: &str, setting: Option<u64>) {
     }
 }
 
-fn table_mut_if_missing<'a>(
-    document: &'a mut DocumentMut,
-    key: &str,
-    changed: &mut bool,
-) -> Option<&'a mut Table> {
-    if !document.as_table().contains_key(key) {
-        document[key] = Item::Table(Table::new());
-        *changed = true;
-    }
-    document[key].as_table_mut()
-}
-
-fn fill_missing_table_integers<const N: usize>(
-    document: &mut DocumentMut,
-    table_key: &str,
-    settings: [(&str, Option<u64>); N],
-) -> bool {
-    let mut changed = false;
-    let Some(table) = table_mut_if_missing(document, table_key, &mut changed) else {
-        return false;
-    };
-    for (key, setting) in settings {
-        if !table.contains_key(key) {
-            if let Some(setting) = setting {
-                table[key] = value(i64::try_from(setting).unwrap_or(i64::MAX));
-                changed = true;
-            }
-        }
-    }
-    changed
-}
-
-fn fill_missing_table_bools<const N: usize>(
-    document: &mut DocumentMut,
-    table_key: &str,
-    settings: [(&str, Option<bool>); N],
-) -> bool {
-    let mut changed = false;
-    let Some(table) = table_mut_if_missing(document, table_key, &mut changed) else {
-        return false;
-    };
-    for (key, setting) in settings {
-        if !table.contains_key(key) {
-            if let Some(setting) = setting {
-                table[key] = value(setting);
-                changed = true;
-            }
-        }
-    }
-    changed
-}
-
-fn fill_missing_table_strings<const N: usize>(
-    document: &mut DocumentMut,
-    table_key: &str,
-    settings: [(&str, Option<&str>); N],
-) -> bool {
-    let mut changed = false;
-    let Some(table) = table_mut_if_missing(document, table_key, &mut changed) else {
-        return false;
-    };
-    for (key, setting) in settings {
-        if !table.contains_key(key) {
-            if let Some(setting) = setting.filter(|value| !value.trim().is_empty()) {
-                table[key] = value(setting);
-                changed = true;
-            }
-        }
-    }
-    changed
-}
-
 fn set_json_string(
     object: &mut serde_json::Map<String, serde_json::Value>,
     key: &str,
@@ -871,24 +630,6 @@ fn set_json_string(
             object.remove(key);
         }
     }
-}
-
-fn set_missing_json_string(
-    object: &mut serde_json::Map<String, serde_json::Value>,
-    key: &str,
-    setting: Option<&str>,
-) -> bool {
-    if object.contains_key(key) {
-        return false;
-    }
-    let Some(setting) = setting.filter(|value| !value.trim().is_empty()) else {
-        return false;
-    };
-    object.insert(
-        key.to_string(),
-        serde_json::Value::String(setting.to_string()),
-    );
-    true
 }
 
 fn claude_permission_mode(mode: &str) -> &str {
@@ -966,7 +707,7 @@ mod tests {
     use crate::agents::AgentClient;
 
     use super::{
-        read_or_initialize_user_settings, save_claude_code_settings, save_user_settings,
+        read_user_settings, save_claude_code_settings, save_user_settings, AgentConnection,
         ClaudeCodeConnection, ClaudeCodeSettings, CodexConnection,
     };
 
@@ -1006,7 +747,7 @@ sandbox = "unelevated"
         )
         .unwrap();
 
-        let settings = read_or_initialize_user_settings(directory.path()).unwrap();
+        let settings = read_user_settings(directory.path(), AgentClient::Codex);
         let connection = CodexConnection::Prelay {
             endpoint_id: "endpoint-id".to_string(),
             endpoint_name: "Prelay".to_string(),
@@ -1016,10 +757,8 @@ sandbox = "unelevated"
 
         save_user_settings(
             directory.path(),
-            AgentClient::Codex,
             &settings,
-            Some(&connection),
-            None,
+            Some(&AgentConnection::Codex(connection)),
         )
         .unwrap();
 
@@ -1039,6 +778,33 @@ sandbox = "unelevated"
             serde_json::from_str(&fs::read_to_string(codex_root.join("auth.json")).unwrap())
                 .unwrap();
         assert_eq!(auth["OPENAI_API_KEY"], "endpoint-token");
+    }
+
+    #[test]
+    fn saves_codex_settings_when_auth_json_is_empty() {
+        let directory = tempdir().unwrap();
+        let codex_root = directory.path().join(".codex");
+        fs::create_dir_all(&codex_root).unwrap();
+        fs::write(codex_root.join("config.toml"), "").unwrap();
+        fs::write(codex_root.join("auth.json"), "").unwrap();
+
+        let settings = read_user_settings(directory.path(), AgentClient::Codex);
+        let connection = CodexConnection::Custom {
+            base_url: "https://relay.example.test/v1".to_string(),
+            token: "endpoint-token".to_string(),
+        };
+        save_user_settings(
+            directory.path(),
+            &settings,
+            Some(&AgentConnection::Codex(connection)),
+        )
+        .unwrap();
+
+        let auth: serde_json::Value =
+            serde_json::from_str(&fs::read_to_string(codex_root.join("auth.json")).unwrap())
+                .unwrap();
+        assert_eq!(auth["OPENAI_API_KEY"], "endpoint-token");
+        assert!(codex_root.join("config.toml").is_file());
     }
 
     #[test]

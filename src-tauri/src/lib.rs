@@ -87,10 +87,6 @@ pub fn run() {
         ])
         .setup(|app| {
             let app_data_dir = app.path().app_data_dir()?;
-            if let Some(home) = std::env::var_os("USERPROFILE") {
-                agent_settings::initialize_missing_user_settings(&std::path::PathBuf::from(home))
-                    .map_err(std::io::Error::other)?;
-            }
             let state = NativeState::for_app_data_dir(app_data_dir);
             let start_silently = autostart::should_start_silently(&state.desktop_preferences)
                 .map_err(std::io::Error::other)?;

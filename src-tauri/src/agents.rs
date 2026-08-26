@@ -57,10 +57,16 @@ pub struct AgentItemsSnapshot {
 
 pub fn scan_user_items(home: &Path) -> AgentItemsSnapshot {
     let mut snapshot = AgentItemsSnapshot::default();
-    add_client_items(&mut snapshot, AgentClient::Codex, scan_codex(home));
+    add_client_items(
+        &mut snapshot,
+        AgentClient::Codex,
+        home.join(".codex").is_dir(),
+        scan_codex(home),
+    );
     add_client_items(
         &mut snapshot,
         AgentClient::ClaudeCode,
+        home.join(".claude").is_dir() || home.join(".claude.json").is_file(),
         scan_claude_code(home),
     );
     snapshot
@@ -99,8 +105,13 @@ pub fn uninstall_user_item(
     }
 }
 
-fn add_client_items(snapshot: &mut AgentItemsSnapshot, client: AgentClient, items: Vec<AgentItem>) {
-    if !items.is_empty() {
+fn add_client_items(
+    snapshot: &mut AgentItemsSnapshot,
+    client: AgentClient,
+    installed: bool,
+    items: Vec<AgentItem>,
+) {
+    if installed {
         snapshot.clients.push(AgentClientItems { client, items });
     }
 }
@@ -780,6 +791,17 @@ enabled = true
         let directory = tempdir().unwrap();
 
         assert!(scan_user_items(directory.path()).clients.is_empty());
+    }
+
+    #[test]
+    fn includes_installed_client_without_extensions() {
+        let directory = tempdir().unwrap();
+        fs::create_dir_all(directory.path().join(".codex")).unwrap();
+
+        let snapshot = scan_user_items(directory.path());
+        assert_eq!(snapshot.clients.len(), 1);
+        assert_eq!(snapshot.clients[0].client, AgentClient::Codex);
+        assert!(snapshot.clients[0].items.is_empty());
     }
 
     fn write(path: impl AsRef<Path>, contents: &str) {

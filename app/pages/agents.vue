@@ -2,6 +2,7 @@
 import {
   Button,
   Drawer,
+  Icon,
   Input,
   List,
   ListItem,
@@ -18,7 +19,7 @@ import type {
   AgentItem,
   AgentItemKind,
   AgentItemsSnapshot,
-  AgentSettingsSnapshot,
+  AgentSettings,
   BootstrapState,
   RelayEndpoint,
 } from "~/stores/relay";
@@ -39,6 +40,7 @@ const notifications = useNotification();
 const workspaceExit = useWorkspaceExitGuard();
 const { bootstrap, setBootstrap } = useRelayStore();
 const snapshot = ref<AgentItemsSnapshot>({ clients: [] });
+const agentsLoaded = ref(false);
 const endpoints = ref<RelayEndpoint[]>([]);
 const activeClient = ref<AgentClient>("codex");
 const activeSection = ref<AgentSection>("rules");
@@ -97,10 +99,16 @@ function createAgentConfiguration() {
   };
 }
 
-const clients: Array<{ client: AgentClient; label: string; icon: string }> = [
+const clientDefinitions: Array<{ client: AgentClient; label: string; icon: string }> = [
   { client: "codex", label: "Codex", icon: codexIcon },
   { client: "claudeCode", label: "Claude Code", icon: claudeIcon },
 ];
+const availableClients = computed(() =>
+  snapshot.value.clients.flatMap(({ client }) => {
+    const definition = clientDefinitions.find((item) => item.client === client);
+    return definition ? [definition] : [];
+  }),
+);
 const sectionOptions = [
   { value: "rules", label: "规则", icon: "ph:notebook" },
   { value: "plugin", label: "插件", icon: "ph:puzzle-piece" },
@@ -134,6 +142,9 @@ const activeItems = computed(
   () =>
     snapshot.value.clients.find((client) => client.client === activeClient.value)
       ?.items ?? [],
+);
+const activeClientDetected = computed(() =>
+  availableClients.value.some((client) => client.client === activeClient.value),
 );
 const activeKind = computed<AgentItemKind | null>(() =>
   activeSection.value === "rules" ? null : activeSection.value,
@@ -255,15 +266,13 @@ function copyClientSettings(
   Object.assign(target.claudeCode, source.claudeCode);
 }
 
-function settingsPayload(
-  codex = agentConfiguration.codex,
-  claudeCode = agentConfiguration.claudeCode,
-) {
+function codexSettingsPayload(codex = agentConfiguration.codex) {
   const { customToken, ...codexSettings } = codex;
-  return {
-    codex: { ...codexSettings, features: { ...codexSettings.features } },
-    claudeCode: { ...claudeCode },
-  };
+  return { ...codexSettings, features: { ...codexSettings.features } };
+}
+
+function claudeCodeSettingsPayload(claudeCode = agentConfiguration.claudeCode) {
+  return { ...claudeCode };
 }
 
 function codexConnection() {
@@ -301,8 +310,8 @@ function claudeCodeConnection() {
 }
 
 function openSettings() {
-  copyClientSettings(agentConfiguration, settingsDraft, "codex");
-  copyClientSettings(agentConfiguration, settingsDraft, "claudeCode");
+  if (!activeClientDetected.value) return;
+  copyClientSettings(agentConfiguration, settingsDraft, activeClient.value);
   showSettings.value = true;
 }
 
@@ -312,6 +321,7 @@ async function selectClient(client: AgentClient) {
     if (!canSwitch) return;
   }
   activeClient.value = client;
+  await loadAgentSettings(client);
 }
 
 function closeSettingsImmediately() {
@@ -319,8 +329,7 @@ function closeSettingsImmediately() {
 }
 
 function discardSettingsDraft() {
-  copyClientSettings(agentConfiguration, settingsDraft, "codex");
-  copyClientSettings(agentConfiguration, settingsDraft, "claudeCode");
+  copyClientSettings(agentConfiguration, settingsDraft, activeClient.value);
   closeSettingsImmediately();
 }
 
@@ -339,16 +348,15 @@ function updateSettingsVisibility(visible: boolean) {
 
 async function saveSettings() {
   const client = activeClient.value;
+  const connection =
+    client === "codex" ? codexConnection() : claudeCodeConnection();
   try {
     await invokeLocalCommand("agent_settings_save", {
-      client,
       settings:
         client === "codex"
-          ? settingsPayload(settingsDraft.codex)
-          : settingsPayload(agentConfiguration.codex, settingsDraft.claudeCode),
-       codexConnection: client === "codex" ? codexConnection() : null,
-       claudeCodeConnection:
-         client === "claudeCode" ? claudeCodeConnection() : null,
+          ? { client, settings: codexSettingsPayload(settingsDraft.codex) }
+          : { client, settings: claudeCodeSettingsPayload(settingsDraft.claudeCode) },
+      connection: connection ? { client, connection } : null,
     });
     copyClientSettings(settingsDraft, agentConfiguration, client);
     showSettings.value = false;
@@ -377,23 +385,25 @@ function discardRulesDraft() {
 }
 
 async function saveRules(client: AgentClient) {
-  const codex = {
-    ...agentConfiguration.codex,
-    rules: client === "codex" ? rulesDraft.codex : agentConfiguration.codex.rules,
-  };
-  const claudeCode = {
-    ...agentConfiguration.claudeCode,
-    rules:
-      client === "claudeCode"
-        ? rulesDraft.claudeCode
-        : agentConfiguration.claudeCode.rules,
-  };
   try {
     await invokeLocalCommand("agent_settings_save", {
-      client,
-      settings: settingsPayload(codex, claudeCode),
-       codexConnection: null,
-       claudeCodeConnection: null,
+      settings:
+        client === "codex"
+          ? {
+              client,
+              settings: codexSettingsPayload({
+                ...agentConfiguration.codex,
+                rules: rulesDraft.codex,
+              }),
+            }
+          : {
+              client,
+              settings: claudeCodeSettingsPayload({
+                ...agentConfiguration.claudeCode,
+                rules: rulesDraft.claudeCode,
+              }),
+            },
+      connection: null,
     });
     agentConfiguration[client].rules = rulesDraft[client];
     notifications.success("规则已保存");
@@ -417,6 +427,10 @@ async function loadAgentPage() {
     snapshot.value = await invokeLocalCommand<AgentItemsSnapshot>(
       "agents_list",
     );
+    agentsLoaded.value = true;
+    if (!activeClientDetected.value) {
+      activeClient.value = availableClients.value[0]?.client ?? "codex";
+    }
   } catch {
     // The local command composable exposes the stable error to this view.
   }
@@ -432,38 +446,49 @@ async function loadAgentPage() {
       // The application-level management API status owns bootstrap failures.
     }
   }
+  if (activeClientDetected.value) {
+    await loadAgentSettings(activeClient.value);
+  }
+}
+
+async function loadAgentSettings(client: AgentClient) {
+  rulesLoaded = false;
   try {
-    const settings = await invokeLocalCommand<AgentSettingsSnapshot>(
-      "agent_settings_get",
-    );
-    const { endpointName, baseUrl, customToken, ...codexSettings } = settings.codex;
-    Object.assign(agentConfiguration.codex, codexSettings);
-    Object.assign(agentConfiguration.codex.features, settings.codex.features);
-    const { baseUrl: claudeBaseUrl, endpointToken, ...claudeCodeSettings } =
-      settings.claudeCode;
-    Object.assign(agentConfiguration.claudeCode, claudeCodeSettings);
-    agentConfiguration.codex.customBaseUrl = baseUrl ?? "";
-    const managementUrl = bootstrap.value?.relay_url
-      ? managementBaseUrl(bootstrap.value.relay_url)
-      : null;
-    const codexEndpoint =
-      managementUrl && baseUrl && normalizeBaseUrl(baseUrl) === managementUrl
-        ? endpoints.value.find((endpoint) => endpoint.name === endpointName)
-        : undefined;
-    agentConfiguration.codex.endpoint = codexEndpoint?.id ?? customEndpointValue;
-    agentConfiguration.codex.customToken = codexEndpoint ? "" : customToken ?? "";
-    const claudeEndpoint =
-      managementUrl &&
-      claudeBaseUrl &&
-      normalizeBaseUrl(claudeBaseUrl) === managementUrl
-        ? endpoints.value.find((endpoint) => endpoint.token === endpointToken)
-        : undefined;
-    agentConfiguration.claudeCode.endpoint =
-      claudeEndpoint?.id ?? customEndpointValue;
-    copyClientSettings(agentConfiguration, settingsDraft, "codex");
-    copyClientSettings(agentConfiguration, settingsDraft, "claudeCode");
-    rulesDraft.codex = agentConfiguration.codex.rules;
-    rulesDraft.claudeCode = agentConfiguration.claudeCode.rules;
+    const settings = await invokeLocalCommand<AgentSettings>("agent_settings_get", {
+      client,
+    });
+    if (settings.client === "codex") {
+      const { endpointName, baseUrl, customToken, ...codexSettings } = settings.settings;
+      Object.assign(agentConfiguration.codex, codexSettings);
+      Object.assign(agentConfiguration.codex.features, settings.settings.features);
+      agentConfiguration.codex.customBaseUrl = baseUrl ?? "";
+      const managementUrl = bootstrap.value?.relay_url
+        ? managementBaseUrl(bootstrap.value.relay_url)
+        : null;
+      const codexEndpoint =
+        managementUrl && baseUrl && normalizeBaseUrl(baseUrl) === managementUrl
+          ? endpoints.value.find((endpoint) => endpoint.name === endpointName)
+          : undefined;
+      agentConfiguration.codex.endpoint = codexEndpoint?.id ?? customEndpointValue;
+      agentConfiguration.codex.customToken = codexEndpoint ? "" : customToken ?? "";
+      copyClientSettings(agentConfiguration, settingsDraft, "codex");
+      rulesDraft.codex = agentConfiguration.codex.rules;
+    } else {
+      const { baseUrl, endpointToken, ...claudeCodeSettings } = settings.settings;
+      Object.assign(agentConfiguration.claudeCode, claudeCodeSettings);
+      const managementUrl = bootstrap.value?.relay_url
+        ? managementBaseUrl(bootstrap.value.relay_url)
+        : null;
+      const claudeEndpoint =
+        managementUrl &&
+        baseUrl &&
+        normalizeBaseUrl(baseUrl) === managementUrl
+          ? endpoints.value.find((endpoint) => endpoint.token === endpointToken)
+          : undefined;
+      agentConfiguration.claudeCode.endpoint = claudeEndpoint?.id ?? customEndpointValue;
+      copyClientSettings(agentConfiguration, settingsDraft, "claudeCode");
+      rulesDraft.claudeCode = agentConfiguration.claudeCode.rules;
+    }
     await nextTick();
     rulesLoaded = true;
   } catch {
@@ -571,10 +596,10 @@ onBeforeUnmount(() => {
           刷新
         </Button>
       </template>
-      <div class="agent-content">
+      <div v-if="!agentsLoaded || availableClients.length" class="agent-content">
         <List class="agent-client-list" :divided="false">
           <ListItem
-            v-for="client in clients"
+            v-for="client in availableClients"
             :key="client.client"
             :active="activeClient === client.client"
             clickable
@@ -636,6 +661,10 @@ onBeforeUnmount(() => {
           </div>
         </div>
       </div>
+      <section v-else class="agent-unavailable" aria-live="polite">
+        <Icon icon="ph:download-simple" size="24" />
+        <p>未检测到已安装的智能体</p>
+      </section>
     </PanelSection>
   </main>
   <Drawer
@@ -944,6 +973,19 @@ onBeforeUnmount(() => {
   min-height: 0;
   padding-top: var(--spacing-md);
   overflow: hidden;
+}
+
+.agent-unavailable {
+  display: grid;
+  flex: 1;
+  place-content: center;
+  justify-items: center;
+  gap: var(--spacing-sm);
+  color: var(--st-text-secondary);
+}
+
+.agent-unavailable p {
+  margin: 0;
 }
 
 .agent-toolbar__actions {

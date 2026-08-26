@@ -21,6 +21,10 @@ test("智能体页自动识别本机 Codex 与 Claude Code 扩展", () => {
   expect(page).toContain('from "~/components/agents/AgentItemList.vue"');
   expect(page).toContain("@lobehub/icons-static-svg");
   expect(page).toContain("activeClient");
+  expect(page).toContain("availableClients");
+  expect(page).toContain("snapshot.value.clients");
+  expect(page).not.toContain('const clients: Array<{ client: AgentClient;');
+  expect(page).toContain("未检测到已安装的智能体");
   expect(page).toContain("activeKind");
   expect(page).toContain('value: "plugin"');
   expect(page).toContain('value: "mcp"');

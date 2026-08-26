@@ -160,8 +160,7 @@ export interface AgentItemsSnapshot {
   clients: AgentClientItems[];
 }
 
-export interface AgentSettingsSnapshot {
-  codex: Partial<{
+export type CodexSettings = Partial<{
     endpointName: string;
     baseUrl: string;
     customToken: string;
@@ -183,8 +182,9 @@ export interface AgentSettingsSnapshot {
       workspaceDependencies: boolean;
     }>;
     rules: string;
-  }>;
-  claudeCode: Partial<{
+}>;
+
+export type ClaudeCodeSettings = Partial<{
     baseUrl: string;
     endpointToken: string;
     opusModel: string;
@@ -195,8 +195,11 @@ export interface AgentSettingsSnapshot {
     language: string;
     permissionMode: string;
     rules: string;
-  }>;
-}
+}>;
+
+export type AgentSettings =
+  | { client: "codex"; settings: CodexSettings }
+  | { client: "claudeCode"; settings: ClaudeCodeSettings };
 
 export function useRelayStore() {
   const bootstrap = useState<BootstrapState | null>("relay-bootstrap", () => null);
