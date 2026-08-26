@@ -23,6 +23,7 @@ test("Nuxt 将应用图标打包到客户端且不使用远程图标服务", () 
 
   expect(nuxtConfig).toContain('modules: ["@nuxt/icon", "@stellar/ui/nuxt"]');
   expect(nuxtConfig).toContain('provider: "none"');
+  expect(nuxtConfig).toContain('componentName: "NuxtIcon"');
   expect(nuxtConfig).toContain("clientBundle:");
   expect(nuxtConfig).toContain("scan: true");
   expect(nuxtConfig).toContain('"ph:arrows-in"');

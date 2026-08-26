@@ -6,6 +6,7 @@ export default defineNuxtConfig({
   modules: ["@nuxt/icon", "@stellar/ui/nuxt"],
   icon: {
     provider: "none",
+    componentName: "NuxtIcon",
     clientBundle: {
       scan: true,
       icons: ["ph:arrows-in", "ph:arrows-out", "ph:spinner-gap"],
