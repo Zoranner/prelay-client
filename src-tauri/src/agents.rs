@@ -1,9 +1,12 @@
 use std::{
     fs,
+    io::Write,
     path::{Path, PathBuf},
 };
 
+use atomic_write_file::AtomicWriteFile;
 use serde::{Deserialize, Serialize};
+use toml_edit::DocumentMut;
 
 #[derive(Debug, Clone, Copy, Deserialize, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -12,7 +15,7 @@ pub enum AgentClient {
     ClaudeCode,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, Copy, Deserialize, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub enum AgentItemKind {
     Mcp,
@@ -61,6 +64,39 @@ pub fn scan_user_items(home: &Path) -> AgentItemsSnapshot {
         scan_claude_code(home),
     );
     snapshot
+}
+
+pub fn uninstall_user_item(
+    home: &Path,
+    client: AgentClient,
+    kind: AgentItemKind,
+    name: &str,
+    source_path: &str,
+) -> Result<(), String> {
+    let item = scan_user_items(home)
+        .clients
+        .into_iter()
+        .find(|items| items.client == client)
+        .and_then(|items| {
+            items.items.into_iter().find(|item| {
+                item.kind == kind && item.name == name && item.source_path == source_path
+            })
+        })
+        .ok_or_else(|| "未找到要卸载的本地条目。".to_string())?;
+
+    if item.status == AgentItemStatus::Error {
+        return Err("无法卸载配置读取失败的条目。".to_string());
+    }
+
+    match (client, kind) {
+        (AgentClient::Codex, AgentItemKind::Mcp) => {
+            remove_codex_config_item(home, "mcp_servers", name)
+        }
+        (AgentClient::ClaudeCode, AgentItemKind::Mcp) => remove_claude_mcp_item(home, name),
+        (AgentClient::Codex, AgentItemKind::Plugin) => remove_codex_plugin(home, name),
+        (AgentClient::ClaudeCode, AgentItemKind::Plugin) => remove_claude_plugin(home, name),
+        (_, AgentItemKind::Skill) => remove_skill_directory(&item.source_path),
+    }
 }
 
 fn add_client_items(snapshot: &mut AgentItemsSnapshot, client: AgentClient, items: Vec<AgentItem>) {
@@ -204,6 +240,122 @@ fn codex_plugin_cache_path(codex_root: &Path, plugin_id: &str) -> Option<PathBuf
         })
 }
 
+fn remove_codex_config_item(home: &Path, section: &str, name: &str) -> Result<(), String> {
+    let config_path = home.join(".codex").join("config.toml");
+    let contents = fs::read_to_string(&config_path)
+        .map_err(|error| format!("无法读取 Codex 配置：{error}"))?;
+    let mut document = contents
+        .parse::<DocumentMut>()
+        .map_err(|error| format!("Codex 配置不是有效的 TOML：{error}"))?;
+    let table = document[section]
+        .as_table_mut()
+        .ok_or_else(|| "未找到要卸载的配置项。".to_string())?;
+    if table.remove(name).is_none() {
+        return Err("未找到要卸载的配置项。".to_string());
+    }
+    write_text(&config_path, document.to_string().as_bytes())
+}
+
+fn remove_codex_plugin(home: &Path, name: &str) -> Result<(), String> {
+    remove_codex_config_item(home, "plugins", name)?;
+    let (plugin_name, marketplace) = name
+        .rsplit_once('@')
+        .ok_or_else(|| "插件标识格式不正确。".to_string())?;
+    remove_directory(
+        &home
+            .join(".codex")
+            .join("plugins")
+            .join("cache")
+            .join(marketplace)
+            .join(plugin_name),
+    )
+}
+
+fn remove_claude_mcp_item(home: &Path, name: &str) -> Result<(), String> {
+    let path = home.join(".claude.json");
+    let mut document = read_claude_document(&path)?;
+    let servers = document
+        .get_mut("mcpServers")
+        .and_then(serde_json::Value::as_object_mut)
+        .ok_or_else(|| "未找到要卸载的 MCP 配置。".to_string())?;
+    if servers.remove(name).is_none() {
+        return Err("未找到要卸载的 MCP 配置。".to_string());
+    }
+    write_json(&path, &document)
+}
+
+fn remove_claude_plugin(home: &Path, name: &str) -> Result<(), String> {
+    let path = home
+        .join(".claude")
+        .join("plugins")
+        .join("installed_plugins.json");
+    let mut document = read_claude_document(&path)?;
+    let plugins = document
+        .get_mut("plugins")
+        .and_then(serde_json::Value::as_object_mut)
+        .ok_or_else(|| "未找到要卸载的插件登记。".to_string())?;
+    let records = plugins
+        .get_mut(name)
+        .and_then(serde_json::Value::as_array_mut)
+        .ok_or_else(|| "未找到要卸载的插件登记。".to_string())?;
+    let install_paths = records
+        .iter()
+        .filter(|record| record.get("scope").and_then(serde_json::Value::as_str) == Some("user"))
+        .filter_map(|record| {
+            record
+                .get("installPath")
+                .and_then(serde_json::Value::as_str)
+        })
+        .map(PathBuf::from)
+        .collect::<Vec<_>>();
+    records
+        .retain(|record| record.get("scope").and_then(serde_json::Value::as_str) != Some("user"));
+    if records.is_empty() {
+        plugins.remove(name);
+    }
+    write_json(&path, &document)?;
+    for install_path in install_paths {
+        remove_directory(&install_path)?;
+    }
+    Ok(())
+}
+
+fn remove_skill_directory(source_path: &str) -> Result<(), String> {
+    remove_directory(Path::new(source_path))
+}
+
+fn read_claude_document(path: &Path) -> Result<serde_json::Value, String> {
+    fs::read_to_string(path)
+        .map_err(|error| format!("无法读取 Claude Code 配置：{error}"))
+        .and_then(|contents| {
+            serde_json::from_str(&contents)
+                .map_err(|error| format!("Claude Code 配置不是有效的 JSON：{error}"))
+        })
+}
+
+fn write_json(path: &Path, document: &serde_json::Value) -> Result<(), String> {
+    let contents = serde_json::to_vec_pretty(document)
+        .map_err(|error| format!("无法写入 Claude Code 配置：{error}"))?;
+    write_text(path, &contents)
+}
+
+fn remove_directory(path: &Path) -> Result<(), String> {
+    fs::remove_dir_all(path).map_err(|error| format!("无法删除本地文件：{error}"))
+}
+
+fn write_text(path: &Path, contents: &[u8]) -> Result<(), String> {
+    let parent = path.parent().unwrap_or_else(|| Path::new("."));
+    fs::create_dir_all(parent).map_err(|error| format!("无法创建配置目录：{error}"))?;
+    let mut file =
+        AtomicWriteFile::open(path).map_err(|error| format!("无法打开配置文件：{error}"))?;
+    file.write_all(contents)
+        .map_err(|error| format!("无法写入配置文件：{error}"))?;
+    file.sync_all()
+        .map_err(|error| format!("无法同步配置文件：{error}"))?;
+    file.commit()
+        .map_err(|error| format!("无法保存配置文件：{error}"))
+}
+
 fn parse_claude_mcp_items(path: &Path) -> Vec<AgentItem> {
     if !path.exists() {
         return Vec::new();
@@ -337,7 +489,9 @@ mod tests {
 
     use tempfile::tempdir;
 
-    use super::{scan_user_items, AgentClient, AgentItemKind, AgentItemStatus};
+    use super::{
+        scan_user_items, uninstall_user_item, AgentClient, AgentItemKind, AgentItemStatus,
+    };
 
     #[test]
     fn scans_user_level_codex_items_and_distinguishes_disabled_entries() {
@@ -542,6 +696,83 @@ enabled = true
                 .display()
                 .to_string()
         );
+    }
+
+    #[test]
+    fn uninstalls_codex_items_without_removing_other_entries() {
+        let directory = tempdir().unwrap();
+        let config_path = directory.path().join(".codex").join("config.toml");
+        write(
+            &config_path,
+            r#"
+[mcp_servers.keep]
+command = "keep"
+
+[mcp_servers.remove]
+command = "remove"
+
+[plugins."remove@prelay"]
+enabled = true
+"#,
+        );
+        write(
+            directory
+                .path()
+                .join(".codex")
+                .join("plugins")
+                .join("cache")
+                .join("prelay")
+                .join("remove")
+                .join("0.1.0")
+                .join(".codex-plugin")
+                .join("plugin.json"),
+            "{}",
+        );
+        write(
+            directory
+                .path()
+                .join(".agents")
+                .join("skills")
+                .join("remove")
+                .join("SKILL.md"),
+            "---\nname: remove\n---\n",
+        );
+
+        let snapshot = scan_user_items(directory.path());
+        let codex = snapshot
+            .clients
+            .iter()
+            .find(|client| client.client == AgentClient::Codex)
+            .unwrap();
+        for kind in [
+            AgentItemKind::Mcp,
+            AgentItemKind::Plugin,
+            AgentItemKind::Skill,
+        ] {
+            let item = codex
+                .items
+                .iter()
+                .find(|item| item.kind == kind && item.name == "remove")
+                .or_else(|| {
+                    codex.items.iter().find(|item| {
+                        item.kind == AgentItemKind::Plugin && item.name == "remove@prelay"
+                    })
+                })
+                .unwrap();
+            uninstall_user_item(
+                directory.path(),
+                AgentClient::Codex,
+                item.kind,
+                &item.name,
+                &item.source_path,
+            )
+            .unwrap();
+        }
+
+        let items = scan_user_items(directory.path()).clients.remove(0).items;
+        assert!(items.iter().any(|item| item.name == "keep"));
+        assert!(items.iter().all(|item| item.name != "remove"));
+        assert!(items.iter().all(|item| item.name != "remove@prelay"));
     }
 
     #[test]

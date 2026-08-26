@@ -2,7 +2,10 @@ import { expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
 
 const source = (path: string) =>
-  readFileSync(new URL(`../app/${path}`, import.meta.url), "utf8");
+  readFileSync(new URL(`../app/${path}`, import.meta.url), "utf8").replace(
+    /\r\n/g,
+    "\n",
+  );
 
 test("智能体页自动识别本机 Codex 与 Claude Code 扩展", () => {
   const navigation = source("components/dashboard/DashboardShell.vue");
@@ -22,6 +25,10 @@ test("智能体页自动识别本机 Codex 与 Claude Code 扩展", () => {
   expect(page).toContain('value: "plugin"');
   expect(page).toContain('value: "mcp"');
   expect(page).toContain('value: "skill"');
+  expect(page).toContain("useConfirm");
+  expect(page).toContain("uninstallAgentItem");
+  expect(page).toContain('"agents_remove"');
+  expect(page).toContain('@uninstall="uninstallAgentItem"');
   expect(page).toContain('<List class="agent-client-list"');
   expect(page).toContain("<ListItem");
   expect(page).toContain(':active="activeClient === client.client"');
@@ -55,6 +62,9 @@ test("智能体页自动识别本机 Codex 与 Claude Code 扩展", () => {
   expect(list).toContain("<template #cell-sourcePath");
   expect(list).toContain('icon="ph:copy"');
   expect(list).toContain("copySourcePath(row.sourcePath)");
+  expect(list).toContain('key: "actions"');
+  expect(list).toContain('icon="ph:trash"');
+  expect(list).toContain("emit('uninstall', row)");
   expect(list).toContain("text-overflow: ellipsis");
   expect(list).toContain("overflow-x: auto");
   expect(list).not.toContain("item-group-header");
@@ -72,5 +82,6 @@ test("智能体页的本地 command 不复用管理服务命令状态", () => {
 
   expect(page).toContain("useLocalCommand");
   expect(localCommand).toContain('from "@tauri-apps/api/core"');
+  expect(localCommand).toContain('"agents_remove"');
   expect(relayCommand).not.toContain('"agents_list"');
 });

@@ -10,10 +10,12 @@ import {
   Select,
   Textarea,
   Toggle,
+  useConfirm,
   useNotification,
 } from "@stellar/ui";
 import type {
   AgentClient,
+  AgentItem,
   AgentItemKind,
   AgentItemsSnapshot,
   AgentSettingsSnapshot,
@@ -32,6 +34,7 @@ const customEndpointValue = "__custom__";
 
 const { pending: agentsPending, invokeLocalCommand } = useLocalCommand();
 const { pending: endpointsPending, invokeCommand } = useRelayCommand();
+const { confirm: confirmAction } = useConfirm();
 const notifications = useNotification();
 const workspaceExit = useWorkspaceExitGuard();
 const { bootstrap, setBootstrap } = useRelayStore();
@@ -468,6 +471,30 @@ async function loadAgentPage() {
   }
 }
 
+async function uninstallAgentItem(item: AgentItem) {
+  const kindLabel = { mcp: "MCP", plugin: "插件", skill: "Skill" }[item.kind];
+  const confirmed = await confirmAction({
+    title: `卸载${kindLabel}`,
+    message: `卸载“${item.name}”？`,
+    description: "配置及相关本地文件将一并删除，且无法恢复。",
+    confirmText: "卸载",
+    danger: true,
+  });
+  if (!confirmed) return;
+  try {
+    await invokeLocalCommand("agents_remove", {
+      client: activeClient.value,
+      kind: item.kind,
+      name: item.name,
+      sourcePath: item.sourcePath,
+    });
+    snapshot.value = await invokeLocalCommand<AgentItemsSnapshot>("agents_list");
+    notifications.success(`${kindLabel}已卸载`);
+  } catch {
+    // The local command composable exposes the stable error to this view.
+  }
+}
+
 onMounted(() => {
   rulesExitRegistration = workspaceExit.register({
     close: discardRulesDraft,
@@ -601,7 +628,11 @@ onBeforeUnmount(() => {
             </div>
           </section>
           <div v-else class="item-results">
-            <AgentItemList :items="sectionItems" />
+            <AgentItemList
+              :items="sectionItems"
+              :pending="pending"
+              @uninstall="uninstallAgentItem"
+            />
           </div>
         </div>
       </div>

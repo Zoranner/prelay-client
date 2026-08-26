@@ -5,7 +5,9 @@ use crate::{
         read_or_initialize_user_settings, save_user_settings, AgentSettingsSnapshot,
         ClaudeCodeConnection, CodexConnection,
     },
-    agents::{scan_user_items, AgentClient, AgentItemsSnapshot},
+    agents::{
+        scan_user_items, uninstall_user_item, AgentClient, AgentItemKind, AgentItemsSnapshot,
+    },
     api_client::ClientError,
 };
 
@@ -15,6 +17,20 @@ pub fn agents_list() -> Result<AgentItemsSnapshot, ClientError> {
         .map(PathBuf::from)
         .ok_or_else(|| ClientError::new("local_agents_error", "USERPROFILE is unavailable"))?;
     Ok(agents_from_home(&home))
+}
+
+#[tauri::command]
+pub fn agents_remove(
+    client: AgentClient,
+    kind: AgentItemKind,
+    name: String,
+    source_path: String,
+) -> Result<(), ClientError> {
+    let home = std::env::var_os("USERPROFILE")
+        .map(PathBuf::from)
+        .ok_or_else(|| ClientError::new("local_agents_error", "USERPROFILE is unavailable"))?;
+    uninstall_user_item(&home, client, kind, &name, &source_path)
+        .map_err(|error| ClientError::new("local_agents_error", error))
 }
 
 #[tauri::command]

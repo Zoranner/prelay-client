@@ -6,6 +6,10 @@ type AgentItemRow = AgentItem & { id: string } & Record<string, unknown>;
 
 const props = defineProps<{
   items: AgentItem[];
+  pending?: boolean;
+}>();
+const emit = defineEmits<{
+  uninstall: [item: AgentItem];
 }>();
 const notifications = useNotification();
 
@@ -14,6 +18,7 @@ const columns = [
   { key: "version", title: "版本", width: 120, ellipsis: true },
   { key: "status", title: "状态", width: 88 },
   { key: "sourcePath", title: "来源", minWidth: 360, ellipsis: true },
+  { key: "actions", title: "操作", width: 64 },
 ];
 
 const rows = computed<AgentItemRow[]>(() =>
@@ -87,6 +92,18 @@ async function copySourcePath(sourcePath: string) {
       <Badge :variant="statusVariant(row.status)">
         {{ statusLabel(row.status) }}
       </Badge>
+    </template>
+    <template #cell-actions="{ row }">
+      <Button
+        square
+        size="small"
+        variant="danger"
+        icon="ph:trash"
+        aria-label="卸载"
+        title="卸载"
+        :disabled="pending || row.status === 'error'"
+        @click.stop="emit('uninstall', row)"
+      />
     </template>
   </Table>
 </template>
