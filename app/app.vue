@@ -24,10 +24,6 @@ let unlistenTraySettings: UnlistenFn | undefined;
 
 onMounted(async () => {
   const isDesktopRuntime = isTauri() || "__TAURI_INTERNALS__" in globalThis;
-  document.documentElement.classList.toggle(
-    "pr-desktop-shell",
-    isDesktopRuntime,
-  );
 
   managementApi.clear();
   await desktopPreferences.load();
@@ -41,7 +37,6 @@ onMounted(async () => {
 });
 
 onUnmounted(() => {
-  document.documentElement.classList.remove("pr-desktop-shell");
   unlistenTraySettings?.();
 });
 

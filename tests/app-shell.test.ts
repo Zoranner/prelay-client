@@ -180,22 +180,17 @@ test("托盘设置菜单打开桌面偏好弹窗", () => {
   expect(app).toContain("unlistenTraySettings");
 });
 
-test("仅桌面宿主为全屏遮罩保留窗口边框、标题栏和状态栏", () => {
+test("全局浮层始终为窗口边框、标题栏和状态栏保留安全区", () => {
   const styles = readFileSync(
     new URL("../app/assets/css/main.css", import.meta.url),
     "utf8",
   );
 
-  expect(appSource()).toMatch(
-    /document\.documentElement\.classList\.toggle\(\s*"pr-desktop-shell",\s*isDesktopRuntime,\s*\)/,
-  );
-  expect(appSource()).toContain('import { isTauri } from "@tauri-apps/api/core"');
-  expect(appSource()).toContain("isTauri() || \"__TAURI_INTERNALS__\" in globalThis");
-  expect(styles).toContain("--st-overlay-inset: 0px;");
-  expect(styles).toContain(".pr-desktop-shell");
+  expect(appSource()).not.toContain("pr-desktop-shell");
   expect(styles).toMatch(
-    /--st-overlay-inset:\s*calc\(var\(--pr-titlebar-height\) \+ 1px\) 1px\s+calc\(var\(--pr-statusbar-height\) \+ 1px\) 1px;/,
+    /:root\s*\{[\s\S]*--st-overlay-inset:\s*calc\(var\(--pr-titlebar-height\) \+ 1px\) 1px\s+calc\(var\(--pr-statusbar-height\) \+ 1px\) 1px;/,
   );
+  expect(styles).not.toContain(".pr-desktop-shell");
 });
 
 test("客户端仅使用组件库已定义的主题令牌", () => {
