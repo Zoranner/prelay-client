@@ -161,6 +161,11 @@ export interface AgentItemsSnapshot {
   clients: AgentClientItems[];
 }
 
+export interface AgentClientVersion {
+  client: AgentClient;
+  version: string | null;
+}
+
 export type CodexSettings = Partial<{
     endpointName: string;
     baseUrl: string;

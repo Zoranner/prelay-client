@@ -3,7 +3,8 @@ use std::path::{Path, PathBuf};
 use crate::{
     agent_settings::{read_user_settings, save_user_settings, AgentConnection, AgentSettings},
     agents::{
-        scan_user_items, uninstall_user_item, AgentClient, AgentItemKind, AgentItemsSnapshot,
+        agent_client_versions, scan_user_items, uninstall_user_item, AgentClient,
+        AgentClientVersion, AgentItemKind, AgentItemsSnapshot,
     },
     api_client::ClientError,
 };
@@ -14,6 +15,11 @@ pub fn agents_list() -> Result<AgentItemsSnapshot, ClientError> {
         .map(PathBuf::from)
         .ok_or_else(|| ClientError::new("local_agents_error", "USERPROFILE is unavailable"))?;
     Ok(agents_from_home(&home))
+}
+
+#[tauri::command]
+pub fn agents_versions(clients: Vec<AgentClient>) -> Vec<AgentClientVersion> {
+    agent_client_versions(clients)
 }
 
 #[tauri::command]

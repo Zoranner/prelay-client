@@ -11,6 +11,11 @@ use atomic_write_file::AtomicWriteFile;
 use serde::{Deserialize, Serialize};
 use toml_edit::DocumentMut;
 
+#[cfg(windows)]
+use std::os::windows::process::CommandExt;
+#[cfg(windows)]
+use windows::Win32::System::Threading::CREATE_NO_WINDOW;
+
 #[derive(Debug, Clone, Copy, Deserialize, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub enum AgentClient {
@@ -59,48 +64,49 @@ pub struct AgentItemsSnapshot {
     pub clients: Vec<AgentClientItems>,
 }
 
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AgentClientVersion {
+    pub client: AgentClient,
+    pub version: Option<String>,
+}
+
 pub fn scan_user_items(home: &Path) -> AgentItemsSnapshot {
-    scan_user_items_with_client_details(home, |client| {
-        let command_path = agent_command_path(client)?;
-        Some(DetectedAgentClient {
-            version: agent_client_version(&command_path),
-        })
-    })
+    scan_user_items_with_installation(home, agent_command_is_available)
 }
 
-#[derive(Debug, Clone)]
-struct DetectedAgentClient {
-    version: Option<String>,
-}
-
-fn scan_user_items_with_client_details(
-    home: &Path,
-    detect_client: impl Fn(AgentClient) -> Option<DetectedAgentClient>,
-) -> AgentItemsSnapshot {
-    let mut snapshot = AgentItemsSnapshot::default();
-    for client in [AgentClient::Codex, AgentClient::ClaudeCode] {
-        if let Some(details) = detect_client(client) {
-            let items = match client {
-                AgentClient::Codex => scan_codex(home),
-                AgentClient::ClaudeCode => scan_claude_code(home),
-            };
-            snapshot.clients.push(AgentClientItems {
+pub fn agent_client_versions(clients: Vec<AgentClient>) -> Vec<AgentClientVersion> {
+    clients
+        .into_iter()
+        .map(|client| {
+            thread::spawn(move || AgentClientVersion {
                 client,
-                version: details.version,
-                items,
-            });
-        }
-    }
-    snapshot
+                version: agent_command_path(client).and_then(|path| agent_client_version(&path)),
+            })
+        })
+        .filter_map(|task| task.join().ok())
+        .collect()
 }
 
 fn scan_user_items_with_installation(
     home: &Path,
     is_installed: impl Fn(AgentClient) -> bool,
 ) -> AgentItemsSnapshot {
-    scan_user_items_with_client_details(home, |client| {
-        is_installed(client).then_some(DetectedAgentClient { version: None })
-    })
+    let mut snapshot = AgentItemsSnapshot::default();
+    for client in [AgentClient::Codex, AgentClient::ClaudeCode] {
+        if is_installed(client) {
+            let items = match client {
+                AgentClient::Codex => scan_codex(home),
+                AgentClient::ClaudeCode => scan_claude_code(home),
+            };
+            snapshot.clients.push(AgentClientItems {
+                client,
+                version: None,
+                items,
+            });
+        }
+    }
+    snapshot
 }
 
 pub fn uninstall_user_item(
@@ -212,13 +218,15 @@ fn command_path_in(command: &str, paths: &[PathBuf], extensions: &[String]) -> O
 }
 
 fn agent_client_version(command_path: &Path) -> Option<String> {
-    let mut child = Command::new(command_path)
+    let mut command = Command::new(command_path);
+    command
         .arg("--version")
         .stdin(Stdio::null())
         .stdout(Stdio::piped())
-        .stderr(Stdio::null())
-        .spawn()
-        .ok()?;
+        .stderr(Stdio::null());
+    #[cfg(windows)]
+    command.creation_flags(CREATE_NO_WINDOW.0);
+    let mut child = command.spawn().ok()?;
     let deadline = Instant::now() + Duration::from_secs(2);
     let status = loop {
         match child.try_wait().ok()? {
@@ -637,9 +645,8 @@ mod tests {
     use tempfile::tempdir;
 
     use super::{
-        command_path_in, command_version_from_output, scan_user_items_with_client_details,
-        scan_user_items_with_installation, uninstall_user_item_with_installation, AgentClient,
-        AgentItemKind, AgentItemStatus, DetectedAgentClient,
+        command_path_in, command_version_from_output, scan_user_items_with_installation,
+        uninstall_user_item_with_installation, AgentClient, AgentItemKind, AgentItemStatus,
     };
 
     #[test]
@@ -967,18 +974,16 @@ enabled = true
     }
 
     #[test]
-    fn includes_the_detected_client_version_without_extensions() {
+    fn initial_scan_does_not_probe_client_versions() {
         let directory = tempdir().unwrap();
 
-        let snapshot = scan_user_items_with_client_details(directory.path(), |client| {
-            (client == AgentClient::Codex).then(|| DetectedAgentClient {
-                version: Some("0.83.0".to_string()),
-            })
+        let snapshot = scan_user_items_with_installation(directory.path(), |client| {
+            client == AgentClient::Codex
         });
 
         assert_eq!(snapshot.clients.len(), 1);
         assert_eq!(snapshot.clients[0].client, AgentClient::Codex);
-        assert_eq!(snapshot.clients[0].version.as_deref(), Some("0.83.0"));
+        assert_eq!(snapshot.clients[0].version, None);
         assert!(snapshot.clients[0].items.is_empty());
     }
 

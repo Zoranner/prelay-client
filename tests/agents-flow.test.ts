@@ -89,9 +89,19 @@ test("智能体页的本地 command 不复用管理服务命令状态", () => {
   const page = source("pages/agents.vue");
   const localCommand = source("composables/useLocalCommand.ts");
   const relayCommand = source("composables/useRelayCommand.ts");
+  const nativeAgents = readFileSync(
+    new URL("../src-tauri/src/agents.rs", import.meta.url),
+    "utf8",
+  );
 
   expect(page).toContain("useLocalCommand");
   expect(localCommand).toContain('from "@tauri-apps/api/core"');
   expect(localCommand).toContain('"agents_remove"');
+  expect(localCommand).toContain('"agents_versions"');
   expect(relayCommand).not.toContain('"agents_list"');
+  expect(page).toContain('"agents_versions"');
+  expect(page).toContain("void loadAgentVersions");
+  expect(page).toContain("agentsLoading");
+  expect(nativeAgents).toContain("CREATE_NO_WINDOW");
+  expect(nativeAgents).toContain("creation_flags(CREATE_NO_WINDOW.0)");
 });

@@ -16,6 +16,7 @@ import {
 } from "@stellar/ui";
 import type {
   AgentClient,
+  AgentClientVersion,
   AgentItem,
   AgentItemKind,
   AgentItemsSnapshot,
@@ -41,6 +42,7 @@ const workspaceExit = useWorkspaceExitGuard();
 const { bootstrap, setBootstrap } = useRelayStore();
 const snapshot = ref<AgentItemsSnapshot>({ clients: [] });
 const agentsLoaded = ref(false);
+const agentsLoading = ref(true);
 const endpoints = ref<RelayEndpoint[]>([]);
 const activeClient = ref<AgentClient>("codex");
 const activeSection = ref<AgentSection>("rules");
@@ -50,6 +52,7 @@ let rulesEditorTextarea: HTMLTextAreaElement | null = null;
 let rulesScrollSyncing = false;
 let rulesSaveTimer: ReturnType<typeof setTimeout> | undefined;
 let rulesLoaded = false;
+let agentLoadGeneration = 0;
 let suppressRulesSave = false;
 const showSettings = ref(false);
 const agentConfiguration = reactive(createAgentConfiguration());
@@ -422,7 +425,9 @@ function managementBaseUrl(relayUrl: string) {
 }
 
 async function loadAgentPage() {
+  const loadGeneration = ++agentLoadGeneration;
   rulesLoaded = false;
+  agentsLoading.value = true;
   try {
     snapshot.value = await invokeLocalCommand<AgentItemsSnapshot>(
       "agents_list",
@@ -431,8 +436,14 @@ async function loadAgentPage() {
     if (!activeClientDetected.value) {
       activeClient.value = availableClients.value[0]?.client ?? "codex";
     }
+    void loadAgentVersions(
+      snapshot.value.clients.map(({ client }) => client),
+      loadGeneration,
+    );
   } catch {
     // The local command composable exposes the stable error to this view.
+  } finally {
+    agentsLoading.value = false;
   }
   try {
     endpoints.value = await invokeCommand<RelayEndpoint[]>("endpoints_list");
@@ -448,6 +459,28 @@ async function loadAgentPage() {
   }
   if (activeClientDetected.value) {
     await loadAgentSettings(activeClient.value);
+  }
+}
+
+async function loadAgentVersions(clients: AgentClient[], loadGeneration: number) {
+  try {
+    const versions = await invokeLocalCommand<AgentClientVersion[]>(
+      "agents_versions",
+      { clients },
+      { notify: false, trackPending: false },
+    );
+    if (loadGeneration !== agentLoadGeneration) return;
+    const versionsByClient = new Map(
+      versions.map(({ client, version }) => [client, version]),
+    );
+    snapshot.value = {
+      clients: snapshot.value.clients.map((client) => ({
+        ...client,
+        version: versionsByClient.get(client.client) ?? client.version,
+      })),
+    };
+  } catch {
+    // Version detection is an optional background enhancement.
   }
 }
 
@@ -596,7 +629,11 @@ onBeforeUnmount(() => {
           刷新
         </Button>
       </template>
-      <div v-if="!agentsLoaded || availableClients.length" class="agent-content">
+      <section v-if="agentsLoading && !agentsLoaded" class="agent-loading" aria-live="polite">
+        <Icon class="agent-loading__icon" icon="ph:circle-notch" size="24" />
+        <p>正在读取本机智能体...</p>
+      </section>
+      <div v-else-if="availableClients.length" class="agent-content">
         <List class="agent-client-list" :divided="false">
           <ListItem
             v-for="client in availableClients"
@@ -1016,6 +1053,29 @@ onBeforeUnmount(() => {
   justify-items: center;
   gap: var(--spacing-sm);
   color: var(--st-text-secondary);
+}
+
+.agent-loading {
+  display: grid;
+  flex: 1;
+  place-content: center;
+  justify-items: center;
+  gap: var(--spacing-sm);
+  color: var(--st-text-secondary);
+}
+
+.agent-loading p {
+  margin: 0;
+}
+
+.agent-loading__icon {
+  animation: agent-loading-spin 800ms linear infinite;
+}
+
+@keyframes agent-loading-spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .agent-unavailable p {

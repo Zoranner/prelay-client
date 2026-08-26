@@ -6,6 +6,7 @@ import { toRelayError, type RelayError } from "~/utils/errors";
 
 export type LocalCommand =
   | "agents_list"
+  | "agents_versions"
   | "agents_remove"
   | "agent_settings_get"
   | "agent_settings_save";
@@ -19,18 +20,25 @@ export function useLocalCommand() {
   async function invokeLocalCommand<T>(
     command: LocalCommand,
     payload?: Record<string, unknown>,
+    options: { notify?: boolean; trackPending?: boolean } = {},
   ): Promise<T> {
-    pendingRequests.value += 1;
-    error.value = null;
+    const notify = options.notify ?? true;
+    const trackPending = options.trackPending ?? true;
+    if (trackPending) pendingRequests.value += 1;
+    if (notify) error.value = null;
     try {
       return await invoke<T>(command, payload);
     } catch (caught) {
       const localError = toRelayError(caught);
-      error.value = localError;
-      notifications.danger(localError.message, { title: "本地操作失败" });
+      if (notify) {
+        error.value = localError;
+        notifications.danger(localError.message, { title: "本地操作失败" });
+      }
       throw localError;
     } finally {
-      pendingRequests.value = Math.max(0, pendingRequests.value - 1);
+      if (trackPending) {
+        pendingRequests.value = Math.max(0, pendingRequests.value - 1);
+      }
     }
   }
 

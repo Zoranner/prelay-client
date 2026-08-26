@@ -75,6 +75,7 @@ pub fn run() {
             commands::endpoints::endpoints_delete,
             commands::endpoints::endpoints_regenerate_token,
             commands::agents::agents_list,
+            commands::agents::agents_versions,
             commands::agents::agents_remove,
             commands::agents::agent_settings_get,
             commands::agents::agent_settings_save,
