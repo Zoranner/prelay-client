@@ -42,8 +42,14 @@ const workspaceExit = useWorkspaceExitGuard();
 const { bootstrap, setBootstrap } = useRelayStore();
 const snapshot = ref<AgentItemsSnapshot>({ clients: [] });
 const agentsLoaded = ref(false);
-const agentsLoading = ref(true);
-const agentSettingsLoading = ref(false);
+const agentSettingsLoading = reactive<Record<AgentClient, boolean>>({
+  codex: false,
+  claudeCode: false,
+});
+const agentSettingsLoaded = reactive<Record<AgentClient, boolean>>({
+  codex: false,
+  claudeCode: false,
+});
 const endpoints = ref<RelayEndpoint[]>([]);
 const activeClient = ref<AgentClient>("codex");
 const activeSection = ref<AgentSection>("rules");
@@ -54,7 +60,10 @@ let rulesScrollSyncing = false;
 let rulesSaveTimer: ReturnType<typeof setTimeout> | undefined;
 let rulesLoaded = false;
 let agentLoadGeneration = 0;
-let agentSettingsLoadGeneration = 0;
+const agentSettingsLoadGeneration: Record<AgentClient, number> = {
+  codex: 0,
+  claudeCode: 0,
+};
 let suppressRulesSave = false;
 const showSettings = ref(false);
 const agentConfiguration = reactive(createAgentConfiguration());
@@ -108,10 +117,12 @@ const clientDefinitions: Array<{ client: AgentClient; label: string; icon: strin
   { client: "codex", label: "Codex", icon: codexIcon },
   { client: "claudeCode", label: "Claude Code", icon: claudeIcon },
 ];
-const availableClients = computed(() =>
-  snapshot.value.clients.flatMap(({ client, version }) => {
-    const definition = clientDefinitions.find((item) => item.client === client);
-    return definition ? [{ ...definition, version }] : [];
+const agentClients = computed(() =>
+  clientDefinitions.map((definition) => {
+    const detected = snapshot.value.clients.find(
+      ({ client }) => client === definition.client,
+    );
+    return { ...definition, installed: Boolean(detected), version: detected?.version ?? null };
   }),
 );
 const sectionOptions = [
@@ -148,9 +159,7 @@ const activeItems = computed(
     snapshot.value.clients.find((client) => client.client === activeClient.value)
       ?.items ?? [],
 );
-const activeClientDetected = computed(() =>
-  availableClients.value.some((client) => client.client === activeClient.value),
-);
+const activeClientDetected = computed(() => isClientInstalled(activeClient.value));
 const activeKind = computed<AgentItemKind | null>(() =>
   activeSection.value === "rules" ? null : activeSection.value,
 );
@@ -169,6 +178,23 @@ const rulesDirty = computed(
     rulesDraft.claudeCode !== agentConfiguration.claudeCode.rules,
 );
 const activeRules = computed(() => rulesDraft[activeClient.value]);
+
+function isClientInstalled(client: AgentClient) {
+  return snapshot.value.clients.some((item) => item.client === client);
+}
+
+function isAgentSettingsLoading(client: AgentClient) {
+  return !agentsLoaded.value || agentSettingsLoading[client];
+}
+
+function resetAgentSettings(clients: AgentClient[]) {
+  const detectedClients = new Set(clients);
+  for (const { client } of clientDefinitions) {
+    agentSettingsLoadGeneration[client] += 1;
+    agentSettingsLoaded[client] = false;
+    agentSettingsLoading[client] = detectedClients.has(client);
+  }
+}
 
 const effortOptions = [
   { value: "low", label: "低" },
@@ -326,7 +352,10 @@ async function selectClient(client: AgentClient) {
     if (!canSwitch) return;
   }
   activeClient.value = client;
-  await loadAgentSettings(client);
+  rulesLoaded = agentSettingsLoaded[client];
+  if (agentsLoaded.value && isClientInstalled(client)) {
+    void loadAgentSettings(client);
+  }
 }
 
 function closeSettingsImmediately() {
@@ -428,43 +457,42 @@ function managementBaseUrl(relayUrl: string) {
 
 async function loadAgentPage() {
   const loadGeneration = ++agentLoadGeneration;
+  let clients: AgentClient[] = [];
   rulesLoaded = false;
-  agentsLoading.value = true;
   try {
     snapshot.value = await invokeLocalCommand<AgentItemsSnapshot>(
       "agents_list",
     );
     agentsLoaded.value = true;
+    clients = snapshot.value.clients.map(({ client }) => client);
     if (!activeClientDetected.value) {
-      activeClient.value = availableClients.value[0]?.client ?? "codex";
+      activeClient.value = clients[0] ?? clientDefinitions[0]?.client ?? "codex";
     }
-    agentSettingsLoading.value = activeClientDetected.value;
+    resetAgentSettings(clients);
     void loadAgentVersions(
-      snapshot.value.clients.map(({ client }) => client),
+      clients,
       loadGeneration,
     );
   } catch {
     // The local command composable exposes the stable error to this view.
-  } finally {
-    agentsLoading.value = false;
   }
-  try {
-    endpoints.value = await invokeCommand<RelayEndpoint[]>("endpoints_list");
-  } catch {
-    // The application-level management API status owns endpoint failures.
-  }
-  if (!bootstrap.value) {
-    try {
-      setBootstrap(await invokeCommand<BootstrapState>("bootstrap"));
-    } catch {
-      // The application-level management API status owns bootstrap failures.
-    }
-  }
-  if (activeClientDetected.value) {
-    await loadAgentSettings(activeClient.value);
-  } else {
-    agentSettingsLoading.value = false;
-  }
+  const endpointsRequest = invokeCommand<RelayEndpoint[]>("endpoints_list")
+    .then((value) => {
+      endpoints.value = value;
+    })
+    .catch(() => {
+      // The application-level management API status owns endpoint failures.
+    });
+  const bootstrapRequest = bootstrap.value
+    ? Promise.resolve()
+    : invokeCommand<BootstrapState>("bootstrap")
+        .then(setBootstrap)
+        .catch(() => {
+          // The application-level management API status owns bootstrap failures.
+        });
+  await Promise.all([endpointsRequest, bootstrapRequest]);
+  if (loadGeneration !== agentLoadGeneration) return;
+  void Promise.all(clients.map((client) => loadAgentSettings(client, true)));
 }
 
 async function loadAgentVersions(clients: AgentClient[], loadGeneration: number) {
@@ -489,17 +517,17 @@ async function loadAgentVersions(clients: AgentClient[], loadGeneration: number)
   }
 }
 
-async function loadAgentSettings(client: AgentClient) {
-  const loadGeneration = ++agentSettingsLoadGeneration;
-  rulesLoaded = false;
-  agentSettingsLoading.value = true;
+async function loadAgentSettings(client: AgentClient, force = false) {
+  if (!force && (agentSettingsLoaded[client] || agentSettingsLoading[client])) return;
+  const loadGeneration = ++agentSettingsLoadGeneration[client];
+  if (client === activeClient.value) rulesLoaded = false;
+  agentSettingsLoading[client] = true;
   try {
     const settings = await invokeLocalCommand<AgentSettings>("agent_settings_get", {
       client,
     });
     if (
-      loadGeneration !== agentSettingsLoadGeneration ||
-      client !== activeClient.value
+      loadGeneration !== agentSettingsLoadGeneration[client]
     ) {
       return;
     }
@@ -535,13 +563,16 @@ async function loadAgentSettings(client: AgentClient) {
       copyClientSettings(agentConfiguration, settingsDraft, "claudeCode");
       rulesDraft.claudeCode = agentConfiguration.claudeCode.rules;
     }
-    await nextTick();
-    rulesLoaded = true;
+    agentSettingsLoaded[client] = true;
+    if (client === activeClient.value) {
+      await nextTick();
+      rulesLoaded = true;
+    }
   } catch {
     // The local command composable exposes the stable error to this view.
   } finally {
-    if (loadGeneration === agentSettingsLoadGeneration) {
-      agentSettingsLoading.value = false;
+    if (loadGeneration === agentSettingsLoadGeneration[client]) {
+      agentSettingsLoading[client] = false;
     }
   }
 }
@@ -646,14 +677,10 @@ onBeforeUnmount(() => {
           刷新
         </Button>
       </template>
-      <section v-if="agentsLoading && !agentsLoaded" class="agent-loading" aria-live="polite">
-        <Icon class="agent-loading__icon" icon="ph:circle-notch" size="24" />
-        <p>正在读取本机智能体...</p>
-      </section>
-      <div v-else-if="availableClients.length" class="agent-content">
+      <div class="agent-content">
         <List class="agent-client-list" :divided="false">
           <ListItem
-            v-for="client in availableClients"
+            v-for="client in agentClients"
             :key="client.client"
             :active="activeClient === client.client"
             clickable
@@ -667,7 +694,14 @@ onBeforeUnmount(() => {
                   class="agent-client-icon"
                   :class="{
                     'agent-client-icon--monochrome': client.client === 'codex',
+                    'agent-client-icon--uninstalled': !client.installed,
                   }"
+                />
+                <Icon
+                  v-if="isAgentSettingsLoading(client.client)"
+                  class="agent-client-loading-icon"
+                  icon="ph:circle-notch"
+                  size="12"
                 />
               </span>
             </template>
@@ -678,9 +712,17 @@ onBeforeUnmount(() => {
           </ListItem>
         </List>
         <div class="agent-main">
-          <section v-if="agentSettingsLoading" class="agent-main-loading" aria-live="polite">
+          <section
+            v-if="isAgentSettingsLoading(activeClient)"
+            class="agent-main-loading"
+            aria-live="polite"
+          >
             <Icon class="agent-loading__icon" icon="ph:circle-notch" size="24" />
             <p>正在读取智能体设置...</p>
+          </section>
+          <section v-else-if="!isClientInstalled(activeClient)" class="agent-unavailable">
+            <Icon icon="ph:download-simple" size="24" />
+            <p>未检测到本机安装</p>
           </section>
           <template v-else>
             <div class="agent-toolbar">
@@ -726,10 +768,6 @@ onBeforeUnmount(() => {
           </template>
         </div>
       </div>
-      <section v-else class="agent-unavailable" aria-live="polite">
-        <Icon icon="ph:download-simple" size="24" />
-        <p>未检测到已安装的智能体</p>
-      </section>
     </PanelSection>
   </main>
   <Drawer
@@ -1023,6 +1061,7 @@ onBeforeUnmount(() => {
 
 .agent-client-icon-frame {
   display: grid;
+  position: relative;
   width: 40px;
   height: 40px;
   place-items: center;
@@ -1040,6 +1079,26 @@ onBeforeUnmount(() => {
 
 .agent-client-icon--monochrome {
   filter: var(--pr-monochrome-icon-filter);
+}
+
+.agent-client-icon--uninstalled {
+  filter: grayscale(1);
+  opacity: 0.45;
+}
+
+.agent-client-loading-icon {
+  position: absolute;
+  right: -2px;
+  bottom: -2px;
+  display: grid;
+  width: 16px;
+  height: 16px;
+  place-items: center;
+  border: 1px solid var(--st-border-divider);
+  border-radius: 999px;
+  background: var(--st-bg-elevated);
+  color: var(--st-text-secondary);
+  animation: agent-loading-spin 800ms linear infinite;
 }
 
 .agent-client-identity {
@@ -1078,7 +1137,6 @@ onBeforeUnmount(() => {
   color: var(--st-text-secondary);
 }
 
-.agent-loading,
 .agent-main-loading {
   display: grid;
   flex: 1;
@@ -1088,7 +1146,6 @@ onBeforeUnmount(() => {
   color: var(--st-text-secondary);
 }
 
-.agent-loading p,
 .agent-main-loading p {
   margin: 0;
 }
