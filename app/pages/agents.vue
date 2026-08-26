@@ -951,9 +951,18 @@ onBeforeUnmount(() => {
   border-right: 1px solid var(--st-border-divider);
 }
 
+.agent-client-list :deep(.st-list-item > div:first-child) {
+  display: flex;
+  width: 28px;
+  height: 28px;
+  align-items: center;
+  justify-content: center;
+}
+
 .agent-client-icon {
-  width: 24px;
-  height: 24px;
+  display: block;
+  width: 28px;
+  height: 28px;
   object-fit: contain;
 }
 
