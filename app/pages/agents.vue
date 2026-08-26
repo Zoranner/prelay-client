@@ -952,8 +952,8 @@ onBeforeUnmount(() => {
 }
 
 .agent-client-icon {
-  width: 20px;
-  height: 20px;
+  width: 24px;
+  height: 24px;
   object-fit: contain;
 }
 
