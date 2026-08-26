@@ -185,8 +185,17 @@ test("全局浮层始终为窗口边框、标题栏和状态栏保留安全区",
     new URL("../app/assets/css/main.css", import.meta.url),
     "utf8",
   );
+  const config = readFileSync(
+    new URL("../nuxt.config.ts", import.meta.url),
+    "utf8",
+  );
 
   expect(appSource()).not.toContain("pr-desktop-shell");
+  expect(styles).not.toContain('@import "@stellar/ui/styles"');
+  expect(config).toContain('"modules:done"');
+  expect(config).toContain('"@stellar/ui/styles"');
+  expect(config).toContain("nuxt.options.css.splice");
+  expect(config).toContain("nuxt.options.css.unshift");
   expect(styles).toMatch(
     /:root\s*\{[\s\S]*--st-overlay-inset:\s*calc\(var\(--pr-titlebar-height\) \+ 1px\) 1px\s+calc\(var\(--pr-statusbar-height\) \+ 1px\) 1px;/,
   );

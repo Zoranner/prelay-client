@@ -1,9 +1,23 @@
 import tailwindcss from "@tailwindcss/vite";
 
+const stellarStyles = "@stellar/ui/styles";
+
 export default defineNuxtConfig({
   srcDir: "app/",
   ssr: false,
-  modules: ["@nuxt/icon", "@stellar/ui/nuxt"],
+  modules: [
+    "@nuxt/icon",
+    "@stellar/ui/nuxt",
+    (_options, nuxt) => {
+      nuxt.hook("modules:done", () => {
+        const index = nuxt.options.css.lastIndexOf(stellarStyles);
+        if (index === -1) return;
+
+        nuxt.options.css.splice(index, 1);
+        nuxt.options.css.unshift(stellarStyles);
+      });
+    },
+  ],
   icon: {
     provider: "none",
     componentName: "NuxtIcon",
