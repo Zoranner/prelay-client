@@ -215,9 +215,12 @@ async function requestDiscovery() {
   }
   const result = await props.discoverModels(operationInput());
   if (!result.ok) {
-    notifications.danger(result.error ?? "请检查连接信息和 API Key。", {
-      title: "模型获取失败",
-    });
+    notifications.warning(
+      `${result.error ?? "请检查连接信息和 API Key。"} 可手工添加模型后保存供应商。`,
+      {
+        title: "模型列表暂不可用",
+      },
+    );
     return;
   }
   models.value = result.models ?? [];

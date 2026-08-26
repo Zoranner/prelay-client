@@ -109,3 +109,17 @@ test("供应商表单以模型发现结果覆盖本地清单并发送结果通�
   expect(form).toContain("models.value = result.models ?? [];");
   expect(form).not.toContain("本次新增");
 });
+
+test("模型发现失败时提示可手工添加模型后继续保存", () => {
+  const form = readFileSync(
+    new URL(
+      "../app/components/providers/ProviderForm.vue",
+      import.meta.url,
+    ),
+    "utf8",
+  );
+
+  expect(form).toContain("notifications.warning(");
+  expect(form).toContain('title: "模型列表暂不可用"');
+  expect(form).toContain("可手工添加模型后保存供应商。");
+});
