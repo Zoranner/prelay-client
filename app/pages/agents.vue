@@ -656,7 +656,7 @@ onBeforeUnmount(() => {
             </template>
             <span class="agent-client-identity">
               <span>{{ client.label }}</span>
-              <small>{{ client.version ?? "版本未知" }}</small>
+              <small>{{ client.version ?? "-" }}</small>
             </span>
           </ListItem>
         </List>
