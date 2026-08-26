@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { isTauri } from "@tauri-apps/api/core";
 import type { UnlistenFn } from "@tauri-apps/api/event";
 import { listen } from "@tauri-apps/api/event";
 import { Button, NotificationContainer, Result } from "@stellar/ui";
@@ -22,7 +23,7 @@ const workspacePageKey = ref(0);
 let unlistenTraySettings: UnlistenFn | undefined;
 
 onMounted(async () => {
-  const isDesktopRuntime = "__TAURI_INTERNALS__" in globalThis;
+  const isDesktopRuntime = isTauri() || "__TAURI_INTERNALS__" in globalThis;
   document.documentElement.classList.toggle(
     "pr-desktop-shell",
     isDesktopRuntime,

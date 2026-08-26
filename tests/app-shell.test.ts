@@ -189,6 +189,8 @@ test("仅桌面宿主为全屏遮罩保留窗口边框、标题栏和状态栏",
   expect(appSource()).toMatch(
     /document\.documentElement\.classList\.toggle\(\s*"pr-desktop-shell",\s*isDesktopRuntime,\s*\)/,
   );
+  expect(appSource()).toContain('import { isTauri } from "@tauri-apps/api/core"');
+  expect(appSource()).toContain("isTauri() || \"__TAURI_INTERNALS__\" in globalThis");
   expect(styles).toContain("--st-overlay-inset: 0px;");
   expect(styles).toContain(".pr-desktop-shell");
   expect(styles).toMatch(
