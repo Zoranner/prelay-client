@@ -606,14 +606,16 @@ onBeforeUnmount(() => {
             @click="selectClient(client.client)"
           >
             <template #prefix>
-              <img
-                :src="client.icon"
-                :alt="client.label"
-                class="agent-client-icon"
-                :class="{
-                  'agent-client-icon--monochrome': client.client === 'codex',
-                }"
-              />
+              <span class="agent-client-icon-frame">
+                <img
+                  :src="client.icon"
+                  :alt="client.label"
+                  class="agent-client-icon"
+                  :class="{
+                    'agent-client-icon--monochrome': client.client === 'codex',
+                  }"
+                />
+              </span>
             </template>
             <span class="agent-client-identity">
               <span>{{ client.label }}</span>
@@ -953,16 +955,26 @@ onBeforeUnmount(() => {
 
 .agent-client-list :deep(.st-list-item > div:first-child) {
   display: flex;
-  width: 28px;
-  height: 28px;
+  width: 32px;
+  height: 32px;
   align-items: center;
   justify-content: center;
 }
 
+.agent-client-icon-frame {
+  display: grid;
+  width: 32px;
+  height: 32px;
+  place-items: center;
+  border: 1px solid var(--st-border-divider);
+  border-radius: var(--radius-md);
+  background: var(--st-bg-elevated);
+}
+
 .agent-client-icon {
   display: block;
-  width: 28px;
-  height: 28px;
+  width: 24px;
+  height: 24px;
   object-fit: contain;
 }
 
