@@ -23,6 +23,7 @@ test("智能体页自动识别本机 Codex 与 Claude Code 扩展", () => {
   expect(page).toContain("activeClient");
   expect(page).toContain("availableClients");
   expect(page).toContain("snapshot.value.clients");
+  expect(page).toContain('client.version ?? "版本未知"');
   expect(page).not.toContain('const clients: Array<{ client: AgentClient;');
   expect(page).toContain("未检测到已安装的智能体");
   expect(page).toContain("activeKind");

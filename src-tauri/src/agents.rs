@@ -1,7 +1,10 @@
 use std::{
     env, fs,
-    io::Write,
+    io::{Read, Write},
     path::{Path, PathBuf},
+    process::{Command, Stdio},
+    thread,
+    time::{Duration, Instant},
 };
 
 use atomic_write_file::AtomicWriteFile;
@@ -46,6 +49,7 @@ pub struct AgentItem {
 #[serde(rename_all = "camelCase")]
 pub struct AgentClientItems {
     pub client: AgentClient,
+    pub version: Option<String>,
     pub items: Vec<AgentItem>,
 }
 
@@ -56,24 +60,47 @@ pub struct AgentItemsSnapshot {
 }
 
 pub fn scan_user_items(home: &Path) -> AgentItemsSnapshot {
-    scan_user_items_with_installation(home, agent_command_is_available)
+    scan_user_items_with_client_details(home, |client| {
+        let command_path = agent_command_path(client)?;
+        Some(DetectedAgentClient {
+            version: agent_client_version(&command_path),
+        })
+    })
+}
+
+#[derive(Debug, Clone)]
+struct DetectedAgentClient {
+    version: Option<String>,
+}
+
+fn scan_user_items_with_client_details(
+    home: &Path,
+    detect_client: impl Fn(AgentClient) -> Option<DetectedAgentClient>,
+) -> AgentItemsSnapshot {
+    let mut snapshot = AgentItemsSnapshot::default();
+    for client in [AgentClient::Codex, AgentClient::ClaudeCode] {
+        if let Some(details) = detect_client(client) {
+            let items = match client {
+                AgentClient::Codex => scan_codex(home),
+                AgentClient::ClaudeCode => scan_claude_code(home),
+            };
+            snapshot.clients.push(AgentClientItems {
+                client,
+                version: details.version,
+                items,
+            });
+        }
+    }
+    snapshot
 }
 
 fn scan_user_items_with_installation(
     home: &Path,
     is_installed: impl Fn(AgentClient) -> bool,
 ) -> AgentItemsSnapshot {
-    let mut snapshot = AgentItemsSnapshot::default();
-    for client in [AgentClient::Codex, AgentClient::ClaudeCode] {
-        if is_installed(client) {
-            let items = match client {
-                AgentClient::Codex => scan_codex(home),
-                AgentClient::ClaudeCode => scan_claude_code(home),
-            };
-            snapshot.clients.push(AgentClientItems { client, items });
-        }
-    }
-    snapshot
+    scan_user_items_with_client_details(home, |client| {
+        is_installed(client).then_some(DetectedAgentClient { version: None })
+    })
 }
 
 pub fn uninstall_user_item(
@@ -128,6 +155,10 @@ fn uninstall_user_item_with_installation(
 }
 
 fn agent_command_is_available(client: AgentClient) -> bool {
+    agent_command_path(client).is_some()
+}
+
+fn agent_command_path(client: AgentClient) -> Option<PathBuf> {
     let command = match client {
         AgentClient::Codex => "codex",
         AgentClient::ClaudeCode => "claude",
@@ -136,7 +167,7 @@ fn agent_command_is_available(client: AgentClient) -> bool {
         .map(|value| env::split_paths(&value).collect::<Vec<_>>())
         .unwrap_or_default();
     let extensions = command_extensions();
-    command_is_available_in(command, &paths, &extensions)
+    command_path_in(command, &paths, &extensions)
 }
 
 #[cfg(windows)]
@@ -171,11 +202,53 @@ fn command_extensions() -> Vec<String> {
     vec![String::new()]
 }
 
-fn command_is_available_in(command: &str, paths: &[PathBuf], extensions: &[String]) -> bool {
-    paths.iter().any(|path| {
+fn command_path_in(command: &str, paths: &[PathBuf], extensions: &[String]) -> Option<PathBuf> {
+    paths.iter().find_map(|path| {
         extensions
             .iter()
-            .any(|extension| path.join(format!("{command}{extension}")).is_file())
+            .map(|extension| path.join(format!("{command}{extension}")))
+            .find(|path| path.is_file())
+    })
+}
+
+fn agent_client_version(command_path: &Path) -> Option<String> {
+    let mut child = Command::new(command_path)
+        .arg("--version")
+        .stdin(Stdio::null())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::null())
+        .spawn()
+        .ok()?;
+    let deadline = Instant::now() + Duration::from_secs(2);
+    let status = loop {
+        match child.try_wait().ok()? {
+            Some(status) => break status,
+            None if Instant::now() >= deadline => {
+                let _ = child.kill();
+                let _ = child.wait();
+                return None;
+            }
+            None => thread::sleep(Duration::from_millis(10)),
+        }
+    };
+    if !status.success() {
+        return None;
+    }
+    let mut output = String::new();
+    child.stdout.take()?.read_to_string(&mut output).ok()?;
+    command_version_from_output(&output)
+}
+
+fn command_version_from_output(output: &str) -> Option<String> {
+    output.split_whitespace().find_map(|word| {
+        let version =
+            word.trim_matches(|character: char| !character.is_ascii_digit() && character != '.');
+        let segments = version.split('.').collect::<Vec<_>>();
+        (segments.len() == 3
+            && segments.iter().all(|segment| {
+                !segment.is_empty() && segment.chars().all(|character| character.is_ascii_digit())
+            }))
+        .then(|| version.to_string())
     })
 }
 
@@ -564,8 +637,9 @@ mod tests {
     use tempfile::tempdir;
 
     use super::{
-        command_is_available_in, scan_user_items_with_installation,
-        uninstall_user_item_with_installation, AgentClient, AgentItemKind, AgentItemStatus,
+        command_path_in, command_version_from_output, scan_user_items_with_client_details,
+        scan_user_items_with_installation, uninstall_user_item_with_installation, AgentClient,
+        AgentItemKind, AgentItemStatus, DetectedAgentClient,
     };
 
     #[test]
@@ -893,6 +967,35 @@ enabled = true
     }
 
     #[test]
+    fn includes_the_detected_client_version_without_extensions() {
+        let directory = tempdir().unwrap();
+
+        let snapshot = scan_user_items_with_client_details(directory.path(), |client| {
+            (client == AgentClient::Codex).then(|| DetectedAgentClient {
+                version: Some("0.83.0".to_string()),
+            })
+        });
+
+        assert_eq!(snapshot.clients.len(), 1);
+        assert_eq!(snapshot.clients[0].client, AgentClient::Codex);
+        assert_eq!(snapshot.clients[0].version.as_deref(), Some("0.83.0"));
+        assert!(snapshot.clients[0].items.is_empty());
+    }
+
+    #[test]
+    fn extracts_a_semantic_version_from_command_output() {
+        assert_eq!(
+            command_version_from_output("codex-cli 0.83.0\n"),
+            Some("0.83.0".to_string())
+        );
+        assert_eq!(
+            command_version_from_output("Claude Code v2.1.17\n"),
+            Some("2.1.17".to_string())
+        );
+        assert_eq!(command_version_from_output("unknown"), None);
+    }
+
+    #[test]
     fn omits_configuration_when_the_agent_command_is_unavailable() {
         let directory = tempdir().unwrap();
         write(directory.path().join(".claude.json"), "{}");
@@ -909,16 +1012,10 @@ enabled = true
         fs::create_dir_all(&bin).unwrap();
         fs::write(bin.join("claude.cmd"), "").unwrap();
 
-        assert!(command_is_available_in(
-            "claude",
-            &[bin],
-            &[".exe".to_string(), ".cmd".to_string()]
-        ));
-        assert!(!command_is_available_in(
-            "codex",
-            &[],
-            &[".exe".to_string(), ".cmd".to_string()]
-        ));
+        assert!(
+            command_path_in("claude", &[bin], &[".exe".to_string(), ".cmd".to_string()]).is_some()
+        );
+        assert!(command_path_in("codex", &[], &[".exe".to_string(), ".cmd".to_string()]).is_none());
     }
 
     fn write(path: impl AsRef<Path>, contents: &str) {

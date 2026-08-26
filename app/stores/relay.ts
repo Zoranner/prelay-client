@@ -153,6 +153,7 @@ export interface AgentItem {
 
 export interface AgentClientItems {
   client: AgentClient;
+  version: string | null;
   items: AgentItem[];
 }
 

@@ -104,9 +104,9 @@ const clientDefinitions: Array<{ client: AgentClient; label: string; icon: strin
   { client: "claudeCode", label: "Claude Code", icon: claudeIcon },
 ];
 const availableClients = computed(() =>
-  snapshot.value.clients.flatMap(({ client }) => {
+  snapshot.value.clients.flatMap(({ client, version }) => {
     const definition = clientDefinitions.find((item) => item.client === client);
-    return definition ? [definition] : [];
+    return definition ? [{ ...definition, version }] : [];
   }),
 );
 const sectionOptions = [
@@ -615,7 +615,10 @@ onBeforeUnmount(() => {
                 }"
               />
             </template>
-            {{ client.label }}
+            <span class="agent-client-identity">
+              <span>{{ client.label }}</span>
+              <small>{{ client.version ?? "版本未知" }}</small>
+            </span>
           </ListItem>
         </List>
         <div class="agent-main">
@@ -956,6 +959,16 @@ onBeforeUnmount(() => {
 
 .agent-client-icon--monochrome {
   filter: var(--pr-monochrome-icon-filter);
+}
+
+.agent-client-identity {
+  display: grid;
+  gap: 2px;
+}
+
+.agent-client-identity small {
+  color: var(--st-text-secondary);
+  font-size: 12px;
 }
 
 .agent-main {
