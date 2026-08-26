@@ -14,6 +14,7 @@ const relaySettings = useRelaySettings();
 const desktopPreferences = useDesktopPreferences();
 const desktopPreferencesDialog = useDesktopPreferencesDialog();
 const clientUpdate = useClientUpdate();
+const agentWorkspace = useAgentWorkspace();
 const { visible: desktopPreferencesVisible } = desktopPreferencesDialog;
 const relayUrl = computed(() => relaySettings.relayUrl.value);
 const route = useRoute();
@@ -29,6 +30,7 @@ onMounted(async () => {
   await desktopPreferences.load();
   if (!isDesktopRuntime) return;
 
+  void agentWorkspace.load();
   if (relayUrl.value) void clientUpdate.check();
 
   unlistenTraySettings = await listen("tray:open-settings", () => {

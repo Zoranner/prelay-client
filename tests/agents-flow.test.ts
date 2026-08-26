@@ -8,13 +8,24 @@ const source = (path: string) =>
   );
 
 test("智能体页自动识别本机 Codex 与 Claude Code 扩展", () => {
+  const app = source("app.vue");
   const navigation = source("components/dashboard/DashboardShell.vue");
   const page = source("pages/agents.vue");
+  const workspace = source("composables/useAgentWorkspace.ts");
   const list = source("components/agents/AgentItemList.vue");
 
   expect(navigation).toContain('label: "智能体"');
   expect(navigation).toContain('path: "/agents"');
-  expect(page).toContain('"agents_list"');
+  expect(app).toContain("useAgentWorkspace");
+  expect(app).toContain("void agentWorkspace.load()");
+  expect(page).toContain("useAgentWorkspace");
+  expect(page).toContain("agentWorkspace.load(force)");
+  expect(page).toContain("agentWorkspace.refresh()");
+  expect(page).not.toContain('"agents_list"');
+  expect(workspace).toContain('"agents_list"');
+  expect(workspace).toContain('"agent_settings_get"');
+  expect(workspace).toContain("const loaded = useState");
+  expect(workspace).toContain("if (loaded.value && !force) return");
   expect(page).toContain("workspaceExit.register");
   expect(page).toContain("void loadAgentPage()");
   expect(page).toContain("刷新");
@@ -25,9 +36,51 @@ test("智能体页自动识别本机 Codex 与 Claude Code 扩展", () => {
   expect(page).toContain("clientDefinitions.map");
   expect(page).toContain("isClientInstalled");
   expect(page).toContain("agent-client-icon--uninstalled");
-  expect(page).toContain("agent-client-loading-icon");
+  expect(page).toContain(
+    "'agent-client-icon--loading': isAgentSettingsLoading(client.client),",
+  );
+  expect(page).toContain('class="agent-client-loading"');
+  expect(page).not.toContain('class="agent-client-loading-icon"');
+  expect(page).toContain('icon="ph:circle-notch"\n                    size="28"');
+  expect(page).toContain("Loading,");
+  expect(page).toContain('visible\n            text="正在读取智能体设置..."');
+  expect(page).not.toContain("agent-main-loading");
+  expect(page).not.toContain("agent-loading__icon");
+  expect(page).toContain(
+    ".agent-client-loading {\n  position: absolute;\n  inset: 0;\n  display: grid;\n  place-items: center;\n  pointer-events: none;\n  color: var(--st-text-primary);\n  animation: agent-loading-spin 800ms linear infinite;",
+  );
+  expect(page).not.toContain(
+    ".agent-loading__icon {\n  color: var(--st-text-primary);",
+  );
   expect(page).toContain("snapshot.value.clients");
   expect(page).toContain('client.version ?? "-"');
+  expect(page).toContain(
+    "function replaceRulesDraft(client: AgentClient, rules: string)",
+  );
+  expect(page).toContain("rulesDraft[client] = rules");
+  expect(page).toContain(
+    'replaceRulesDraft("codex", agentConfiguration.codex.rules)',
+  );
+  expect(page).toContain(
+    'replaceRulesDraft("claudeCode", agentConfiguration.claudeCode.rules)',
+  );
+  expect(page).not.toContain("rulesDraft.codex = agentConfiguration.codex.rules");
+  expect(page).not.toContain("rulesDraft.claudeCode = agentConfiguration.claudeCode.rules");
+  expect(workspace).toContain('"agent_settings_get"');
+  expect(workspace).toContain("{ notify: false, trackPending: false }");
+  expect(page).toContain("const rulesSaving = ref(false)");
+  expect(page).toContain("rulesSaving.value = true");
+  expect(page).toContain("rulesSaving.value = false");
+  expect(page).toContain(
+    "[activeSection, activeClient, () => isAgentSettingsLoading(activeClient.value)]",
+  );
+  expect(page).toContain('if (section !== "rules" || loading) return');
+  expect(page).toContain(
+    'rulesSaving.value ? "blocked" : rulesDirty.value ? "discard" : "allow"',
+  );
+  expect(page).not.toContain(
+    'agentsPending.value ? "blocked" : rulesDirty.value ? "discard" : "allow"',
+  );
   expect(page).not.toContain('const clients: Array<{ client: AgentClient;');
   expect(page).toContain("未检测到本机安装");
   expect(page).toContain("activeKind");
@@ -76,7 +129,9 @@ test("智能体页自动识别本机 Codex 与 Claude Code 扩展", () => {
   expect(list).toContain("<template #cell-sourcePath");
   expect(list).toContain('icon="ph:copy"');
   expect(list).toContain("copySourcePath(row.sourcePath)");
-  expect(list).toContain('key: "actions"');
+  expect(list).toContain(
+    'key: "actions",\n    title: "操作",\n    width: 64,\n    align: "right" as const,\n    fixed: "right" as const,',
+  );
   expect(list).toContain('icon="ph:trash"');
   expect(list).toContain("emit('uninstall', row)");
   expect(list).toContain("text-overflow: ellipsis");
@@ -91,6 +146,7 @@ test("智能体页自动识别本机 Codex 与 Claude Code 扩展", () => {
 
 test("智能体页的本地 command 不复用管理服务命令状态", () => {
   const page = source("pages/agents.vue");
+  const workspace = source("composables/useAgentWorkspace.ts");
   const localCommand = source("composables/useLocalCommand.ts");
   const relayCommand = source("composables/useRelayCommand.ts");
   const nativeAgents = readFileSync(
@@ -103,10 +159,10 @@ test("智能体页的本地 command 不复用管理服务命令状态", () => {
   expect(localCommand).toContain('"agents_remove"');
   expect(localCommand).toContain('"agents_versions"');
   expect(relayCommand).not.toContain('"agents_list"');
-  expect(page).toContain('"agents_versions"');
-  expect(page).toContain("void loadAgentVersions");
+  expect(workspace).toContain('"agents_versions"');
+  expect(workspace).toContain("void loadVersions");
   expect(page).toContain("agentSettingsLoading");
-  expect(page).toContain("Promise.all(");
+  expect(workspace).toContain("Promise.all(");
   expect(page).toContain("isAgentSettingsLoading(client.client)");
   expect(page).toContain('v-if="isAgentSettingsLoading(activeClient)"');
   expect(page).toContain('v-else-if="!isClientInstalled(activeClient)"');

@@ -28,6 +28,7 @@ test("智能体页左侧切换客户端，右侧顶部切换功能区", () => {
   expect(page).toContain("MCP");
   expect(page).toContain("Skill");
   expect(page).toContain("agent-main");
+  expect(page).toContain('<div :key="activeClient" class="agent-main">');
   expect(page).toContain("模型与接入");
   expect(page).toContain("执行与网络");
   expect(page).toContain("协作与记忆");

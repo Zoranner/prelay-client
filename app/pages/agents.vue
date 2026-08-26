@@ -6,6 +6,7 @@ import {
   Input,
   List,
   ListItem,
+  Loading,
   MarkdownViewer,
   RadioGroup,
   Select,
@@ -16,10 +17,8 @@ import {
 } from "@stellar/ui";
 import type {
   AgentClient,
-  AgentClientVersion,
   AgentItem,
   AgentItemKind,
-  AgentItemsSnapshot,
   AgentSettings,
   BootstrapState,
   RelayEndpoint,
@@ -40,16 +39,14 @@ const { confirm: confirmAction } = useConfirm();
 const notifications = useNotification();
 const workspaceExit = useWorkspaceExitGuard();
 const { bootstrap, setBootstrap } = useRelayStore();
-const snapshot = ref<AgentItemsSnapshot>({ clients: [] });
-const agentsLoaded = ref(false);
-const agentSettingsLoading = reactive<Record<AgentClient, boolean>>({
-  codex: false,
-  claudeCode: false,
-});
-const agentSettingsLoaded = reactive<Record<AgentClient, boolean>>({
-  codex: false,
-  claudeCode: false,
-});
+const agentWorkspace = useAgentWorkspace();
+const {
+  snapshot,
+  loaded: agentsLoaded,
+  settings: cachedAgentSettings,
+  settingsLoading: agentSettingsLoading,
+  settingsLoaded: agentSettingsLoaded,
+} = agentWorkspace;
 const endpoints = ref<RelayEndpoint[]>([]);
 const activeClient = ref<AgentClient>("codex");
 const activeSection = ref<AgentSection>("rules");
@@ -59,11 +56,7 @@ let rulesEditorTextarea: HTMLTextAreaElement | null = null;
 let rulesScrollSyncing = false;
 let rulesSaveTimer: ReturnType<typeof setTimeout> | undefined;
 let rulesLoaded = false;
-let agentLoadGeneration = 0;
-const agentSettingsLoadGeneration: Record<AgentClient, number> = {
-  codex: 0,
-  claudeCode: 0,
-};
+const rulesSaving = ref(false);
 let suppressRulesSave = false;
 const showSettings = ref(false);
 const agentConfiguration = reactive(createAgentConfiguration());
@@ -184,16 +177,7 @@ function isClientInstalled(client: AgentClient) {
 }
 
 function isAgentSettingsLoading(client: AgentClient) {
-  return !agentsLoaded.value || agentSettingsLoading[client];
-}
-
-function resetAgentSettings(clients: AgentClient[]) {
-  const detectedClients = new Set(clients);
-  for (const { client } of clientDefinitions) {
-    agentSettingsLoadGeneration[client] += 1;
-    agentSettingsLoaded[client] = false;
-    agentSettingsLoading[client] = detectedClients.has(client);
-  }
+  return !agentsLoaded.value || agentSettingsLoading.value[client];
 }
 
 const effortOptions = [
@@ -352,10 +336,8 @@ async function selectClient(client: AgentClient) {
     if (!canSwitch) return;
   }
   activeClient.value = client;
-  rulesLoaded = agentSettingsLoaded[client];
-  if (agentsLoaded.value && isClientInstalled(client)) {
-    void loadAgentSettings(client);
-  }
+  rulesLoaded = agentSettingsLoaded.value[client];
+  if (!agentsLoaded.value) void agentWorkspace.load();
 }
 
 function closeSettingsImmediately() {
@@ -395,6 +377,7 @@ async function saveSettings() {
     copyClientSettings(settingsDraft, agentConfiguration, client);
     showSettings.value = false;
     notifications.success("设置已保存");
+    void agentWorkspace.reloadSettings(client);
   } catch {
     // The local command composable exposes the stable error to this view.
   }
@@ -408,17 +391,22 @@ function scheduleRulesSave(client: AgentClient) {
   }, 500);
 }
 
-function discardRulesDraft() {
-  if (rulesSaveTimer) clearTimeout(rulesSaveTimer);
+function replaceRulesDraft(client: AgentClient, rules: string) {
   suppressRulesSave = true;
-  rulesDraft.codex = agentConfiguration.codex.rules;
-  rulesDraft.claudeCode = agentConfiguration.claudeCode.rules;
+  rulesDraft[client] = rules;
   queueMicrotask(() => {
     suppressRulesSave = false;
   });
 }
 
+function discardRulesDraft() {
+  if (rulesSaveTimer) clearTimeout(rulesSaveTimer);
+  replaceRulesDraft("codex", agentConfiguration.codex.rules);
+  replaceRulesDraft("claudeCode", agentConfiguration.claudeCode.rules);
+}
+
 async function saveRules(client: AgentClient) {
+  rulesSaving.value = true;
   try {
     await invokeLocalCommand("agent_settings_save", {
       settings:
@@ -441,8 +429,11 @@ async function saveRules(client: AgentClient) {
     });
     agentConfiguration[client].rules = rulesDraft[client];
     notifications.success("规则已保存");
+    void agentWorkspace.reloadSettings(client);
   } catch {
     // The local command composable exposes the stable error to this view.
+  } finally {
+    rulesSaving.value = false;
   }
 }
 
@@ -455,26 +446,12 @@ function managementBaseUrl(relayUrl: string) {
   return normalized.endsWith("/v1") ? normalized : `${normalized}/v1`;
 }
 
-async function loadAgentPage() {
-  const loadGeneration = ++agentLoadGeneration;
-  let clients: AgentClient[] = [];
-  rulesLoaded = false;
-  try {
-    snapshot.value = await invokeLocalCommand<AgentItemsSnapshot>(
-      "agents_list",
-    );
-    agentsLoaded.value = true;
-    clients = snapshot.value.clients.map(({ client }) => client);
-    if (!activeClientDetected.value) {
-      activeClient.value = clients[0] ?? clientDefinitions[0]?.client ?? "codex";
-    }
-    resetAgentSettings(clients);
-    void loadAgentVersions(
-      clients,
-      loadGeneration,
-    );
-  } catch {
-    // The local command composable exposes the stable error to this view.
+async function loadAgentPage(force = false) {
+  if (force) {
+    rulesLoaded = false;
+    void agentWorkspace.refresh();
+  } else {
+    void agentWorkspace.load(force);
   }
   const endpointsRequest = invokeCommand<RelayEndpoint[]>("endpoints_list")
     .then((value) => {
@@ -491,89 +468,44 @@ async function loadAgentPage() {
           // The application-level management API status owns bootstrap failures.
         });
   await Promise.all([endpointsRequest, bootstrapRequest]);
-  if (loadGeneration !== agentLoadGeneration) return;
-  void Promise.all(clients.map((client) => loadAgentSettings(client, true)));
 }
 
-async function loadAgentVersions(clients: AgentClient[], loadGeneration: number) {
-  try {
-    const versions = await invokeLocalCommand<AgentClientVersion[]>(
-      "agents_versions",
-      { clients },
-      { notify: false, trackPending: false },
-    );
-    if (loadGeneration !== agentLoadGeneration) return;
-    const versionsByClient = new Map(
-      versions.map(({ client, version }) => [client, version]),
-    );
-    snapshot.value = {
-      clients: snapshot.value.clients.map((client) => ({
-        ...client,
-        version: versionsByClient.get(client.client) ?? client.version,
-      })),
-    };
-  } catch {
-    // Version detection is an optional background enhancement.
+function hydrateAgentSettings(value: AgentSettings) {
+  if (value.client === "codex") {
+    const { endpointName, baseUrl, customToken, ...codexSettings } = value.settings;
+    Object.assign(agentConfiguration.codex, codexSettings);
+    Object.assign(agentConfiguration.codex.features, value.settings.features);
+    agentConfiguration.codex.customBaseUrl = baseUrl ?? "";
+    const managementUrl = bootstrap.value?.relay_url
+      ? managementBaseUrl(bootstrap.value.relay_url)
+      : null;
+    const codexEndpoint =
+      managementUrl && baseUrl && normalizeBaseUrl(baseUrl) === managementUrl
+        ? endpoints.value.find((endpoint) => endpoint.name === endpointName)
+        : undefined;
+    agentConfiguration.codex.endpoint = codexEndpoint?.id ?? customEndpointValue;
+    agentConfiguration.codex.customToken = codexEndpoint ? "" : customToken ?? "";
+    copyClientSettings(agentConfiguration, settingsDraft, "codex");
+    replaceRulesDraft("codex", agentConfiguration.codex.rules);
+  } else {
+    const { baseUrl, endpointToken, ...claudeCodeSettings } = value.settings;
+    Object.assign(agentConfiguration.claudeCode, claudeCodeSettings);
+    const managementUrl = bootstrap.value?.relay_url
+      ? managementBaseUrl(bootstrap.value.relay_url)
+      : null;
+    const claudeEndpoint =
+      managementUrl && baseUrl && normalizeBaseUrl(baseUrl) === managementUrl
+        ? endpoints.value.find((endpoint) => endpoint.token === endpointToken)
+        : undefined;
+    agentConfiguration.claudeCode.endpoint = claudeEndpoint?.id ?? customEndpointValue;
+    copyClientSettings(agentConfiguration, settingsDraft, "claudeCode");
+    replaceRulesDraft("claudeCode", agentConfiguration.claudeCode.rules);
   }
-}
 
-async function loadAgentSettings(client: AgentClient, force = false) {
-  if (!force && (agentSettingsLoaded[client] || agentSettingsLoading[client])) return;
-  const loadGeneration = ++agentSettingsLoadGeneration[client];
-  if (client === activeClient.value) rulesLoaded = false;
-  agentSettingsLoading[client] = true;
-  try {
-    const settings = await invokeLocalCommand<AgentSettings>("agent_settings_get", {
-      client,
+  if (value.client === activeClient.value) {
+    void nextTick().then(() => {
+      if (value.client === activeClient.value) rulesLoaded = true;
     });
-    if (
-      loadGeneration !== agentSettingsLoadGeneration[client]
-    ) {
-      return;
-    }
-    if (settings.client === "codex") {
-      const { endpointName, baseUrl, customToken, ...codexSettings } = settings.settings;
-      Object.assign(agentConfiguration.codex, codexSettings);
-      Object.assign(agentConfiguration.codex.features, settings.settings.features);
-      agentConfiguration.codex.customBaseUrl = baseUrl ?? "";
-      const managementUrl = bootstrap.value?.relay_url
-        ? managementBaseUrl(bootstrap.value.relay_url)
-        : null;
-      const codexEndpoint =
-        managementUrl && baseUrl && normalizeBaseUrl(baseUrl) === managementUrl
-          ? endpoints.value.find((endpoint) => endpoint.name === endpointName)
-          : undefined;
-      agentConfiguration.codex.endpoint = codexEndpoint?.id ?? customEndpointValue;
-      agentConfiguration.codex.customToken = codexEndpoint ? "" : customToken ?? "";
-      copyClientSettings(agentConfiguration, settingsDraft, "codex");
-      rulesDraft.codex = agentConfiguration.codex.rules;
-    } else {
-      const { baseUrl, endpointToken, ...claudeCodeSettings } = settings.settings;
-      Object.assign(agentConfiguration.claudeCode, claudeCodeSettings);
-      const managementUrl = bootstrap.value?.relay_url
-        ? managementBaseUrl(bootstrap.value.relay_url)
-        : null;
-      const claudeEndpoint =
-        managementUrl &&
-        baseUrl &&
-        normalizeBaseUrl(baseUrl) === managementUrl
-          ? endpoints.value.find((endpoint) => endpoint.token === endpointToken)
-          : undefined;
-      agentConfiguration.claudeCode.endpoint = claudeEndpoint?.id ?? customEndpointValue;
-      copyClientSettings(agentConfiguration, settingsDraft, "claudeCode");
-      rulesDraft.claudeCode = agentConfiguration.claudeCode.rules;
-    }
-    agentSettingsLoaded[client] = true;
-    if (client === activeClient.value) {
-      await nextTick();
-      rulesLoaded = true;
-    }
-  } catch {
-    // The local command composable exposes the stable error to this view.
-  } finally {
-    if (loadGeneration === agentSettingsLoadGeneration[client]) {
-      agentSettingsLoading[client] = false;
-    }
   }
 }
 
@@ -594,7 +526,7 @@ async function uninstallAgentItem(item: AgentItem) {
       name: item.name,
       sourcePath: item.sourcePath,
     });
-    snapshot.value = await invokeLocalCommand<AgentItemsSnapshot>("agents_list");
+    await agentWorkspace.refresh();
     notifications.success(`${kindLabel}已卸载`);
   } catch {
     // The local command composable exposes the stable error to this view.
@@ -605,7 +537,7 @@ onMounted(() => {
   rulesExitRegistration = workspaceExit.register({
     close: discardRulesDraft,
     state: () =>
-      agentsPending.value ? "blocked" : rulesDirty.value ? "discard" : "allow",
+      rulesSaving.value ? "blocked" : rulesDirty.value ? "discard" : "allow",
   });
   void loadAgentPage();
 });
@@ -638,6 +570,30 @@ watch(
 );
 
 watch(
+  () => [
+    cachedAgentSettings.value.codex,
+    cachedAgentSettings.value.claudeCode,
+  ],
+  ([codex, claudeCode], previous) => {
+    if (codex && codex !== previous?.[0]) hydrateAgentSettings(codex);
+    if (claudeCode && claudeCode !== previous?.[1]) {
+      hydrateAgentSettings(claudeCode);
+    }
+  },
+  { immediate: true },
+);
+
+watch(
+  snapshot,
+  () => {
+    if (!activeClientDetected.value) {
+      activeClient.value = snapshot.value.clients[0]?.client ?? "codex";
+    }
+  },
+  { immediate: true },
+);
+
+watch(
   () => rulesDraft.codex,
   () => scheduleRulesSave("codex"),
 );
@@ -647,12 +603,16 @@ watch(
   () => scheduleRulesSave("claudeCode"),
 );
 
-watch(activeSection, async (section) => {
-  unbindRulesScroll();
-  if (section !== "rules") return;
-  await nextTick();
-  bindRulesScroll();
-});
+watch(
+  [activeSection, activeClient, () => isAgentSettingsLoading(activeClient.value)],
+  async ([section, _client, loading]) => {
+    unbindRulesScroll();
+    if (section !== "rules" || loading) return;
+    await nextTick();
+    bindRulesScroll();
+  },
+  { immediate: true },
+);
 
 onBeforeUnmount(() => {
   if (rulesSaveTimer) clearTimeout(rulesSaveTimer);
@@ -672,7 +632,7 @@ onBeforeUnmount(() => {
           :loading="pending"
           aria-label="刷新"
           title="刷新"
-          @click="loadAgentPage"
+          @click="loadAgentPage(true)"
         >
           刷新
         </Button>
@@ -695,14 +655,18 @@ onBeforeUnmount(() => {
                   :class="{
                     'agent-client-icon--monochrome': client.client === 'codex',
                     'agent-client-icon--uninstalled': !client.installed,
+                    'agent-client-icon--loading': isAgentSettingsLoading(client.client),
                   }"
                 />
-                <Icon
+                <span
                   v-if="isAgentSettingsLoading(client.client)"
-                  class="agent-client-loading-icon"
-                  icon="ph:circle-notch"
-                  size="12"
-                />
+                  class="agent-client-loading"
+                >
+                  <Icon
+                    icon="ph:circle-notch"
+                    size="28"
+                  />
+                </span>
               </span>
             </template>
             <span class="agent-client-identity">
@@ -711,15 +675,12 @@ onBeforeUnmount(() => {
             </span>
           </ListItem>
         </List>
-        <div class="agent-main">
-          <section
+        <div :key="activeClient" class="agent-main">
+          <Loading
             v-if="isAgentSettingsLoading(activeClient)"
-            class="agent-main-loading"
-            aria-live="polite"
-          >
-            <Icon class="agent-loading__icon" icon="ph:circle-notch" size="24" />
-            <p>正在读取智能体设置...</p>
-          </section>
+            visible
+            text="正在读取智能体设置..."
+          />
           <section v-else-if="!isClientInstalled(activeClient)" class="agent-unavailable">
             <Icon icon="ph:download-simple" size="24" />
             <p>未检测到本机安装</p>
@@ -1081,23 +1042,19 @@ onBeforeUnmount(() => {
   filter: var(--pr-monochrome-icon-filter);
 }
 
-.agent-client-icon--uninstalled {
+.agent-client-icon--uninstalled,
+.agent-client-icon--loading {
   filter: grayscale(1);
   opacity: 0.45;
 }
 
-.agent-client-loading-icon {
+.agent-client-loading {
   position: absolute;
-  right: -2px;
-  bottom: -2px;
+  inset: 0;
   display: grid;
-  width: 16px;
-  height: 16px;
   place-items: center;
-  border: 1px solid var(--st-border-divider);
-  border-radius: 999px;
-  background: var(--st-bg-elevated);
-  color: var(--st-text-secondary);
+  pointer-events: none;
+  color: var(--st-text-primary);
   animation: agent-loading-spin 800ms linear infinite;
 }
 
@@ -1113,6 +1070,7 @@ onBeforeUnmount(() => {
 
 .agent-main {
   display: flex;
+  position: relative;
   min-width: 0;
   min-height: 0;
   flex-direction: column;
@@ -1135,23 +1093,6 @@ onBeforeUnmount(() => {
   justify-items: center;
   gap: var(--spacing-sm);
   color: var(--st-text-secondary);
-}
-
-.agent-main-loading {
-  display: grid;
-  flex: 1;
-  place-content: center;
-  justify-items: center;
-  gap: var(--spacing-sm);
-  color: var(--st-text-secondary);
-}
-
-.agent-main-loading p {
-  margin: 0;
-}
-
-.agent-loading__icon {
-  animation: agent-loading-spin 800ms linear infinite;
 }
 
 @keyframes agent-loading-spin {

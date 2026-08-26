@@ -18,7 +18,13 @@ const columns = [
   { key: "version", title: "版本", width: 120, ellipsis: true },
   { key: "status", title: "状态", width: 88 },
   { key: "sourcePath", title: "来源", minWidth: 360, ellipsis: true },
-  { key: "actions", title: "操作", width: 64 },
+  {
+    key: "actions",
+    title: "操作",
+    width: 64,
+    align: "right" as const,
+    fixed: "right" as const,
+  },
 ];
 
 const rows = computed<AgentItemRow[]>(() =>
