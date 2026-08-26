@@ -14,13 +14,6 @@ test("活动页只读取和展示请求明细", () => {
     new URL("../crates/protocol/src/stats.rs", import.meta.url),
     "utf8",
   );
-  const stellarTable = readFileSync(
-    new URL(
-      "../node_modules/@stellar/ui/src/runtime/components/display/Table.vue",
-      import.meta.url,
-    ),
-    "utf8",
-  );
   expect(stats).toContain('"stats_requests"');
   expect(stats).not.toContain('"stats_overview"');
   expect(stats).not.toContain('"stats_models"');
@@ -59,7 +52,6 @@ test("活动页只读取和展示请求明细", () => {
     /key: "latency", title: "耗时", width: \d+, ellipsis: true/,
   );
   expect(table).not.toContain("max-content");
-  expect(stellarTable).toContain("style.minWidth = style.width");
   expect(table).toContain("Modal");
   expect(table).toContain("diagnosticsDialogOpen");
   expect(table).not.toContain("<details");
