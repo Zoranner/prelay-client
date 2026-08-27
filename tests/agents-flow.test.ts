@@ -13,6 +13,7 @@ test("智能体页自动识别本机 Codex 与 Claude Code 扩展", () => {
   const page = source("pages/agents.vue");
   const workspace = source("composables/useAgentWorkspace.ts");
   const list = source("components/agents/AgentItemList.vue");
+  const rulesEditor = source("components/agents/AgentRulesEditor.vue");
 
   expect(navigation).toContain('label: "智能体"');
   expect(navigation).toContain('path: "/agents"');
@@ -36,12 +37,12 @@ test("智能体页自动识别本机 Codex 与 Claude Code 扩展", () => {
   expect(page).toContain("clientDefinitions.map");
   expect(page).toContain("isClientInstalled");
   expect(page).toContain("agent-client-icon--uninstalled");
-  expect(page).toContain(
-    "'agent-client-icon--loading': isAgentSettingsLoading(client.client),",
+  expect(page).toMatch(
+    /'agent-client-icon--loading':\s*isAgentSettingsLoading\(\s*client\.client,\s*\),/,
   );
   expect(page).toContain('class="agent-client-loading"');
   expect(page).not.toContain('class="agent-client-loading-icon"');
-  expect(page).toContain('icon="ph:circle-notch"\n                    size="28"');
+  expect(page).toMatch(/icon="ph:circle-notch"\s+size="28"/);
   expect(page).toContain("Loading,");
   expect(page).toContain('visible\n            text="正在读取智能体设置..."');
   expect(page).not.toContain("agent-main-loading");
@@ -64,24 +65,27 @@ test("智能体页自动识别本机 Codex 与 Claude Code 扩展", () => {
   expect(page).toContain(
     'replaceRulesDraft("claudeCode", agentConfiguration.claudeCode.rules)',
   );
-  expect(page).not.toContain("rulesDraft.codex = agentConfiguration.codex.rules");
-  expect(page).not.toContain("rulesDraft.claudeCode = agentConfiguration.claudeCode.rules");
+  expect(page).not.toContain(
+    "rulesDraft.codex = agentConfiguration.codex.rules",
+  );
+  expect(page).not.toContain(
+    "rulesDraft.claudeCode = agentConfiguration.claudeCode.rules",
+  );
   expect(workspace).toContain('"agent_settings_get"');
   expect(workspace).toContain("{ notify: false, trackPending: false }");
   expect(page).toContain("const rulesSaving = ref(false)");
   expect(page).toContain("rulesSaving.value = true");
   expect(page).toContain("rulesSaving.value = false");
-  expect(page).toContain(
-    "[activeSection, activeClient, () => isAgentSettingsLoading(activeClient.value)]",
-  );
-  expect(page).toContain('if (section !== "rules" || loading) return');
+  expect(page).not.toContain("function syncRulesScroll");
+  expect(rulesEditor).toContain("function syncRulesScroll");
+  expect(rulesEditor).toContain("void nextTick().then(bindScroll)");
   expect(page).toContain(
     'rulesSaving.value ? "blocked" : rulesDirty.value ? "discard" : "allow"',
   );
   expect(page).not.toContain(
     'agentsPending.value ? "blocked" : rulesDirty.value ? "discard" : "allow"',
   );
-  expect(page).not.toContain('const clients: Array<{ client: AgentClient;');
+  expect(page).not.toContain("const clients: Array<{ client: AgentClient;");
   expect(page).toContain("未检测到本机安装");
   expect(page).toContain("activeKind");
   expect(page).toContain('value: "plugin"');
@@ -115,7 +119,7 @@ test("智能体页自动识别本机 Codex 与 Claude Code 扩展", () => {
   expect(list).toContain("禁用");
   expect(list).toContain("错误");
   expect(list).toContain("Badge, Button, Table, useNotification");
-  expect(list).toContain("<Badge :variant=\"statusVariant(row.status)\">");
+  expect(list).toContain('<Badge :variant="statusVariant(row.status)">');
   expect(list).not.toContain("<Tag");
   expect(list).toContain('class="agent-item-table"');
   expect(list).toContain("fixed-header");

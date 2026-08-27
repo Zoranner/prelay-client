@@ -3,15 +3,10 @@ import {
   Button,
   Drawer,
   Icon,
-  Input,
   List,
   ListItem,
   Loading,
-  MarkdownViewer,
   RadioGroup,
-  Select,
-  Textarea,
-  Toggle,
   useConfirm,
   useNotification,
 } from "@stellar/ui";
@@ -27,6 +22,9 @@ import { useRelayStore } from "~/stores/relay";
 import codexIcon from "@lobehub/icons-static-svg/icons/openai.svg";
 import claudeIcon from "@lobehub/icons-static-svg/icons/claudecode-color.svg";
 import AgentItemList from "~/components/agents/AgentItemList.vue";
+import AgentRulesEditor from "~/components/agents/AgentRulesEditor.vue";
+import ClaudeCodeSettingsForm from "~/components/agents/ClaudeCodeSettingsForm.vue";
+import CodexSettingsForm from "~/components/agents/CodexSettingsForm.vue";
 import PanelSection from "~/components/shell/PanelSection.vue";
 
 type AgentSection = "rules" | AgentItemKind;
@@ -50,10 +48,6 @@ const {
 const endpoints = ref<RelayEndpoint[]>([]);
 const activeClient = ref<AgentClient>("codex");
 const activeSection = ref<AgentSection>("rules");
-const rulesEditorElement = ref<HTMLElement | null>(null);
-const rulesPreviewElement = ref<HTMLElement | null>(null);
-let rulesEditorTextarea: HTMLTextAreaElement | null = null;
-let rulesScrollSyncing = false;
 let rulesSaveTimer: ReturnType<typeof setTimeout> | undefined;
 let rulesLoaded = false;
 const rulesSaving = ref(false);
@@ -63,50 +57,54 @@ const agentConfiguration = reactive(createAgentConfiguration());
 const settingsDraft = reactive(createAgentConfiguration());
 const rulesDraft = reactive({ codex: "", claudeCode: "" });
 let settingsExitRegistration:
-  | ReturnType<typeof workspaceExit.register>
-  | undefined;
-let rulesExitRegistration: ReturnType<typeof workspaceExit.register> | undefined;
+  ReturnType<typeof workspaceExit.register> | undefined;
+let rulesExitRegistration:
+  ReturnType<typeof workspaceExit.register> | undefined;
 
 function createAgentConfiguration() {
   return {
-  codex: {
-    endpoint: "",
-    customBaseUrl: "",
-    customToken: "",
-    model: "",
-    reasoningEffort: "high",
-    personality: "pragmatic",
-    webSearch: true,
-    sandbox: "workspace-write",
-    disableResponseStorage: true,
-    maxThreads: 16,
-    maxDepth: 1,
-    jobMaxRuntimeSeconds: 1800,
-    networkAccess: true,
-    shellEnvironmentInherit: "all",
-    windowsSandbox: "unelevated",
-    features: {
-      memories: true,
-      goals: true,
-      workspaceDependencies: false,
+    codex: {
+      endpoint: "",
+      customBaseUrl: "",
+      customToken: "",
+      model: "",
+      reasoningEffort: "high",
+      personality: "pragmatic",
+      webSearch: true,
+      sandbox: "workspace-write",
+      disableResponseStorage: true,
+      maxThreads: 16,
+      maxDepth: 1,
+      jobMaxRuntimeSeconds: 1800,
+      networkAccess: true,
+      shellEnvironmentInherit: "all",
+      windowsSandbox: "unelevated",
+      features: {
+        memories: true,
+        goals: true,
+        workspaceDependencies: false,
+      },
+      rules: "",
     },
-    rules: "",
-  },
-  claudeCode: {
-    endpoint: "",
-    opusModel: "",
-    sonnetModel: "",
-    haikuModel: "",
-    subagentModel: "",
-    effort: "high",
-    language: "中文",
-    permissionMode: "acceptEdits",
-    rules: "",
-  },
+    claudeCode: {
+      endpoint: "",
+      opusModel: "",
+      sonnetModel: "",
+      haikuModel: "",
+      subagentModel: "",
+      effort: "high",
+      language: "中文",
+      permissionMode: "acceptEdits",
+      rules: "",
+    },
   };
 }
 
-const clientDefinitions: Array<{ client: AgentClient; label: string; icon: string }> = [
+const clientDefinitions: Array<{
+  client: AgentClient;
+  label: string;
+  icon: string;
+}> = [
   { client: "codex", label: "Codex", icon: codexIcon },
   { client: "claudeCode", label: "Claude Code", icon: claudeIcon },
 ];
@@ -115,7 +113,11 @@ const agentClients = computed(() =>
     const detected = snapshot.value.clients.find(
       ({ client }) => client === definition.client,
     );
-    return { ...definition, installed: Boolean(detected), version: detected?.version ?? null };
+    return {
+      ...definition,
+      installed: Boolean(detected),
+      version: detected?.version ?? null,
+    };
   }),
 );
 const sectionOptions = [
@@ -124,19 +126,19 @@ const sectionOptions = [
   { value: "mcp", label: "MCP", icon: "ph:terminal-window" },
   { value: "skill", label: "Skill", icon: "ph:book-open-text" },
 ];
-const endpointOptions = computed(() =>
-  [
-    ...endpoints.value.map((endpoint) => ({
-      value: endpoint.id,
-      label: endpoint.name,
-      description: `${endpoint.models.length} 个模型`,
-    })),
-    { value: customEndpointValue, label: "自定义" },
-  ],
-);
+const endpointOptions = computed(() => [
+  ...endpoints.value.map((endpoint) => ({
+    value: endpoint.id,
+    label: endpoint.name,
+    description: `${endpoint.models.length} 个模型`,
+  })),
+  { value: customEndpointValue, label: "自定义" },
+]);
 const activeSettings = computed(() => settingsDraft[activeClient.value]);
 const selectedEndpoint = computed(() =>
-  endpoints.value.find((endpoint) => endpoint.id === activeSettings.value.endpoint),
+  endpoints.value.find(
+    (endpoint) => endpoint.id === activeSettings.value.endpoint,
+  ),
 );
 const isCustomCodexEndpoint = computed(
   () => settingsDraft.codex.endpoint === customEndpointValue,
@@ -149,10 +151,13 @@ const modelOptions = computed(() =>
 );
 const activeItems = computed(
   () =>
-    snapshot.value.clients.find((client) => client.client === activeClient.value)
-      ?.items ?? [],
+    snapshot.value.clients.find(
+      (client) => client.client === activeClient.value,
+    )?.items ?? [],
 );
-const activeClientDetected = computed(() => isClientInstalled(activeClient.value));
+const activeClientDetected = computed(() =>
+  isClientInstalled(activeClient.value),
+);
 const activeKind = computed<AgentItemKind | null>(() =>
   activeSection.value === "rules" ? null : activeSection.value,
 );
@@ -170,7 +175,6 @@ const rulesDirty = computed(
     rulesDraft.codex !== agentConfiguration.codex.rules ||
     rulesDraft.claudeCode !== agentConfiguration.claudeCode.rules,
 );
-const activeRules = computed(() => rulesDraft[activeClient.value]);
 
 function isClientInstalled(client: AgentClient) {
   return snapshot.value.clients.some((item) => item.client === client);
@@ -178,93 +182,6 @@ function isClientInstalled(client: AgentClient) {
 
 function isAgentSettingsLoading(client: AgentClient) {
   return !agentsLoaded.value || agentSettingsLoading.value[client];
-}
-
-const effortOptions = [
-  { value: "low", label: "低" },
-  { value: "medium", label: "中" },
-  { value: "high", label: "高" },
-  { value: "xhigh", label: "很高" },
-];
-const personalityOptions = [
-  { value: "pragmatic", label: "务实" },
-  { value: "friendly", label: "友好" },
-  { value: "direct", label: "直接" },
-];
-const sandboxOptions = [
-  { value: "read-only", label: "只读" },
-  { value: "workspace-write", label: "工作区写入" },
-  { value: "danger-full-access", label: "完全访问" },
-];
-const permissionOptions = [
-  { value: "manual", label: "手动确认" },
-  { value: "acceptEdits", label: "允许编辑" },
-  { value: "auto", label: "自动执行" },
-];
-const languageOptions = [
-  { value: "中文", label: "中文" },
-  { value: "English", label: "English" },
-];
-const shellEnvironmentOptions = [
-  { value: "all", label: "全部继承" },
-  { value: "core", label: "仅基础环境" },
-  { value: "none", label: "不继承" },
-];
-const windowsSandboxOptions = [
-  { value: "unelevated", label: "非提升" },
-  { value: "elevated", label: "提升" },
-];
-const codexFeatures = [
-  { key: "memories", label: "长期记忆" },
-  { key: "goals", label: "目标管理" },
-  { key: "workspaceDependencies", label: "工作区依赖" },
-] as const;
-
-function updateCodexNumber(
-  key: "maxThreads" | "maxDepth" | "jobMaxRuntimeSeconds",
-  value: string | number,
-) {
-  settingsDraft.codex[key] = Number(value);
-}
-
-function syncRulesScroll(source: HTMLElement, target: HTMLElement) {
-  if (rulesScrollSyncing) return;
-  const sourceRange = source.scrollHeight - source.clientHeight;
-  const targetRange = target.scrollHeight - target.clientHeight;
-  if (sourceRange <= 0 || targetRange <= 0) return;
-
-  rulesScrollSyncing = true;
-  target.scrollTop = (source.scrollTop / sourceRange) * targetRange;
-  requestAnimationFrame(() => {
-    rulesScrollSyncing = false;
-  });
-}
-
-function onRulesEditorScroll() {
-  if (rulesEditorTextarea && rulesPreviewElement.value) {
-    syncRulesScroll(rulesEditorTextarea, rulesPreviewElement.value);
-  }
-}
-
-function onRulesPreviewScroll() {
-  if (rulesPreviewElement.value && rulesEditorTextarea) {
-    syncRulesScroll(rulesPreviewElement.value, rulesEditorTextarea);
-  }
-}
-
-function unbindRulesScroll() {
-  rulesEditorTextarea?.removeEventListener("scroll", onRulesEditorScroll);
-  rulesPreviewElement.value?.removeEventListener("scroll", onRulesPreviewScroll);
-  rulesEditorTextarea = null;
-}
-
-function bindRulesScroll() {
-  unbindRulesScroll();
-  rulesEditorTextarea = rulesEditorElement.value?.querySelector("textarea") ?? null;
-  rulesEditorTextarea?.addEventListener("scroll", onRulesEditorScroll, { passive: true });
-  rulesPreviewElement.value?.addEventListener("scroll", onRulesPreviewScroll, {
-    passive: true,
-  });
 }
 
 function copyClientSettings(
@@ -371,7 +288,10 @@ async function saveSettings() {
       settings:
         client === "codex"
           ? { client, settings: codexSettingsPayload(settingsDraft.codex) }
-          : { client, settings: claudeCodeSettingsPayload(settingsDraft.claudeCode) },
+          : {
+              client,
+              settings: claudeCodeSettingsPayload(settingsDraft.claudeCode),
+            },
       connection: connection ? { client, connection } : null,
     });
     copyClientSettings(settingsDraft, agentConfiguration, client);
@@ -472,7 +392,8 @@ async function loadAgentPage(force = false) {
 
 function hydrateAgentSettings(value: AgentSettings) {
   if (value.client === "codex") {
-    const { endpointName, baseUrl, customToken, ...codexSettings } = value.settings;
+    const { endpointName, baseUrl, customToken, ...codexSettings } =
+      value.settings;
     Object.assign(agentConfiguration.codex, codexSettings);
     Object.assign(agentConfiguration.codex.features, value.settings.features);
     agentConfiguration.codex.customBaseUrl = baseUrl ?? "";
@@ -483,8 +404,11 @@ function hydrateAgentSettings(value: AgentSettings) {
       managementUrl && baseUrl && normalizeBaseUrl(baseUrl) === managementUrl
         ? endpoints.value.find((endpoint) => endpoint.name === endpointName)
         : undefined;
-    agentConfiguration.codex.endpoint = codexEndpoint?.id ?? customEndpointValue;
-    agentConfiguration.codex.customToken = codexEndpoint ? "" : customToken ?? "";
+    agentConfiguration.codex.endpoint =
+      codexEndpoint?.id ?? customEndpointValue;
+    agentConfiguration.codex.customToken = codexEndpoint
+      ? ""
+      : (customToken ?? "");
     copyClientSettings(agentConfiguration, settingsDraft, "codex");
     replaceRulesDraft("codex", agentConfiguration.codex.rules);
   } else {
@@ -497,7 +421,8 @@ function hydrateAgentSettings(value: AgentSettings) {
       managementUrl && baseUrl && normalizeBaseUrl(baseUrl) === managementUrl
         ? endpoints.value.find((endpoint) => endpoint.token === endpointToken)
         : undefined;
-    agentConfiguration.claudeCode.endpoint = claudeEndpoint?.id ?? customEndpointValue;
+    agentConfiguration.claudeCode.endpoint =
+      claudeEndpoint?.id ?? customEndpointValue;
     copyClientSettings(agentConfiguration, settingsDraft, "claudeCode");
     replaceRulesDraft("claudeCode", agentConfiguration.claudeCode.rules);
   }
@@ -556,24 +481,7 @@ watch(showSettings, (visible) => {
 });
 
 watch(
-  () => settingsDraft.codex.endpoint,
-  (endpoint, previous) => {
-    if (
-      showSettings.value &&
-      endpoint === customEndpointValue &&
-      previous !== customEndpointValue
-    ) {
-      settingsDraft.codex.customBaseUrl = "";
-      settingsDraft.codex.customToken = "";
-    }
-  },
-);
-
-watch(
-  () => [
-    cachedAgentSettings.value.codex,
-    cachedAgentSettings.value.claudeCode,
-  ],
+  () => [cachedAgentSettings.value.codex, cachedAgentSettings.value.claudeCode],
   ([codex, claudeCode], previous) => {
     if (codex && codex !== previous?.[0]) hydrateAgentSettings(codex);
     if (claudeCode && claudeCode !== previous?.[1]) {
@@ -603,22 +511,10 @@ watch(
   () => scheduleRulesSave("claudeCode"),
 );
 
-watch(
-  [activeSection, activeClient, () => isAgentSettingsLoading(activeClient.value)],
-  async ([section, _client, loading]) => {
-    unbindRulesScroll();
-    if (section !== "rules" || loading) return;
-    await nextTick();
-    bindRulesScroll();
-  },
-  { immediate: true },
-);
-
 onBeforeUnmount(() => {
   if (rulesSaveTimer) clearTimeout(rulesSaveTimer);
   settingsExitRegistration?.unregister();
   rulesExitRegistration?.unregister();
-  unbindRulesScroll();
 });
 </script>
 
@@ -655,17 +551,16 @@ onBeforeUnmount(() => {
                   :class="{
                     'agent-client-icon--monochrome': client.client === 'codex',
                     'agent-client-icon--uninstalled': !client.installed,
-                    'agent-client-icon--loading': isAgentSettingsLoading(client.client),
+                    'agent-client-icon--loading': isAgentSettingsLoading(
+                      client.client,
+                    ),
                   }"
                 />
                 <span
                   v-if="isAgentSettingsLoading(client.client)"
                   class="agent-client-loading"
                 >
-                  <Icon
-                    icon="ph:circle-notch"
-                    size="28"
-                  />
+                  <Icon icon="ph:circle-notch" size="28" />
                 </span>
               </span>
             </template>
@@ -681,7 +576,10 @@ onBeforeUnmount(() => {
             visible
             text="正在读取智能体设置..."
           />
-          <section v-else-if="!isClientInstalled(activeClient)" class="agent-unavailable">
+          <section
+            v-else-if="!isClientInstalled(activeClient)"
+            class="agent-unavailable"
+          >
             <Icon icon="ph:download-simple" size="24" />
             <p>未检测到本机安装</p>
           </section>
@@ -694,31 +592,18 @@ onBeforeUnmount(() => {
               />
               <div class="agent-toolbar__actions">
                 <Button
-                  square
-                  icon="ph:gear-six"
-                  aria-label="编辑设置"
-                  title="编辑设置"
+                  icon="ph:sliders-horizontal"
+                  aria-label="配置"
+                  title="配置"
                   @click="openSettings"
-                />
+                >
+                  配置
+                </Button>
               </div>
             </div>
-            <section v-if="activeSection === 'rules'" class="agent-rules">
-              <div ref="rulesEditorElement" class="agent-rules__editor">
-                <Textarea
-                  v-model="rulesDraft[activeClient]"
-                  class="agent-rules__input"
-                  aria-label="编辑全局规则"
-                  :rows="18"
-                  resize="none"
-                />
-              </div>
-              <div ref="rulesPreviewElement" class="agent-rules__preview">
-                <MarkdownViewer
-                  :content="activeRules"
-                  class="agent-settings__markdown"
-                />
-              </div>
-            </section>
+            <template v-if="activeSection === 'rules'">
+              <AgentRulesEditor v-model="rulesDraft[activeClient]" />
+            </template>
             <div v-else class="item-results">
               <AgentItemList
                 :items="sectionItems"
@@ -738,235 +623,25 @@ onBeforeUnmount(() => {
     :blocked="pending || settingsDirty"
     @update:visible="updateSettingsVisibility"
   >
-    <form id="agent-settings-form" class="agent-settings-form" @submit.prevent="saveSettings">
-      <template v-if="activeClient === 'codex'">
-          <section class="agent-settings__group">
-            <div class="agent-settings__group-header">
-              <h3>模型与接入</h3>
-            </div>
-            <div class="agent-settings__fields">
-              <Select
-                v-model="settingsDraft.codex.endpoint"
-                label="接入点"
-                :options="endpointOptions"
-              />
-              <template v-if="isCustomCodexEndpoint">
-                <Input v-model="settingsDraft.codex.model" label="默认模型" />
-                <Input
-                  v-model="settingsDraft.codex.customBaseUrl"
-                  label="Base URL"
-                  placeholder="https://api.example.com/v1"
-                />
-                <Input
-                  v-model="settingsDraft.codex.customToken"
-                  label="Token"
-                />
-              </template>
-              <Select
-                v-else
-                v-model="settingsDraft.codex.model"
-                label="默认模型"
-                :options="modelOptions"
-              />
-            </div>
-            <div class="agent-settings__rows">
-              <div class="agent-settings__row">
-                <span class="agent-settings__label">推理强度</span>
-                <RadioGroup
-                  v-model="settingsDraft.codex.reasoningEffort"
-                  :options="effortOptions"
-                  size="small"
-                  variant="button"
-                />
-              </div>
-              <div class="agent-settings__row">
-                <span class="agent-settings__label">交互风格</span>
-                <RadioGroup
-                  v-model="settingsDraft.codex.personality"
-                  :options="personalityOptions"
-                  size="small"
-                  variant="button"
-                />
-              </div>
-            </div>
-          </section>
-
-          <section class="agent-settings__group">
-            <div class="agent-settings__group-header">
-              <h3>执行与网络</h3>
-            </div>
-            <div class="agent-settings__rows">
-              <div class="agent-settings__row">
-                <span class="agent-settings__label">执行权限</span>
-                <RadioGroup
-                  v-model="settingsDraft.codex.sandbox"
-                  :options="sandboxOptions"
-                  size="small"
-                  variant="button"
-                />
-              </div>
-              <div class="agent-settings__row">
-                <span class="agent-settings__label">实时网络搜索</span>
-                <Toggle v-model="settingsDraft.codex.webSearch" aria-label="实时网络搜索" />
-              </div>
-              <div class="agent-settings__row">
-                <span class="agent-settings__label">工作区网络访问</span>
-                <Toggle v-model="settingsDraft.codex.networkAccess" aria-label="工作区网络访问" />
-              </div>
-            </div>
-          </section>
-
-          <section class="agent-settings__group">
-            <div class="agent-settings__group-header">
-              <h3>协作与记忆</h3>
-            </div>
-            <div class="agent-settings__rows">
-              <div class="agent-settings__row">
-                <span class="agent-settings__label">最大并发智能体</span>
-                <Input
-                  :model-value="settingsDraft.codex.maxThreads"
-                  class="agent-settings__value"
-                  type="number"
-                  :min="1"
-                  aria-label="最大并发智能体"
-                  @update:model-value="updateCodexNumber('maxThreads', $event)"
-                />
-              </div>
-              <div class="agent-settings__row">
-                <span class="agent-settings__label">子智能体最大深度</span>
-                <Input
-                  :model-value="settingsDraft.codex.maxDepth"
-                  class="agent-settings__value"
-                  type="number"
-                  :min="0"
-                  aria-label="子智能体最大深度"
-                  @update:model-value="updateCodexNumber('maxDepth', $event)"
-                />
-              </div>
-              <div class="agent-settings__row">
-                <span class="agent-settings__label">单项任务时限</span>
-                <Input
-                  :model-value="settingsDraft.codex.jobMaxRuntimeSeconds"
-                  class="agent-settings__value"
-                  type="number"
-                  :min="1"
-                  aria-label="单项任务时限（秒）"
-                  @update:model-value="updateCodexNumber('jobMaxRuntimeSeconds', $event)"
-                />
-              </div>
-              <div
-                v-for="feature in codexFeatures"
-                :key="feature.key"
-                class="agent-settings__row"
-              >
-                <span class="agent-settings__label">{{ feature.label }}</span>
-                <Toggle
-                  v-model="settingsDraft.codex.features[feature.key]"
-                  :aria-label="feature.label"
-                />
-              </div>
-            </div>
-          </section>
-
-          <section class="agent-settings__group">
-            <div class="agent-settings__group-header">
-              <h3>运行环境</h3>
-            </div>
-            <div class="agent-settings__rows">
-              <div class="agent-settings__row">
-                <span class="agent-settings__label">禁用响应存储</span>
-                <Toggle
-                  v-model="settingsDraft.codex.disableResponseStorage"
-                  aria-label="禁用响应存储"
-                />
-              </div>
-              <div class="agent-settings__row">
-                <span class="agent-settings__label">Shell 环境继承</span>
-                <Select
-                  v-model="settingsDraft.codex.shellEnvironmentInherit"
-                  class="agent-settings__value"
-                  aria-label="Shell 环境继承"
-                  :options="shellEnvironmentOptions"
-                />
-              </div>
-              <div class="agent-settings__row">
-                <span class="agent-settings__label">Windows 沙箱</span>
-                <RadioGroup
-                  v-model="settingsDraft.codex.windowsSandbox"
-                  :options="windowsSandboxOptions"
-                  size="small"
-                  variant="button"
-                />
-              </div>
-            </div>
-          </section>
-      </template>
-
-      <template v-else>
-          <section class="agent-settings__group">
-            <div class="agent-settings__group-header">
-              <h3>模型与接入</h3>
-            </div>
-            <div class="agent-settings__fields">
-              <Select
-                v-model="settingsDraft.claudeCode.endpoint"
-                label="接入点"
-                :options="endpointOptions"
-              />
-              <Select
-                v-model="settingsDraft.claudeCode.language"
-                label="界面语言"
-                :options="languageOptions"
-              />
-              <Select
-                v-model="settingsDraft.claudeCode.opusModel"
-                label="Opus 模型"
-                :options="modelOptions"
-              />
-              <Select
-                v-model="settingsDraft.claudeCode.sonnetModel"
-                label="Sonnet 模型"
-                :options="modelOptions"
-              />
-              <Select
-                v-model="settingsDraft.claudeCode.haikuModel"
-                label="Haiku 模型"
-                :options="modelOptions"
-              />
-              <Select
-                v-model="settingsDraft.claudeCode.subagentModel"
-                label="子智能体模型"
-                :options="modelOptions"
-              />
-            </div>
-          </section>
-
-          <section class="agent-settings__group">
-            <div class="agent-settings__group-header">
-              <h3>执行与协作</h3>
-            </div>
-            <div class="agent-settings__rows">
-              <div class="agent-settings__row">
-                <span class="agent-settings__label">推理强度</span>
-                <RadioGroup
-                  v-model="settingsDraft.claudeCode.effort"
-                  :options="effortOptions"
-                  size="small"
-                  variant="button"
-                />
-              </div>
-              <div class="agent-settings__row">
-                <span class="agent-settings__label">工具权限</span>
-                <RadioGroup
-                  v-model="settingsDraft.claudeCode.permissionMode"
-                  :options="permissionOptions"
-                  size="small"
-                  variant="button"
-                />
-              </div>
-            </div>
-          </section>
-      </template>
+    <form
+      id="agent-settings-form"
+      class="agent-settings-form"
+      @submit.prevent="saveSettings"
+    >
+      <CodexSettingsForm
+        v-if="activeClient === 'codex'"
+        v-model="settingsDraft.codex"
+        :visible="showSettings"
+        :endpoint-options="endpointOptions"
+        :model-options="modelOptions"
+        :custom-endpoint-value="customEndpointValue"
+      />
+      <ClaudeCodeSettingsForm
+        v-else
+        v-model="settingsDraft.claudeCode"
+        :endpoint-options="endpointOptions"
+        :model-options="modelOptions"
+      />
     </form>
     <template #footer>
       <Button :disabled="pending" @click="requestCloseSettings">取消</Button>
@@ -1116,98 +791,4 @@ onBeforeUnmount(() => {
   gap: var(--spacing-xl);
   padding: var(--spacing-lg);
 }
-
-.agent-rules {
-  display: grid;
-  flex: 1;
-  width: 100%;
-  min-width: 0;
-  min-height: 0;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  grid-template-rows: minmax(0, 1fr);
-  gap: var(--spacing-xl);
-  overflow: hidden;
-  padding: 0 0 var(--spacing-lg);
-}
-
-.agent-rules__editor,
-.agent-rules__preview {
-  min-width: 0;
-  min-height: 0;
-}
-
-.agent-rules__editor {
-  display: grid;
-  min-height: 0;
-  grid-template-rows: minmax(0, 1fr);
-  align-content: start;
-  gap: var(--spacing-sm);
-}
-
-.agent-rules__preview {
-  overflow-y: auto;
-}
-
-.agent-rules__input {
-  height: 100%;
-  min-height: 0;
-}
-
-.agent-rules__input :deep(textarea) {
-  height: 100%;
-}
-
-.agent-settings__group {
-  display: grid;
-  min-width: 0;
-  gap: var(--spacing-lg);
-}
-
-.agent-settings__group-header h3 {
-  margin: 0;
-  color: var(--st-text-primary);
-  font-size: 15px;
-  font-weight: 600;
-}
-
-.agent-settings__group-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--spacing-md);
-}
-
-.agent-settings__fields {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: var(--spacing-lg);
-}
-
-.agent-settings__rows {
-  display: grid;
-  gap: var(--spacing-lg);
-}
-
-.agent-settings__row {
-  display: grid;
-  min-height: 36px;
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-items: center;
-  gap: var(--spacing-xl);
-}
-
-.agent-settings__label {
-  color: var(--st-text-secondary);
-  font-size: 14px;
-  font-weight: 400;
-}
-
-.agent-settings__value {
-  width: 168px;
-}
-
-.agent-settings__markdown {
-  min-width: 0;
-}
-
 </style>
