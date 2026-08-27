@@ -796,9 +796,9 @@ onBeforeUnmount(() => {
 }
 
 .agent-sidebar {
-  display: flex;
+  display: grid;
   min-height: 0;
-  flex-direction: column;
+  grid-template-rows: minmax(0, 1fr) auto;
   padding-right: var(--spacing-md);
   border-right: 1px solid var(--st-border-divider);
 }
@@ -826,7 +826,7 @@ onBeforeUnmount(() => {
 }
 
 .agent-extension-library {
-  margin-top: auto;
+  margin-top: 0;
   padding-top: var(--spacing-sm);
   border-top: 1px solid var(--st-border-divider);
 }
