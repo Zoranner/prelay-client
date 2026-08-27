@@ -8,13 +8,24 @@ test("桌面客户端按参考工程采用 shell、dashboard 和业务域目录"
   const app = source("app.vue");
   const shell = source("components/dashboard/DashboardShell.vue");
   const styles = source("assets/css/main.css");
+  const panelSection = source("components/shell/PanelSection.vue");
+  const config = readFileSync(
+    new URL("../nuxt.config.ts", import.meta.url),
+    "utf8",
+  );
 
   expect(app).toContain("DashboardShell");
   expect(shell).toContain('from "@stellar/ui"');
   expect(shell).toContain("Sidebar");
-  expect(styles).toContain('@import "@stellar/ui/styles"');
+  expect(styles).not.toContain('@import "@stellar/ui/styles"');
+  expect(config).not.toContain("stellarStyles");
+  expect(config).not.toContain("modules:done");
   expect(styles).not.toContain("tokens.css");
   expect(styles).not.toContain("business.css");
+  expect(panelSection).not.toContain('from "@stellar/ui"');
+  expect(panelSection).not.toContain("<Card");
+  expect(panelSection).toContain("panel-section-header");
+  expect(panelSection).toContain("panel-section-content");
 });
 
 test("供应商和接入点页面通过 Stellar UI 的 PanelSection、Table 和 Drawer 组合", () => {

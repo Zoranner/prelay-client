@@ -1,6 +1,4 @@
 <script setup lang="ts">
-import { Card } from "@stellar/ui";
-
 defineProps<{
   title: string;
 }>();
@@ -8,30 +6,23 @@ defineProps<{
 
 <template>
   <section class="panel-section">
-    <Card class="panel-section-card" :hoverable="false" :padded="false">
-      <header class="panel-section-header">
-        <h2 class="panel-section-title">{{ title }}</h2>
-        <div class="panel-section-actions">
-          <slot name="header-actions" />
-        </div>
-      </header>
-
-      <div class="panel-section-content">
-        <slot />
+    <header class="panel-section-header">
+      <h2 class="panel-section-title">{{ title }}</h2>
+      <div class="panel-section-actions">
+        <slot name="header-actions" />
       </div>
+    </header>
 
-      <slot name="footer" />
-    </Card>
+    <div class="panel-section-content">
+      <slot />
+    </div>
+
+    <slot name="footer" />
   </section>
 </template>
 
 <style scoped>
 .panel-section {
-  height: 100%;
-  min-height: 0;
-}
-
-.panel-section-card {
   display: flex;
   height: 100%;
   min-height: 0;
