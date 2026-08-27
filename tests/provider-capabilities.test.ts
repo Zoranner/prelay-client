@@ -60,6 +60,16 @@ test("供应商表格中的协议按 Chat Completions、Responses、Anthropic �
   ).toEqual(["openai", "responses", "anthropic"]);
 });
 
+test("供应商表格保留图像生成协议", () => {
+  expect(
+    providerProtocolOptions(
+      provider({
+        upstream_protocols: ["images_generations", "openai"],
+      }),
+    ),
+  ).toEqual(["openai", "images_generations"]);
+});
+
 test("DeepSeek 模板默认支持 Responses 协议", () => {
   expect(providerTemplateForType("deepseek")?.protocols).toEqual([
     "responses",
@@ -108,10 +118,11 @@ test("GoToken 位于套餐服务首位并使用官网基础地址", () => {
     label: "GoToken 套餐",
     providerType: "gotoken",
     baseUrl: "https://gotoken.cc",
-    protocols: ["responses", "openai", "anthropic"],
+    protocols: ["responses", "openai", "anthropic", "images_generations"],
     protocolBaseUrls: {
       openai: "https://gotoken.cc/v1",
       anthropic: "https://gotoken.cc/v1",
+      images_generations: "https://gotoken.cc/v1",
     },
   });
 });

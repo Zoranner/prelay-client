@@ -25,10 +25,11 @@ test("切换供应商模板时同步回填模板名称", () => {
   expect(providerSource).toContain("name.value = template.label;");
 });
 
-test("供应商表单将 Chat Completions 排在支持协议首位", () => {
+test("供应商表单将 Chat Completions 排在支持协议首位并包含图像生成", () => {
   expect(providerSource).toContain(
-    'const allProtocols: UpstreamProtocol[] = ["openai", "responses", "anthropic"]',
+    'const allProtocols: UpstreamProtocol[] = ["openai", "responses", "anthropic", "images_generations"]',
   );
+  expect(providerSource).toContain('images_generations: "",');
   expect(providerSource).toContain(
     "const orderedUpstreamProtocols = computed(() =>",
   );
@@ -37,6 +38,12 @@ test("供应商表单将 Chat Completions 排在支持协议首位", () => {
   );
   expect(providerSource).toContain(
     "upstream_protocols: orderedUpstreamProtocols.value",
+  );
+});
+
+test("图像生成协议不提供会产生实际调用的测试按钮", () => {
+  expect(providerSource).toMatch(
+    /v-if="protocol !== 'images_generations'"[\s\S]{0,260}@click="requestProtocolTest\(protocol\)"/,
   );
 });
 

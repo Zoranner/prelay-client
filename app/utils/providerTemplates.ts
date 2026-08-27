@@ -22,10 +22,11 @@ export const PROVIDER_TEMPLATE_GROUPS: {
         "GoToken 套餐",
         "gotoken",
         "https://gotoken.cc",
-        ["responses", "openai", "anthropic"],
+        ["responses", "openai", "anthropic", "images_generations"],
         {
           openai: "https://gotoken.cc/v1",
           anthropic: "https://gotoken.cc/v1",
+          images_generations: "https://gotoken.cc/v1",
         },
       ),
       template(
@@ -145,6 +146,8 @@ export function protocolLabel(protocol: string | null) {
       ? "Anthropic Messages"
       : protocol === "openai" || protocol === "chat_completions"
         ? "Chat Completions"
+        : protocol === "images_generations"
+          ? "图像生成"
         : "-";
 }
 

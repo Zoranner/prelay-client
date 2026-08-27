@@ -58,7 +58,7 @@ type ProviderOperationInput = {
   model?: string;
 };
 
-const allProtocols: UpstreamProtocol[] = ["openai", "responses", "anthropic"];
+const allProtocols: UpstreamProtocol[] = ["openai", "responses", "anthropic", "images_generations"];
 const protocolOptions = allProtocols.map((protocol) => ({
   value: protocol,
   label: protocolLabel(protocol),
@@ -79,6 +79,7 @@ const protocolBaseUrls = reactive<Record<UpstreamProtocol, string>>({
   responses: "",
   openai: "",
   anthropic: "",
+  images_generations: "",
 });
 const toolCalls = ref<boolean | null>(null);
 const reasoning = ref<boolean | null>(null);
@@ -346,6 +347,7 @@ function submit() {
               :placeholder="baseUrl || '填写协议地址'"
             />
             <Button
+              v-if="protocol !== 'images_generations'"
               square
               type="button"
               size="small"

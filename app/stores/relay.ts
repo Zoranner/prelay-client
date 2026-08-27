@@ -12,12 +12,17 @@ export interface ProviderModel {
   created_at: string;
 }
 
-export type UpstreamProtocol = "responses" | "openai" | "anthropic";
+export type UpstreamProtocol =
+  | "responses"
+  | "openai"
+  | "anthropic"
+  | "images_generations";
 
 export interface ProviderProtocolBaseUrls {
   responses?: string | null;
   openai?: string | null;
   anthropic?: string | null;
+  images_generations?: string | null;
 }
 
 export interface ProviderCapabilities {
