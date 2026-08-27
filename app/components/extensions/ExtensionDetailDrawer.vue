@@ -32,7 +32,7 @@ watch(
 <template>
   <Drawer
     :visible="visible"
-    :title="extension?.name ?? '扩展详情'"
+    title="扩展详情"
     size="large"
     :blocked="loading"
     @update:visible="(nextVisible) => (visible = nextVisible)"

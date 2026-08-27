@@ -25,6 +25,7 @@ test("扩展库沿用智能体工作区的分类表格与单层操作表面", ()
   expect(page).not.toContain("showExtensionCatalog");
   expect(page).not.toContain("<small>agents</small>");
   expect(detailDrawer).toContain("MarkdownViewer");
+  expect(detailDrawer).toContain('title="扩展详情"');
   expect(detailDrawer).toContain('<template #footer>');
   expect(detailDrawer).toContain(">关闭</Button>");
   expect(detailDrawer).not.toContain("extension-detail__meta");
