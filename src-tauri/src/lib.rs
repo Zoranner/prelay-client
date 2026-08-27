@@ -51,6 +51,9 @@ impl Default for NativeState {
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
+            tray::show_main_window(app);
+        }))
         .plugin(tauri_plugin_autostart::init(
             tauri_plugin_autostart::MacosLauncher::LaunchAgent,
             Some(vec!["--autostart"]),
@@ -89,6 +92,11 @@ pub fn run() {
         .setup(|app| {
             let app_data_dir = app.path().app_data_dir()?;
             let state = NativeState::for_app_data_dir(app_data_dir);
+            autostart::apply_default_when_preferences_are_missing(
+                app.handle(),
+                &state.desktop_preferences,
+            )
+            .map_err(std::io::Error::other)?;
             let start_silently = autostart::should_start_silently(&state.desktop_preferences)
                 .map_err(std::io::Error::other)?;
             app.manage(state);

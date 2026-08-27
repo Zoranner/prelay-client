@@ -33,6 +33,7 @@ impl Default for DesktopPreferences {
 }
 
 pub trait DesktopPreferencesStore: Send + Sync {
+    fn exists(&self) -> Result<bool, String>;
     fn load(&self) -> Result<DesktopPreferences, String>;
     fn save(&self, preferences: &DesktopPreferences) -> Result<(), String>;
 }
@@ -60,10 +61,16 @@ impl FileDesktopPreferencesStore {
 }
 
 impl DesktopPreferencesStore for FileDesktopPreferencesStore {
+    fn exists(&self) -> Result<bool, String> {
+        match self.path.try_exists() {
+            Ok(exists) => Ok(exists),
+            Err(error) => Err(store_error(error)),
+        }
+    }
+
     fn load(&self) -> Result<DesktopPreferences, String> {
         match fs::read_to_string(&self.path) {
-            Ok(contents) => serde_json::from_str(&contents)
-                .map_err(|_| "desktop preferences are not valid JSON".to_owned()),
+            Ok(contents) => Ok(serde_json::from_str(&contents).unwrap_or_default()),
             Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
                 Ok(DesktopPreferences::default())
             }

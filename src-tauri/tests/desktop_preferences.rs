@@ -52,6 +52,40 @@ fn desktop_preferences_default_to_system_theme_and_tray_minimization() {
 }
 
 #[test]
+fn invalid_desktop_preferences_fall_back_to_defaults() {
+    let directory = tempdir().expect("create preferences directory");
+    let path = directory.path().join("desktop-preferences.json");
+    std::fs::write(&path, "invalid JSON").expect("write invalid preferences");
+    let store = FileDesktopPreferencesStore::at(path);
+
+    assert_eq!(
+        store.load().expect("recover default preferences"),
+        DesktopPreferences::default()
+    );
+}
+
+#[test]
+fn legacy_desktop_preferences_keep_existing_values() {
+    let directory = tempdir().expect("create preferences directory");
+    let path = directory.path().join("desktop-preferences.json");
+    std::fs::write(
+        &path,
+        r#"{"theme":"dark","silent_start":false,"minimize_to_tray":false}"#,
+    )
+    .expect("write legacy preferences");
+    let store = FileDesktopPreferencesStore::at(path);
+
+    assert_eq!(
+        store.load().expect("load legacy preferences"),
+        DesktopPreferences {
+            theme: ThemeMode::Dark,
+            silent_start: false,
+            minimize_to_tray: false,
+        }
+    );
+}
+
+#[test]
 fn desktop_preferences_round_trip() {
     let directory = tempdir().expect("create preferences directory");
     let store = FileDesktopPreferencesStore::at(directory.path().join("desktop-preferences.json"));

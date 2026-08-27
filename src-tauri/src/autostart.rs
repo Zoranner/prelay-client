@@ -24,6 +24,17 @@ pub fn set_enabled(app: &AppHandle, enabled: bool) -> Result<(), String> {
     Ok(())
 }
 
+pub fn apply_default_when_preferences_are_missing(
+    app: &AppHandle,
+    preferences: &impl DesktopPreferencesStore,
+) -> Result<(), String> {
+    if preferences.exists()? {
+        return Ok(());
+    }
+    set_enabled(app, true)?;
+    preferences.save(&Default::default())
+}
+
 pub fn should_start_silently(preferences: &impl DesktopPreferencesStore) -> Result<bool, String> {
     Ok(std::env::args().any(|argument| argument == "--autostart")
         && preferences.load()?.silent_start)

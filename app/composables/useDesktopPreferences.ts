@@ -9,7 +9,7 @@ export interface DesktopPreferences {
 
 const defaults: DesktopPreferences = {
   theme: "system",
-  autostartEnabled: false,
+  autostartEnabled: true,
   silentStart: true,
   minimizeToTray: true,
 };
