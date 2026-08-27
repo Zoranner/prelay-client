@@ -96,8 +96,8 @@ mod tests {
         fs::write(claude_root.join("settings.json"), "not JSON").unwrap();
 
         assert!(matches!(
-            agent_settings_from_home(directory.path(), AgentClient::Codex),
-            crate::agent_settings::AgentSettings::Codex(_)
+            agent_settings_from_home(directory.path(), AgentClient::CodexCli),
+            crate::agent_settings::AgentSettings::CodexCli(_)
         ));
     }
 }

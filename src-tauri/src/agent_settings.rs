@@ -9,9 +9,15 @@ use crate::agents::AgentClient;
 #[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase", tag = "client", content = "settings")]
 pub enum AgentSettings {
-    Codex(CodexSettings),
+    CodexCli(CodexSettings),
+    #[serde(rename = "chatgpt")]
+    ChatGpt(ChatGptSettings),
     ClaudeCode(ClaudeCodeSettings),
 }
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
+#[serde(transparent)]
+pub struct ChatGptSettings(pub CodexSettings);
 
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -44,7 +50,9 @@ pub enum ClaudeCodeConnection {
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase", tag = "client", content = "connection")]
 pub enum AgentConnection {
-    Codex(CodexConnection),
+    CodexCli(CodexConnection),
+    #[serde(rename = "chatgpt")]
+    ChatGpt(CodexConnection),
     ClaudeCode(ClaudeCodeConnection),
 }
 
@@ -175,7 +183,8 @@ impl Default for ClaudeCodeSettings {
 
 pub fn read_user_settings(home: &Path, client: AgentClient) -> AgentSettings {
     match client {
-        AgentClient::Codex => AgentSettings::Codex(read_codex_settings(home)),
+        AgentClient::CodexCli => AgentSettings::CodexCli(read_codex_settings(home)),
+        AgentClient::ChatGpt => AgentSettings::ChatGpt(ChatGptSettings(read_codex_settings(home))),
         AgentClient::ClaudeCode => AgentSettings::ClaudeCode(read_claude_code_settings(home)),
     }
 }
@@ -186,9 +195,13 @@ pub fn save_user_settings(
     connection: Option<&AgentConnection>,
 ) -> Result<(), String> {
     match (settings, connection) {
-        (AgentSettings::Codex(settings), None) => save_codex_settings(home, settings, None),
-        (AgentSettings::Codex(settings), Some(AgentConnection::Codex(connection))) => {
+        (AgentSettings::CodexCli(settings), None) => save_codex_settings(home, settings, None),
+        (AgentSettings::CodexCli(settings), Some(AgentConnection::CodexCli(connection))) => {
             save_codex_settings(home, settings, Some(connection))
+        }
+        (AgentSettings::ChatGpt(settings), None) => save_codex_settings(home, &settings.0, None),
+        (AgentSettings::ChatGpt(settings), Some(AgentConnection::ChatGpt(connection))) => {
+            save_codex_settings(home, &settings.0, Some(connection))
         }
         (AgentSettings::ClaudeCode(settings), None) => {
             save_claude_code_settings(home, settings, None)
@@ -708,8 +721,43 @@ mod tests {
 
     use super::{
         read_user_settings, save_claude_code_settings, save_user_settings, AgentConnection,
-        ClaudeCodeConnection, ClaudeCodeSettings, CodexConnection,
+        AgentSettings, ChatGptSettings, ClaudeCodeConnection, ClaudeCodeSettings, CodexConnection,
+        CodexSettings,
     };
+
+    #[test]
+    fn chatgpt_settings_read_and_write_the_codex_configuration() {
+        let directory = tempdir().unwrap();
+        let codex_root = directory.path().join(".codex");
+        fs::create_dir_all(&codex_root).unwrap();
+        fs::write(
+            codex_root.join("config.toml"),
+            "model = \"initial-model\"\n",
+        )
+        .unwrap();
+
+        let settings = read_user_settings(directory.path(), AgentClient::ChatGpt);
+        assert!(matches!(
+            settings,
+            AgentSettings::ChatGpt(ChatGptSettings(CodexSettings {
+                model: Some(ref model),
+                ..
+            })) if model == "initial-model"
+        ));
+
+        save_user_settings(
+            directory.path(),
+            &AgentSettings::ChatGpt(ChatGptSettings(CodexSettings {
+                model: Some("chatgpt-model".to_string()),
+                ..Default::default()
+            })),
+            None,
+        )
+        .unwrap();
+
+        let saved = fs::read_to_string(codex_root.join("config.toml")).unwrap();
+        assert!(saved.contains("model = \"chatgpt-model\""));
+    }
 
     #[test]
     fn saves_prelay_connection_for_initial_codex_config_without_provider_entries() {
@@ -747,7 +795,7 @@ sandbox = "unelevated"
         )
         .unwrap();
 
-        let settings = read_user_settings(directory.path(), AgentClient::Codex);
+        let settings = read_user_settings(directory.path(), AgentClient::CodexCli);
         let connection = CodexConnection::Prelay {
             endpoint_id: "endpoint-id".to_string(),
             endpoint_name: "Prelay".to_string(),
@@ -758,7 +806,7 @@ sandbox = "unelevated"
         save_user_settings(
             directory.path(),
             &settings,
-            Some(&AgentConnection::Codex(connection)),
+            Some(&AgentConnection::CodexCli(connection)),
         )
         .unwrap();
 
@@ -788,7 +836,7 @@ sandbox = "unelevated"
         fs::write(codex_root.join("config.toml"), "").unwrap();
         fs::write(codex_root.join("auth.json"), "").unwrap();
 
-        let settings = read_user_settings(directory.path(), AgentClient::Codex);
+        let settings = read_user_settings(directory.path(), AgentClient::CodexCli);
         let connection = CodexConnection::Custom {
             base_url: "https://relay.example.test/v1".to_string(),
             token: "endpoint-token".to_string(),
@@ -796,7 +844,7 @@ sandbox = "unelevated"
         save_user_settings(
             directory.path(),
             &settings,
-            Some(&AgentConnection::Codex(connection)),
+            Some(&AgentConnection::CodexCli(connection)),
         )
         .unwrap();
 

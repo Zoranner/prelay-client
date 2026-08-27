@@ -11,15 +11,29 @@ use atomic_write_file::AtomicWriteFile;
 use serde::{Deserialize, Serialize};
 use toml_edit::DocumentMut;
 
+mod integrations;
+use integrations::integration;
+
 #[cfg(windows)]
 use std::os::windows::process::CommandExt;
 #[cfg(windows)]
-use windows::Win32::System::Threading::CREATE_NO_WINDOW;
+use windows::{
+    core::PCWSTR,
+    Win32::{
+        Foundation::WIN32_ERROR,
+        System::{
+            Registry::{RegCloseKey, RegEnumKeyW, RegOpenKeyExW, HKEY_CURRENT_USER, KEY_READ},
+            Threading::CREATE_NO_WINDOW,
+        },
+    },
+};
 
 #[derive(Debug, Clone, Copy, Deserialize, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub enum AgentClient {
-    Codex,
+    CodexCli,
+    #[serde(rename = "chatgpt")]
+    ChatGpt,
     ClaudeCode,
 }
 
@@ -72,7 +86,7 @@ pub struct AgentClientVersion {
 }
 
 pub fn scan_user_items(home: &Path) -> AgentItemsSnapshot {
-    scan_user_items_with_installation(home, agent_command_is_available)
+    scan_user_items_with_installation(home, agent_client_is_installed)
 }
 
 pub fn agent_client_versions(clients: Vec<AgentClient>) -> Vec<AgentClientVersion> {
@@ -81,7 +95,7 @@ pub fn agent_client_versions(clients: Vec<AgentClient>) -> Vec<AgentClientVersio
         .map(|client| {
             thread::spawn(move || AgentClientVersion {
                 client,
-                version: agent_command_path(client).and_then(|path| agent_client_version(&path)),
+                version: integration(client).version(),
             })
         })
         .filter_map(|task| task.join().ok())
@@ -93,12 +107,13 @@ fn scan_user_items_with_installation(
     is_installed: impl Fn(AgentClient) -> bool,
 ) -> AgentItemsSnapshot {
     let mut snapshot = AgentItemsSnapshot::default();
-    for client in [AgentClient::Codex, AgentClient::ClaudeCode] {
+    for client in [
+        AgentClient::CodexCli,
+        AgentClient::ChatGpt,
+        AgentClient::ClaudeCode,
+    ] {
         if is_installed(client) {
-            let items = match client {
-                AgentClient::Codex => scan_codex(home),
-                AgentClient::ClaudeCode => scan_claude_code(home),
-            };
+            let items = integration(client).scan(home);
             snapshot.clients.push(AgentClientItems {
                 client,
                 version: None,
@@ -122,7 +137,7 @@ pub fn uninstall_user_item(
         kind,
         name,
         source_path,
-        agent_command_is_available,
+        agent_client_is_installed,
     )
 }
 
@@ -149,31 +164,89 @@ fn uninstall_user_item_with_installation(
         return Err("无法卸载配置读取失败的条目。".to_string());
     }
 
-    match (client, kind) {
-        (AgentClient::Codex, AgentItemKind::Mcp) => {
-            remove_codex_config_item(home, "mcp_servers", name)
-        }
-        (AgentClient::ClaudeCode, AgentItemKind::Mcp) => remove_claude_mcp_item(home, name),
-        (AgentClient::Codex, AgentItemKind::Plugin) => remove_codex_plugin(home, name),
-        (AgentClient::ClaudeCode, AgentItemKind::Plugin) => remove_claude_plugin(home, name),
-        (_, AgentItemKind::Skill) => remove_skill_directory(&item.source_path),
-    }
+    integration(client).uninstall(home, kind, name, &item.source_path)
 }
 
-fn agent_command_is_available(client: AgentClient) -> bool {
-    agent_command_path(client).is_some()
+fn agent_client_is_installed(client: AgentClient) -> bool {
+    integration(client).is_installed()
 }
 
-fn agent_command_path(client: AgentClient) -> Option<PathBuf> {
-    let command = match client {
-        AgentClient::Codex => "codex",
-        AgentClient::ClaudeCode => "claude",
-    };
+pub(super) fn command_path(command: &str) -> Option<PathBuf> {
     let paths = env::var_os("PATH")
         .map(|value| env::split_paths(&value).collect::<Vec<_>>())
         .unwrap_or_default();
     let extensions = command_extensions();
     command_path_in(command, &paths, &extensions)
+}
+
+#[cfg(windows)]
+pub(super) fn chatgpt_desktop_version() -> Option<String> {
+    let key_path = wide("Software\\Classes\\ActivatableClasses\\Package");
+    let mut package_key = Default::default();
+    if unsafe {
+        RegOpenKeyExW(
+            HKEY_CURRENT_USER,
+            PCWSTR::from_raw(key_path.as_ptr()),
+            None,
+            KEY_READ,
+            &mut package_key,
+        )
+    } != WIN32_ERROR(0)
+    {
+        return None;
+    }
+    let mut package_names = Vec::new();
+    for index in 0.. {
+        let mut name = vec![0u16; 256];
+        let status = unsafe { RegEnumKeyW(package_key, index, Some(&mut name)) };
+        if status == WIN32_ERROR(259) {
+            break;
+        }
+        if status == WIN32_ERROR(0) {
+            if let Some(name) = string_from_wide(&name) {
+                package_names.push(name);
+            }
+        }
+    }
+    let _ = unsafe { RegCloseKey(package_key) };
+    newest_chatgpt_desktop_version(package_names.iter().map(String::as_str))
+}
+
+#[cfg(not(windows))]
+pub(super) fn chatgpt_desktop_version() -> Option<String> {
+    None
+}
+
+#[cfg(windows)]
+fn wide(value: &str) -> Vec<u16> {
+    value.encode_utf16().chain(std::iter::once(0)).collect()
+}
+
+#[cfg(windows)]
+fn string_from_wide(value: &[u16]) -> Option<String> {
+    let end = value.iter().position(|character| *character == 0)?;
+    String::from_utf16(&value[..end]).ok()
+}
+
+fn newest_chatgpt_desktop_version<'a>(
+    package_names: impl IntoIterator<Item = &'a str>,
+) -> Option<String> {
+    package_names
+        .into_iter()
+        .filter_map(|package_name| {
+            let version = package_name
+                .strip_prefix("OpenAI.Codex_")?
+                .split('_')
+                .next()?;
+            let components = version
+                .split('.')
+                .map(str::parse::<u32>)
+                .collect::<Result<Vec<_>, _>>()
+                .ok()?;
+            (components.len() == 4).then_some((components, version))
+        })
+        .max_by(|left, right| left.0.cmp(&right.0))
+        .map(|(_, version)| version.to_string())
 }
 
 #[cfg(windows)]
@@ -217,7 +290,7 @@ fn command_path_in(command: &str, paths: &[PathBuf], extensions: &[String]) -> O
     })
 }
 
-fn agent_client_version(command_path: &Path) -> Option<String> {
+pub(super) fn command_client_version(command_path: &Path) -> Option<String> {
     let mut command = Command::new(command_path);
     command
         .arg("--version")
@@ -260,7 +333,7 @@ fn command_version_from_output(output: &str) -> Option<String> {
     })
 }
 
-fn scan_codex(home: &Path) -> Vec<AgentItem> {
+pub(super) fn scan_codex(home: &Path) -> Vec<AgentItem> {
     let codex_root = home.join(".codex");
     if !codex_root.exists() {
         return Vec::new();
@@ -280,7 +353,7 @@ fn scan_codex(home: &Path) -> Vec<AgentItem> {
     deduplicate(items)
 }
 
-fn scan_claude_code(home: &Path) -> Vec<AgentItem> {
+pub(super) fn scan_claude_code(home: &Path) -> Vec<AgentItem> {
     let claude_root = home.join(".claude");
     let config_path = home.join(".claude.json");
     if !claude_root.exists() && !config_path.exists() {
@@ -395,7 +468,11 @@ fn codex_plugin_cache_path(codex_root: &Path, plugin_id: &str) -> Option<PathBuf
         })
 }
 
-fn remove_codex_config_item(home: &Path, section: &str, name: &str) -> Result<(), String> {
+pub(super) fn remove_codex_config_item(
+    home: &Path,
+    section: &str,
+    name: &str,
+) -> Result<(), String> {
     let config_path = home.join(".codex").join("config.toml");
     let contents = fs::read_to_string(&config_path)
         .map_err(|error| format!("无法读取 Codex 配置：{error}"))?;
@@ -411,7 +488,7 @@ fn remove_codex_config_item(home: &Path, section: &str, name: &str) -> Result<()
     write_text(&config_path, document.to_string().as_bytes())
 }
 
-fn remove_codex_plugin(home: &Path, name: &str) -> Result<(), String> {
+pub(super) fn remove_codex_plugin(home: &Path, name: &str) -> Result<(), String> {
     remove_codex_config_item(home, "plugins", name)?;
     let (plugin_name, marketplace) = name
         .rsplit_once('@')
@@ -426,7 +503,7 @@ fn remove_codex_plugin(home: &Path, name: &str) -> Result<(), String> {
     )
 }
 
-fn remove_claude_mcp_item(home: &Path, name: &str) -> Result<(), String> {
+pub(super) fn remove_claude_mcp_item(home: &Path, name: &str) -> Result<(), String> {
     let path = home.join(".claude.json");
     let mut document = read_claude_document(&path)?;
     let servers = document
@@ -439,7 +516,7 @@ fn remove_claude_mcp_item(home: &Path, name: &str) -> Result<(), String> {
     write_json(&path, &document)
 }
 
-fn remove_claude_plugin(home: &Path, name: &str) -> Result<(), String> {
+pub(super) fn remove_claude_plugin(home: &Path, name: &str) -> Result<(), String> {
     let path = home
         .join(".claude")
         .join("plugins")
@@ -475,7 +552,7 @@ fn remove_claude_plugin(home: &Path, name: &str) -> Result<(), String> {
     Ok(())
 }
 
-fn remove_skill_directory(source_path: &str) -> Result<(), String> {
+pub(super) fn remove_skill_directory(source_path: &str) -> Result<(), String> {
     remove_directory(Path::new(source_path))
 }
 
@@ -645,8 +722,9 @@ mod tests {
     use tempfile::tempdir;
 
     use super::{
-        command_path_in, command_version_from_output, scan_user_items_with_installation,
-        uninstall_user_item_with_installation, AgentClient, AgentItemKind, AgentItemStatus,
+        command_path_in, command_version_from_output, newest_chatgpt_desktop_version,
+        scan_user_items_with_installation, uninstall_user_item_with_installation, AgentClient,
+        AgentItemKind, AgentItemStatus,
     };
 
     #[test]
@@ -690,13 +768,13 @@ enabled = true
         );
 
         let snapshot = scan_user_items_with_installation(directory.path(), |client| {
-            client == AgentClient::Codex
+            client == AgentClient::CodexCli
         });
         assert_eq!(snapshot.clients.len(), 1);
         let codex = snapshot
             .clients
             .iter()
-            .find(|client| client.client == AgentClient::Codex)
+            .find(|client| client.client == AgentClient::CodexCli)
             .unwrap();
 
         assert!(codex.items.iter().any(|item| {
@@ -741,12 +819,12 @@ enabled = true
         );
 
         let snapshot = scan_user_items_with_installation(directory.path(), |client| {
-            client == AgentClient::Codex
+            client == AgentClient::CodexCli
         });
         let codex = snapshot
             .clients
             .iter()
-            .find(|client| client.client == AgentClient::Codex)
+            .find(|client| client.client == AgentClient::CodexCli)
             .unwrap();
 
         assert_eq!(codex.items.len(), 1);
@@ -762,12 +840,12 @@ enabled = true
         );
 
         let snapshot = scan_user_items_with_installation(directory.path(), |client| {
-            client == AgentClient::Codex
+            client == AgentClient::CodexCli
         });
         let plugin = snapshot
             .clients
             .iter()
-            .find(|client| client.client == AgentClient::Codex)
+            .find(|client| client.client == AgentClient::CodexCli)
             .and_then(|client| {
                 client
                     .items
@@ -838,12 +916,12 @@ enabled = true
         );
 
         let snapshot = scan_user_items_with_installation(directory.path(), |client| {
-            client == AgentClient::Codex
+            client == AgentClient::CodexCli
         });
         let skill = snapshot
             .clients
             .iter()
-            .find(|client| client.client == AgentClient::Codex)
+            .find(|client| client.client == AgentClient::CodexCli)
             .and_then(|client| {
                 client
                     .items
@@ -905,12 +983,12 @@ enabled = true
         );
 
         let snapshot = scan_user_items_with_installation(directory.path(), |client| {
-            client == AgentClient::Codex
+            client == AgentClient::CodexCli
         });
         let codex = snapshot
             .clients
             .iter()
-            .find(|client| client.client == AgentClient::Codex)
+            .find(|client| client.client == AgentClient::CodexCli)
             .unwrap();
         for kind in [
             AgentItemKind::Mcp,
@@ -929,17 +1007,17 @@ enabled = true
                 .unwrap();
             uninstall_user_item_with_installation(
                 directory.path(),
-                AgentClient::Codex,
+                AgentClient::CodexCli,
                 item.kind,
                 &item.name,
                 &item.source_path,
-                |client| client == AgentClient::Codex,
+                |client| client == AgentClient::CodexCli,
             )
             .unwrap();
         }
 
         let items = scan_user_items_with_installation(directory.path(), |client| {
-            client == AgentClient::Codex
+            client == AgentClient::CodexCli
         })
         .clients
         .remove(0)
@@ -966,11 +1044,43 @@ enabled = true
         fs::create_dir_all(directory.path().join(".codex")).unwrap();
 
         let snapshot = scan_user_items_with_installation(directory.path(), |client| {
-            client == AgentClient::Codex
+            client == AgentClient::CodexCli
         });
         assert_eq!(snapshot.clients.len(), 1);
-        assert_eq!(snapshot.clients[0].client, AgentClient::Codex);
+        assert_eq!(snapshot.clients[0].client, AgentClient::CodexCli);
         assert!(snapshot.clients[0].items.is_empty());
+    }
+
+    #[test]
+    fn includes_chatgpt_when_only_the_desktop_app_is_installed() {
+        let directory = tempdir().unwrap();
+
+        let snapshot = scan_user_items_with_installation(directory.path(), |client| {
+            client == AgentClient::ChatGpt
+        });
+
+        assert_eq!(snapshot.clients.len(), 1);
+        assert_eq!(snapshot.clients[0].client, AgentClient::ChatGpt);
+        assert!(snapshot.clients[0].items.is_empty());
+    }
+
+    #[test]
+    fn keeps_chatgpt_desktop_and_codex_cli_as_separate_clients() {
+        let directory = tempdir().unwrap();
+
+        let snapshot = scan_user_items_with_installation(directory.path(), |client| {
+            matches!(client, AgentClient::ChatGpt | AgentClient::CodexCli)
+        });
+
+        assert_eq!(snapshot.clients.len(), 2);
+        assert!(snapshot
+            .clients
+            .iter()
+            .any(|client| client.client == AgentClient::ChatGpt));
+        assert!(snapshot
+            .clients
+            .iter()
+            .any(|client| client.client == AgentClient::CodexCli));
     }
 
     #[test]
@@ -978,11 +1088,11 @@ enabled = true
         let directory = tempdir().unwrap();
 
         let snapshot = scan_user_items_with_installation(directory.path(), |client| {
-            client == AgentClient::Codex
+            client == AgentClient::CodexCli
         });
 
         assert_eq!(snapshot.clients.len(), 1);
-        assert_eq!(snapshot.clients[0].client, AgentClient::Codex);
+        assert_eq!(snapshot.clients[0].client, AgentClient::CodexCli);
         assert_eq!(snapshot.clients[0].version, None);
         assert!(snapshot.clients[0].items.is_empty());
     }
@@ -998,6 +1108,17 @@ enabled = true
             Some("2.1.17".to_string())
         );
         assert_eq!(command_version_from_output("unknown"), None);
+    }
+
+    #[test]
+    fn uses_the_newest_chatgpt_desktop_package_version() {
+        let version = newest_chatgpt_desktop_version([
+            "OpenAI.Codex_26.609.1420.0_x64__2p2nqsd0c76g0",
+            "OpenAI.Codex_26.818.8289.0_x64__2p2nqsd0c76g0",
+            "NotCodex_99.0.0.0_x64__2p2nqsd0c76g0",
+        ]);
+
+        assert_eq!(version.as_deref(), Some("26.818.8289.0"));
     }
 
     #[test]
