@@ -34,6 +34,7 @@ import ExtensionInstallModal from "~/components/extensions/ExtensionInstallModal
 import PanelSection from "~/components/shell/PanelSection.vue";
 
 type AgentSection = "rules" | AgentItemKind;
+type AgentWorkspace = AgentClient | "extensions";
 
 const customEndpointValue = "__custom__";
 
@@ -53,10 +54,15 @@ const {
   settingsLoaded: agentSettingsLoaded,
 } = agentWorkspace;
 const endpoints = ref<RelayEndpoint[]>([]);
-const activeClient = ref<AgentClient>("codexCli");
+const activeWorkspace = ref<AgentWorkspace>("codexCli");
+const lastActiveClient = ref<AgentClient>("codexCli");
+const activeClient = computed<AgentClient>(() =>
+  activeWorkspace.value === "extensions"
+    ? lastActiveClient.value
+    : activeWorkspace.value,
+);
 const activeSection = ref<AgentSection>("rules");
 const activeExtensionSection = ref<ExtensionKind>("rule");
-const showExtensionCatalog = ref(false);
 const selectedExtension = ref<ExtensionPackage | null>(null);
 const showExtensionDetails = ref(false);
 const showExtensionInstall = ref(false);
@@ -232,8 +238,8 @@ async function selectClient(client: AgentClient) {
     const canSwitch = await settingsExitRegistration.requestExit();
     if (!canSwitch) return;
   }
-  showExtensionCatalog.value = false;
-  activeClient.value = client;
+  lastActiveClient.value = client;
+  activeWorkspace.value = client;
   rulesLoaded = clientSupportsSettings(client) && agentSettingsLoaded.value[client];
   if (!agentsLoaded.value) void agentWorkspace.load();
 }
@@ -250,7 +256,7 @@ function discardSettingsDraft() {
 }
 
 function selectExtensionCatalog() {
-  showExtensionCatalog.value = true;
+  activeWorkspace.value = "extensions";
   void extensionCatalog.load();
 }
 
@@ -410,7 +416,7 @@ async function loadAgentPage(force = false) {
           // The application-level management API status owns bootstrap failures.
         });
   await Promise.all([endpointsRequest, bootstrapRequest]);
-  if (force && showExtensionCatalog.value) void extensionCatalog.load(true);
+  if (force && activeWorkspace.value === "extensions") void extensionCatalog.load(true);
 }
 
 function hydrateAgentSettings(value: AgentSettings) {
@@ -538,8 +544,13 @@ watch(
 watch(
   snapshot,
   () => {
-    if (!activeClientDetected.value) {
-  activeClient.value = snapshot.value.clients[0]?.client ?? "codexCli";
+    if (
+      activeWorkspace.value !== "extensions" &&
+      !activeClientDetected.value
+    ) {
+      const fallback = snapshot.value.clients[0]?.client ?? "codexCli";
+      lastActiveClient.value = fallback;
+      activeWorkspace.value = fallback;
     }
   },
   { immediate: true },
@@ -588,7 +599,7 @@ onBeforeUnmount(() => {
             <ListItem
               v-for="client in agentClients"
               :key="client.client"
-              :active="activeClient === client.client"
+              :active="activeWorkspace === client.client"
               clickable
               @click="selectClient(client.client)"
             >
@@ -623,7 +634,7 @@ onBeforeUnmount(() => {
           </List>
           <List class="agent-extension-library" :divided="false">
             <ListItem
-              :active="showExtensionCatalog"
+              :active="activeWorkspace === 'extensions'"
               clickable
               @click="selectExtensionCatalog"
             >
@@ -634,13 +645,12 @@ onBeforeUnmount(() => {
               </template>
               <span class="agent-client-identity">
                 <span>扩展库</span>
-                <small>agents</small>
               </span>
             </ListItem>
           </List>
         </aside>
-        <div :key="showExtensionCatalog ? 'extensions' : activeClient" class="agent-main">
-          <template v-if="showExtensionCatalog">
+        <div :key="activeWorkspace" class="agent-main">
+          <template v-if="activeWorkspace === 'extensions'">
             <div class="agent-toolbar">
               <RadioGroup
                 v-model="activeExtensionSection"

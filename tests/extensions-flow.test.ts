@@ -15,4 +15,9 @@ test("扩展库沿用智能体工作区的分类表格与单层操作表面", ()
   expect(page).toContain('value: "plugin"');
   expect(page).toContain('value: "mcp"');
   expect(page).toContain('value: "skill"');
+  expect(page).toContain('type AgentWorkspace = AgentClient | "extensions";');
+  expect(page).toContain(':active="activeWorkspace === client.client"');
+  expect(page).toContain(':active="activeWorkspace === \'extensions\'"');
+  expect(page).not.toContain("showExtensionCatalog");
+  expect(page).not.toContain("<small>agents</small>");
 });

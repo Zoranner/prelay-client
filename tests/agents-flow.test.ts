@@ -103,7 +103,7 @@ test("智能体页分别管理 Codex CLI、ChatGPT 与 Claude Code", () => {
   expect(page).toContain('@uninstall="uninstallAgentItem"');
   expect(page).toContain('<List class="agent-client-list"');
   expect(page).toContain("<ListItem");
-  expect(page).toContain(':active="activeClient === client.client"');
+  expect(page).toContain(':active="activeWorkspace === client.client"');
   expect(page).toContain('v-model="activeSection"');
   expect(page).toContain('variant="button"');
   expect(page).not.toContain("item-toolbar");
