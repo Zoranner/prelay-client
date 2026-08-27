@@ -53,24 +53,8 @@ pub struct ExtensionInstallRequest {
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct ExtensionInstallPreview {
-    pub supported: bool,
-    pub message: Option<String>,
-    pub actions: Vec<ExtensionInstallAction>,
-}
-
-#[derive(Debug, Clone, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct ExtensionInstallAction {
-    pub target: String,
-    pub description: String,
-}
-
-#[derive(Debug, Clone, Serialize)]
-#[serde(rename_all = "camelCase")]
 pub struct ExtensionInstallResult {
     pub message: String,
-    pub actions: Vec<ExtensionInstallAction>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -123,15 +107,6 @@ pub async fn read_extension_readme(package: &ExtensionPackage) -> Result<String,
         .await
 }
 
-pub async fn preview_extension_install(
-    request: &ExtensionInstallRequest,
-) -> Result<ExtensionInstallPreview, String> {
-    let client = ExtensionCatalogClient::new(Client::new());
-    let package = client.resolve_package(&request.package).await?;
-    let paths = client.package_paths(&package).await?;
-    Ok(install_preview(&package, &request.clients, &paths))
-}
-
 pub async fn install_extension(
     home: &Path,
     request: &ExtensionInstallRequest,
@@ -139,12 +114,7 @@ pub async fn install_extension(
     let client = ExtensionCatalogClient::new(Client::new());
     let package = client.resolve_package(&request.package).await?;
     let paths = client.package_paths(&package).await?;
-    let preview = install_preview(&package, &request.clients, &paths);
-    if !preview.supported {
-        return Err(preview
-            .message
-            .unwrap_or_else(|| "此扩展暂不支持安装。".to_string()));
-    }
+    validate_install(&package, &paths)?;
 
     match package.kind {
         ExtensionKind::Rule => {
@@ -177,7 +147,6 @@ pub async fn install_extension(
 
     Ok(ExtensionInstallResult {
         message: format!("已安装{}。", package.name),
-        actions: preview.actions,
     })
 }
 
@@ -368,48 +337,14 @@ fn valid_commit_sha(sha: &str) -> bool {
     sha.len() == 40 && sha.bytes().all(|character| character.is_ascii_hexdigit())
 }
 
-fn install_preview(
-    package: &ExtensionPackage,
-    clients: &[AgentClient],
-    paths: &[String],
-) -> ExtensionInstallPreview {
+fn validate_install(package: &ExtensionPackage, paths: &[String]) -> Result<(), String> {
     match package.kind {
-        ExtensionKind::Rule if paths.iter().any(|path| path == RULES_PATH) => {
-            ExtensionInstallPreview {
-                supported: true,
-                message: None,
-                actions: rule_targets(clients, Path::new("~"))
-                    .into_iter()
-                    .map(|path| ExtensionInstallAction {
-                        target: path.display().to_string(),
-                        description: "合并扩展托管规则区块".to_string(),
-                    })
-                    .collect(),
-            }
+        ExtensionKind::Rule if paths.iter().any(|path| path == RULES_PATH) => Ok(()),
+        ExtensionKind::Skill if !skill_paths(paths).is_empty() => Ok(()),
+        ExtensionKind::Plugin | ExtensionKind::Mcp => {
+            Err("插件和 MCP 的官方配置合并契约尚未定义，当前仅支持查看详情。".to_string())
         }
-        ExtensionKind::Skill if !skill_paths(paths).is_empty() => ExtensionInstallPreview {
-            supported: true,
-            message: None,
-            actions: skill_target_roots(clients, Path::new("~"))
-                .into_iter()
-                .map(|path| ExtensionInstallAction {
-                    target: path.display().to_string(),
-                    description: format!("复制 {} 个 Skill 文件", skill_paths(paths).len()),
-                })
-                .collect(),
-        },
-        ExtensionKind::Plugin | ExtensionKind::Mcp => ExtensionInstallPreview {
-            supported: false,
-            message: Some(
-                "插件和 MCP 的官方配置合并契约尚未定义，当前仅支持查看详情。".to_string(),
-            ),
-            actions: Vec::new(),
-        },
-        _ => ExtensionInstallPreview {
-            supported: false,
-            message: Some("扩展包缺少可安装的入口文件。".to_string()),
-            actions: Vec::new(),
-        },
+        _ => Err("扩展包缺少可安装的入口文件。".to_string()),
     }
 }
 

@@ -186,17 +186,6 @@ export interface ExtensionCatalogSnapshot {
   packages: ExtensionPackage[];
 }
 
-export interface ExtensionInstallAction {
-  target: string;
-  description: string;
-}
-
-export interface ExtensionInstallPreview {
-  supported: boolean;
-  message: string | null;
-  actions: ExtensionInstallAction[];
-}
-
 export type CodexSettings = Partial<{
     endpointName: string;
     baseUrl: string;

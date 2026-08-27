@@ -12,7 +12,6 @@ export type LocalCommand =
   | "agent_settings_save"
   | "extensions_list"
   | "extension_readme"
-  | "extension_install_preview"
   | "extensions_install";
 
 export function useLocalCommand() {

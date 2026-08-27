@@ -85,7 +85,6 @@ pub fn run() {
             commands::agents::agent_settings_save,
             commands::extensions::extensions_list,
             commands::extensions::extension_readme,
-            commands::extensions::extension_install_preview,
             commands::extensions::extensions_install,
             commands::stats::stats_overview,
             commands::stats::stats_timeline,

@@ -35,7 +35,11 @@ test("扩展库沿用智能体工作区的分类表格与单层操作表面", ()
   expect(detailDrawer).toContain(".extension-detail__readme :deep(h2)");
   expect(detailDrawer).toContain(".extension-detail__readme :deep(p)");
   expect(detailDrawer).not.toContain("white-space: pre-wrap");
-  expect(installModal).toContain(
-    "grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));",
-  );
+  expect(installModal).toContain("<Select");
+  expect(installModal).toContain('label="安装到"');
+  expect(installModal).toContain("multiple");
+  expect(installModal).toContain("function selectClients");
+  expect(installModal).not.toContain("Checkbox");
+  expect(installModal).not.toContain("extension_install_preview");
+  expect(installModal).not.toContain("正在生成安装变更");
 });

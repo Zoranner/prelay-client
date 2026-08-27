@@ -3,9 +3,8 @@ use std::path::PathBuf;
 use crate::{
     api_client::ClientError,
     extensions::{
-        install_extension, list_extensions, preview_extension_install, read_extension_readme,
-        ExtensionCatalogSnapshot, ExtensionInstallPreview, ExtensionInstallRequest,
-        ExtensionInstallResult, ExtensionPackage,
+        install_extension, list_extensions, read_extension_readme, ExtensionCatalogSnapshot,
+        ExtensionInstallRequest, ExtensionInstallResult, ExtensionPackage,
     },
 };
 
@@ -25,15 +24,6 @@ pub async fn extensions_list() -> Result<ExtensionCatalogSnapshot, ClientError> 
 #[tauri::command]
 pub async fn extension_readme(package: ExtensionPackage) -> Result<String, ClientError> {
     read_extension_readme(&package)
-        .await
-        .map_err(|error| ClientError::new("local_extensions_error", error))
-}
-
-#[tauri::command]
-pub async fn extension_install_preview(
-    request: ExtensionInstallRequest,
-) -> Result<ExtensionInstallPreview, ClientError> {
-    preview_extension_install(&request)
         .await
         .map_err(|error| ClientError::new("local_extensions_error", error))
 }
