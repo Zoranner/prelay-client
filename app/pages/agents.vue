@@ -654,54 +654,56 @@ onBeforeUnmount(() => {
               />
             </div>
           </template>
-          <Loading
-            v-else-if="isAgentSettingsLoading(activeClient)"
-            visible
-            text="正在读取智能体设置..."
-          />
-          <section
-            v-else-if="!isClientInstalled(activeClient)"
-            class="agent-unavailable"
-          >
-            <Icon icon="ph:download-simple" size="24" />
-            <p>未检测到本机安装</p>
-          </section>
           <template v-else>
-            <div class="agent-toolbar">
-              <RadioGroup
-                v-model="activeSection"
-                :options="sectionOptions"
-                variant="button"
-              />
-              <div class="agent-toolbar__actions">
-                <Button
-                  icon="ph:sliders-horizontal"
-                  aria-label="配置"
-                  title="配置"
+            <Loading
+              v-if="isAgentSettingsLoading(activeClient)"
+              visible
+            text="正在读取智能体设置..."
+            />
+            <section
+              v-else-if="!isClientInstalled(activeClient)"
+              class="agent-unavailable"
+            >
+              <Icon icon="ph:download-simple" size="24" />
+              <p>未检测到本机安装</p>
+            </section>
+            <template v-else>
+              <div class="agent-toolbar">
+                <RadioGroup
+                  v-model="activeSection"
+                  :options="sectionOptions"
+                  variant="button"
+                />
+                <div class="agent-toolbar__actions">
+                  <Button
+                    icon="ph:sliders-horizontal"
+                    aria-label="配置"
+                    title="配置"
                   @click="openSettings"
-                >
+                  >
                   配置
                 </Button>
+                </div>
               </div>
-            </div>
-            <template v-if="activeSection === 'rules'">
-              <AgentRulesEditor
-                v-if="activeClient === 'codexCli'"
-                v-model="rulesDraft.codexCli"
-              />
-              <AgentRulesEditor
-                v-else-if="activeClient === 'chatgpt'"
-                v-model="rulesDraft.chatgpt"
-              />
-              <AgentRulesEditor v-else v-model="rulesDraft.claudeCode" />
+              <template v-if="activeSection === 'rules'">
+                <AgentRulesEditor
+                  v-if="activeClient === 'codexCli'"
+                  v-model="rulesDraft.codexCli"
+                />
+                <AgentRulesEditor
+                  v-else-if="activeClient === 'chatgpt'"
+                  v-model="rulesDraft.chatgpt"
+                />
+                <AgentRulesEditor v-else v-model="rulesDraft.claudeCode" />
+              </template>
+              <div v-else class="item-results">
+                <AgentItemList
+                  :items="sectionItems"
+                  :pending="pending"
+                  @uninstall="uninstallAgentItem"
+                />
+              </div>
             </template>
-            <div v-else class="item-results">
-              <AgentItemList
-                :items="sectionItems"
-                :pending="pending"
-                @uninstall="uninstallAgentItem"
-              />
-            </div>
           </template>
         </div>
       </div>
