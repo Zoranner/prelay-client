@@ -256,10 +256,7 @@ impl ExtensionCatalogClient {
 
     async fn resolve_commit(&self, repository: &str, branch: &str) -> Result<String, String> {
         let commit: GiteaCommit = self
-            .get_json(
-                &format!("{API_BASE_URL}/repos/{ORGANIZATION}/{repository}/commits/{branch}"),
-                &[],
-            )
+            .get_json(&extension_commit_url(repository, branch), &[])
             .await?;
         valid_commit_sha(&commit.sha)
             .then_some(commit.sha)
@@ -339,6 +336,10 @@ impl ExtensionCatalogClient {
             .await
             .map_err(|error| format!("扩展库响应格式无效：{error}"))
     }
+}
+
+fn extension_commit_url(repository: &str, branch: &str) -> String {
+    format!("{API_BASE_URL}/repos/{ORGANIZATION}/{repository}/git/commits/{branch}")
 }
 
 fn package_from_manifest(
@@ -486,10 +487,18 @@ fn atomic_write(path: &Path, contents: &[u8]) -> Result<(), String> {
 #[cfg(test)]
 mod tests {
     use super::{
-        merge_managed_rule, package_from_manifest, rule_targets, skill_target_roots, ExtensionKind,
-        Manifest,
+        extension_commit_url, merge_managed_rule, package_from_manifest, rule_targets,
+        skill_target_roots, ExtensionKind, Manifest,
     };
     use crate::agents::AgentClient;
+
+    #[test]
+    fn resolves_default_branch_through_gitea_git_commit_endpoint() {
+        assert_eq!(
+            extension_commit_url("development-rules", "master"),
+            "https://git.kimo.ink/api/v1/repos/agents/development-rules/git/commits/master"
+        );
+    }
 
     #[test]
     fn catalog_ignores_repositories_with_invalid_manifests() {
