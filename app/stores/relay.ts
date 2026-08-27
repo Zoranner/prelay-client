@@ -166,6 +166,33 @@ export interface AgentClientVersion {
   version: string | null;
 }
 
+export type ExtensionKind = "rule" | "plugin" | "mcp" | "skill";
+
+export interface ExtensionPackage {
+  repository: string;
+  commitSha: string;
+  name: string;
+  version: string;
+  summary: string;
+  kind: ExtensionKind;
+  risk: string;
+}
+
+export interface ExtensionCatalogSnapshot {
+  packages: ExtensionPackage[];
+}
+
+export interface ExtensionInstallAction {
+  target: string;
+  description: string;
+}
+
+export interface ExtensionInstallPreview {
+  supported: boolean;
+  message: string | null;
+  actions: ExtensionInstallAction[];
+}
+
 export type CodexSettings = Partial<{
     endpointName: string;
     baseUrl: string;

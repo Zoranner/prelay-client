@@ -9,7 +9,11 @@ export type LocalCommand =
   | "agents_versions"
   | "agents_remove"
   | "agent_settings_get"
-  | "agent_settings_save";
+  | "agent_settings_save"
+  | "extensions_list"
+  | "extension_readme"
+  | "extension_install_preview"
+  | "extensions_install";
 
 export function useLocalCommand() {
   const notifications = useNotification();

@@ -16,6 +16,8 @@ import type {
   AgentItemKind,
   AgentSettings,
   BootstrapState,
+  ExtensionKind,
+  ExtensionPackage,
   RelayEndpoint,
 } from "~/stores/relay";
 import { agentClientDefinitions, clientSupportsSettings } from "~/utils/agentClient";
@@ -26,6 +28,9 @@ import AgentRulesEditor from "~/components/agents/AgentRulesEditor.vue";
 import ClaudeCodeSettingsForm from "~/components/agents/ClaudeCodeSettingsForm.vue";
 import ChatGptSettingsForm from "~/components/agents/ChatGptSettingsForm.vue";
 import CodexSettingsForm from "~/components/agents/CodexSettingsForm.vue";
+import ExtensionCatalogTable from "~/components/extensions/ExtensionCatalogTable.vue";
+import ExtensionDetailDrawer from "~/components/extensions/ExtensionDetailDrawer.vue";
+import ExtensionInstallModal from "~/components/extensions/ExtensionInstallModal.vue";
 import PanelSection from "~/components/shell/PanelSection.vue";
 
 type AgentSection = "rules" | AgentItemKind;
@@ -39,6 +44,7 @@ const notifications = useNotification();
 const workspaceExit = useWorkspaceExitGuard();
 const { bootstrap, setBootstrap } = useRelayStore();
 const agentWorkspace = useAgentWorkspace();
+const extensionCatalog = useExtensionCatalog();
 const {
   snapshot,
   loaded: agentsLoaded,
@@ -49,6 +55,11 @@ const {
 const endpoints = ref<RelayEndpoint[]>([]);
 const activeClient = ref<AgentClient>("codexCli");
 const activeSection = ref<AgentSection>("rules");
+const activeExtensionSection = ref<ExtensionKind>("rule");
+const showExtensionCatalog = ref(false);
+const selectedExtension = ref<ExtensionPackage | null>(null);
+const showExtensionDetails = ref(false);
+const showExtensionInstall = ref(false);
 let rulesSaveTimer: ReturnType<typeof setTimeout> | undefined;
 let rulesLoaded = false;
 const rulesSaving = ref(false);
@@ -76,6 +87,12 @@ const agentClients = computed(() =>
 );
 const sectionOptions = [
   { value: "rules", label: "规则", icon: "ph:notebook" },
+  { value: "plugin", label: "插件", icon: "ph:puzzle-piece" },
+  { value: "mcp", label: "MCP", icon: "ph:terminal-window" },
+  { value: "skill", label: "Skill", icon: "ph:book-open-text" },
+];
+const extensionSectionOptions = [
+  { value: "rule", label: "规则", icon: "ph:notebook" },
   { value: "plugin", label: "插件", icon: "ph:puzzle-piece" },
   { value: "mcp", label: "MCP", icon: "ph:terminal-window" },
   { value: "skill", label: "Skill", icon: "ph:book-open-text" },
@@ -119,6 +136,11 @@ const sectionItems = computed(() =>
   activeKind.value
     ? activeItems.value.filter((item) => item.kind === activeKind.value)
     : [],
+);
+const extensionPackages = computed(() =>
+  extensionCatalog.catalog.value.packages.filter(
+    (item) => item.kind === activeExtensionSection.value,
+  ),
 );
 const pending = computed(() => agentsPending.value || endpointsPending.value);
 const settingsDirty = computed(
@@ -210,6 +232,7 @@ async function selectClient(client: AgentClient) {
     const canSwitch = await settingsExitRegistration.requestExit();
     if (!canSwitch) return;
   }
+  showExtensionCatalog.value = false;
   activeClient.value = client;
   rulesLoaded = clientSupportsSettings(client) && agentSettingsLoaded.value[client];
   if (!agentsLoaded.value) void agentWorkspace.load();
@@ -224,6 +247,26 @@ function discardSettingsDraft() {
   copyClientSettings(agentConfiguration, settingsDraft, "chatgpt");
   copyClientSettings(agentConfiguration, settingsDraft, "claudeCode");
   closeSettingsImmediately();
+}
+
+function selectExtensionCatalog() {
+  showExtensionCatalog.value = true;
+  void extensionCatalog.load();
+}
+
+function openExtensionDetails(extension: ExtensionPackage) {
+  selectedExtension.value = extension;
+  showExtensionDetails.value = true;
+}
+
+function openExtensionInstall(extension: ExtensionPackage) {
+  selectedExtension.value = extension;
+  showExtensionInstall.value = true;
+}
+
+async function onExtensionInstalled() {
+  await agentWorkspace.refresh();
+  notifications.success("扩展已安装");
 }
 
 function requestCloseSettings() {
@@ -367,6 +410,7 @@ async function loadAgentPage(force = false) {
           // The application-level management API status owns bootstrap failures.
         });
   await Promise.all([endpointsRequest, bootstrapRequest]);
+  if (force && showExtensionCatalog.value) void extensionCatalog.load(true);
 }
 
 function hydrateAgentSettings(value: AgentSettings) {
@@ -575,10 +619,43 @@ onBeforeUnmount(() => {
               <small>{{ client.version }}</small>
             </span>
           </ListItem>
+          <ListItem
+            class="agent-extension-library"
+            :active="showExtensionCatalog"
+            clickable
+            @click="selectExtensionCatalog"
+          >
+            <template #prefix>
+              <span class="agent-client-icon-frame">
+                <Icon icon="ph:storefront" size="24" />
+              </span>
+            </template>
+            <span class="agent-client-identity">
+              <span>扩展库</span>
+              <small>agents</small>
+            </span>
+          </ListItem>
         </List>
-        <div :key="activeClient" class="agent-main">
+        <div :key="showExtensionCatalog ? 'extensions' : activeClient" class="agent-main">
+          <template v-if="showExtensionCatalog">
+            <div class="agent-toolbar">
+              <RadioGroup
+                v-model="activeExtensionSection"
+                :options="extensionSectionOptions"
+                variant="button"
+              />
+            </div>
+            <div class="item-results">
+              <ExtensionCatalogTable
+                :packages="extensionPackages"
+                :pending="extensionCatalog.loading.value"
+                @detail="openExtensionDetails"
+                @install="openExtensionInstall"
+              />
+            </div>
+          </template>
           <Loading
-            v-if="isAgentSettingsLoading(activeClient)"
+            v-else-if="isAgentSettingsLoading(activeClient)"
             visible
             text="正在读取智能体设置..."
           />
@@ -677,6 +754,16 @@ onBeforeUnmount(() => {
       </Button>
     </template>
   </Drawer>
+  <ExtensionDetailDrawer
+    v-model:visible="showExtensionDetails"
+    :extension="selectedExtension"
+  />
+  <ExtensionInstallModal
+    v-model:visible="showExtensionInstall"
+    :extension="selectedExtension"
+    :detected-clients="snapshot.clients.map((client) => client.client)"
+    @installed="onExtensionInstalled"
+  />
 </template>
 
 <style scoped>
@@ -715,6 +802,12 @@ onBeforeUnmount(() => {
   height: 40px;
   align-items: center;
   justify-content: center;
+}
+
+.agent-extension-library {
+  margin-top: var(--spacing-sm);
+  padding-top: var(--spacing-sm);
+  border-top: 1px solid var(--st-border-divider);
 }
 
 .agent-client-icon-frame {
