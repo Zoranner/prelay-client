@@ -10,6 +10,7 @@ pub mod client_update;
 pub mod commands;
 pub mod credential_store;
 pub mod desktop_preferences;
+pub mod extensions;
 pub mod identity;
 pub mod relay_settings;
 pub mod tray;
@@ -82,6 +83,10 @@ pub fn run() {
             commands::agents::agents_remove,
             commands::agents::agent_settings_get,
             commands::agents::agent_settings_save,
+            commands::extensions::extensions_list,
+            commands::extensions::extension_readme,
+            commands::extensions::extension_install_preview,
+            commands::extensions::extensions_install,
             commands::stats::stats_overview,
             commands::stats::stats_timeline,
             commands::stats::stats_requests,
