@@ -4,6 +4,14 @@ import { readFileSync } from "node:fs";
 const source = (path: string) =>
   readFileSync(new URL(`../app/${path}`, import.meta.url), "utf8");
 
+test("扩展表格提供仓库外链", () => {
+  const catalogTable = source("components/extensions/ExtensionCatalogTable.vue");
+
+  expect(catalogTable).toContain("function repositoryUrl");
+  expect(catalogTable).toContain('target="_blank"');
+  expect(catalogTable).toContain('icon="ph:arrow-square-out"');
+});
+
 test("扩展库沿用智能体工作区的分类表格与单层操作表面", () => {
   const page = source("pages/agents.vue");
   const detailDrawer = source("components/extensions/ExtensionDetailDrawer.vue");

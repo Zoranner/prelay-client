@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Button, Table } from "@stellar/ui";
+import { Button, Icon, Table } from "@stellar/ui";
 import type { ExtensionPackage } from "~/stores/relay";
 
 type ExtensionRow = ExtensionPackage & Record<string, unknown>;
@@ -13,6 +13,10 @@ const emit = defineEmits<{
   install: [item: ExtensionPackage];
 }>();
 
+function repositoryUrl(repository: string) {
+  return `https://git.kimo.ink/agents/${encodeURIComponent(repository)}`;
+}
+
 const columns = [
   { key: "name", title: "名称", width: 180, ellipsis: true },
   { key: "version", title: "版本", width: 112, ellipsis: true },
@@ -20,7 +24,7 @@ const columns = [
   {
     key: "actions",
     title: "操作",
-    width: 88,
+    width: 128,
     align: "right" as const,
     fixed: "right" as const,
   },
@@ -46,6 +50,17 @@ const columns = [
     </template>
     <template #cell-actions="{ row }">
       <div class="extension-catalog-actions">
+        <a
+          :href="repositoryUrl(row.repository)"
+          target="_blank"
+          rel="noopener noreferrer"
+          class="extension-catalog-link"
+          aria-label="打开仓库"
+          title="打开仓库"
+          @click.stop
+        >
+          <Icon icon="ph:arrow-square-out" size="16" />
+        </a>
         <Button
           square
           size="small"
@@ -90,5 +105,18 @@ const columns = [
   display: flex;
   justify-content: flex-end;
   gap: var(--spacing-xs);
+}
+
+.extension-catalog-link {
+  display: inline-flex;
+  width: 28px;
+  height: 28px;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-text-secondary);
+}
+
+.extension-catalog-link:hover {
+  color: var(--color-primary);
 }
 </style>
