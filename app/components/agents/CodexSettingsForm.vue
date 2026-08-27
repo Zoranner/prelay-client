@@ -1,31 +1,8 @@
 <script setup lang="ts">
 import { Input, RadioGroup, Select, Toggle } from "@stellar/ui";
+import type { CodexSettingsDraft } from "~/utils/agentSettings";
 
 type SelectOption = { value: string; label: string; description?: string };
-
-type CodexSettingsDraft = {
-  endpoint: string;
-  customBaseUrl: string;
-  customToken: string;
-  model: string;
-  reasoningEffort: string;
-  personality: string;
-  webSearch: boolean;
-  sandbox: string;
-  disableResponseStorage: boolean;
-  maxThreads: number;
-  maxDepth: number;
-  jobMaxRuntimeSeconds: number;
-  networkAccess: boolean;
-  shellEnvironmentInherit: string;
-  windowsSandbox: string;
-  features: {
-    memories: boolean;
-    goals: boolean;
-    workspaceDependencies: boolean;
-  };
-  rules: string;
-};
 
 const model = defineModel<CodexSettingsDraft>({ required: true });
 const props = defineProps<{

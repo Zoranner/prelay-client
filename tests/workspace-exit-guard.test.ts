@@ -23,7 +23,8 @@ test("智能体设置放弃修改时恢复所有客户端草稿", () => {
   const source = readFileSync(new URL("../app/pages/agents.vue", import.meta.url), "utf8");
 
   expect(source).toContain("function discardSettingsDraft()");
-  expect(source).toContain('copyClientSettings(agentConfiguration, settingsDraft, "codex")');
+  expect(source).toContain('copyClientSettings(agentConfiguration, settingsDraft, "codexCli")');
+  expect(source).toContain('copyClientSettings(agentConfiguration, settingsDraft, "chatgpt")');
   expect(source).toContain('copyClientSettings(agentConfiguration, settingsDraft, "claudeCode")');
 });
 

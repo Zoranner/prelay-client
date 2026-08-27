@@ -138,7 +138,7 @@ export interface RequestLog {
   metadata_json: string | null;
 }
 
-export type AgentClient = "codex" | "claudeCode";
+export type AgentClient = "codexCli" | "chatgpt" | "claudeCode";
 export type AgentItemKind = "mcp" | "skill" | "plugin";
 export type AgentItemStatus = "enabled" | "disabled" | "error";
 
@@ -203,8 +203,11 @@ export type ClaudeCodeSettings = Partial<{
     rules: string;
 }>;
 
+export interface ChatGptSettings extends CodexSettings {}
+
 export type AgentSettings =
-  | { client: "codex"; settings: CodexSettings }
+  | { client: "codexCli"; settings: CodexSettings }
+  | { client: "chatgpt"; settings: ChatGptSettings }
   | { client: "claudeCode"; settings: ClaudeCodeSettings };
 
 export function useRelayStore() {

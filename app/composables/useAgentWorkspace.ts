@@ -4,8 +4,9 @@ import type {
   AgentItemsSnapshot,
   AgentSettings,
 } from "~/stores/relay";
+import { clientSupportsSettings } from "~/utils/agentClient";
 
-const clients: AgentClient[] = ["codex", "claudeCode"];
+const clients: AgentClient[] = ["codexCli", "chatgpt", "claudeCode"];
 
 function emptySnapshot(): AgentItemsSnapshot {
   return { clients: [] };
@@ -13,7 +14,8 @@ function emptySnapshot(): AgentItemsSnapshot {
 
 function emptyClientFlags() {
   return {
-    codex: false,
+    codexCli: false,
+    chatgpt: false,
     claudeCode: false,
   } satisfies Record<AgentClient, boolean>;
 }
@@ -46,7 +48,8 @@ export function useAgentWorkspace() {
     const detected = new Set(detectedClients);
     for (const client of clients) {
       settingsLoaded.value[client] = false;
-      settingsLoading.value[client] = detected.has(client);
+      settingsLoading.value[client] =
+        clientSupportsSettings(client) && detected.has(client);
     }
   }
 
@@ -80,6 +83,7 @@ export function useAgentWorkspace() {
     force = false,
     generation = loadGeneration,
   ) {
+    if (!clientSupportsSettings(client)) return;
     if (!force && (settingsLoaded.value[client] || settingsLoading.value[client])) {
       return;
     }

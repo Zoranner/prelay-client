@@ -18,12 +18,13 @@ import type {
   BootstrapState,
   RelayEndpoint,
 } from "~/stores/relay";
+import { agentClientDefinitions, clientSupportsSettings } from "~/utils/agentClient";
+import { createAgentConfiguration } from "~/utils/agentSettings";
 import { useRelayStore } from "~/stores/relay";
-import codexIcon from "@lobehub/icons-static-svg/icons/openai.svg";
-import claudeIcon from "@lobehub/icons-static-svg/icons/claudecode-color.svg";
 import AgentItemList from "~/components/agents/AgentItemList.vue";
 import AgentRulesEditor from "~/components/agents/AgentRulesEditor.vue";
 import ClaudeCodeSettingsForm from "~/components/agents/ClaudeCodeSettingsForm.vue";
+import ChatGptSettingsForm from "~/components/agents/ChatGptSettingsForm.vue";
 import CodexSettingsForm from "~/components/agents/CodexSettingsForm.vue";
 import PanelSection from "~/components/shell/PanelSection.vue";
 
@@ -46,7 +47,7 @@ const {
   settingsLoaded: agentSettingsLoaded,
 } = agentWorkspace;
 const endpoints = ref<RelayEndpoint[]>([]);
-const activeClient = ref<AgentClient>("codex");
+const activeClient = ref<AgentClient>("codexCli");
 const activeSection = ref<AgentSection>("rules");
 let rulesSaveTimer: ReturnType<typeof setTimeout> | undefined;
 let rulesLoaded = false;
@@ -55,68 +56,21 @@ let suppressRulesSave = false;
 const showSettings = ref(false);
 const agentConfiguration = reactive(createAgentConfiguration());
 const settingsDraft = reactive(createAgentConfiguration());
-const rulesDraft = reactive({ codex: "", claudeCode: "" });
+const rulesDraft = reactive({ codexCli: "", chatgpt: "", claudeCode: "" });
 let settingsExitRegistration:
   ReturnType<typeof workspaceExit.register> | undefined;
 let rulesExitRegistration:
   ReturnType<typeof workspaceExit.register> | undefined;
 
-function createAgentConfiguration() {
-  return {
-    codex: {
-      endpoint: "",
-      customBaseUrl: "",
-      customToken: "",
-      model: "",
-      reasoningEffort: "high",
-      personality: "pragmatic",
-      webSearch: true,
-      sandbox: "workspace-write",
-      disableResponseStorage: true,
-      maxThreads: 16,
-      maxDepth: 1,
-      jobMaxRuntimeSeconds: 1800,
-      networkAccess: true,
-      shellEnvironmentInherit: "all",
-      windowsSandbox: "unelevated",
-      features: {
-        memories: true,
-        goals: true,
-        workspaceDependencies: false,
-      },
-      rules: "",
-    },
-    claudeCode: {
-      endpoint: "",
-      opusModel: "",
-      sonnetModel: "",
-      haikuModel: "",
-      subagentModel: "",
-      effort: "high",
-      language: "中文",
-      permissionMode: "acceptEdits",
-      rules: "",
-    },
-  };
-}
-
-const clientDefinitions: Array<{
-  client: AgentClient;
-  label: string;
-  icon: string;
-}> = [
-  { client: "codex", label: "Codex", icon: codexIcon },
-  { client: "claudeCode", label: "Claude Code", icon: claudeIcon },
-];
 const agentClients = computed(() =>
-  clientDefinitions.map((definition) => {
+  agentClientDefinitions.map((definition) => {
     const detected = snapshot.value.clients.find(
       ({ client }) => client === definition.client,
     );
     return {
       ...definition,
       installed: Boolean(detected),
-      version: detected?.version ?? null,
+      version: detected?.version ?? "-",
     };
   }),
 );
@@ -141,7 +95,7 @@ const selectedEndpoint = computed(() =>
   ),
 );
 const isCustomCodexEndpoint = computed(
-  () => settingsDraft.codex.endpoint === customEndpointValue,
+  () => activeSettings.value.endpoint === customEndpointValue,
 );
 const modelOptions = computed(() =>
   (selectedEndpoint.value?.models ?? []).map((model) => ({
@@ -172,7 +126,8 @@ const settingsDirty = computed(
 );
 const rulesDirty = computed(
   () =>
-    rulesDraft.codex !== agentConfiguration.codex.rules ||
+    rulesDraft.codexCli !== agentConfiguration.codexCli.rules ||
+    rulesDraft.chatgpt !== agentConfiguration.chatgpt.rules ||
     rulesDraft.claudeCode !== agentConfiguration.claudeCode.rules,
 );
 
@@ -189,16 +144,18 @@ function copyClientSettings(
   target: ReturnType<typeof createAgentConfiguration>,
   client: AgentClient,
 ) {
-  if (client === "codex") {
-    Object.assign(target.codex, source.codex, {
-      features: { ...source.codex.features },
-    });
-    return;
+  if (client === "codexCli") {
+    Object.assign(target.codexCli, source.codexCli, { features: { ...source.codexCli.features } });
+  } else if (client === "chatgpt") {
+    Object.assign(target.chatgpt, source.chatgpt, { features: { ...source.chatgpt.features } });
+  } else {
+    Object.assign(target.claudeCode, source.claudeCode);
   }
-  Object.assign(target.claudeCode, source.claudeCode);
 }
 
-function codexSettingsPayload(codex = agentConfiguration.codex) {
+function codexSettingsPayload(
+  codex: typeof agentConfiguration.codexCli | typeof agentConfiguration.chatgpt,
+) {
   const { customToken, ...codexSettings } = codex;
   return { ...codexSettings, features: { ...codexSettings.features } };
 }
@@ -208,12 +165,13 @@ function claudeCodeSettingsPayload(claudeCode = agentConfiguration.claudeCode) {
 }
 
 function codexConnection() {
-  const customBaseUrl = settingsDraft.codex.customBaseUrl.trim();
+  const codex = activeClient.value === "codexCli" ? settingsDraft.codexCli : settingsDraft.chatgpt;
+  const customBaseUrl = codex.customBaseUrl.trim();
   if (isCustomCodexEndpoint.value && customBaseUrl) {
     return {
       kind: "custom",
       baseUrl: customBaseUrl,
-      token: settingsDraft.codex.customToken,
+      token: codex.customToken,
     };
   }
   const endpoint = selectedEndpoint.value;
@@ -242,7 +200,7 @@ function claudeCodeConnection() {
 }
 
 function openSettings() {
-  if (!activeClientDetected.value) return;
+  if (!activeClientDetected.value || !clientSupportsSettings(activeClient.value)) return;
   copyClientSettings(agentConfiguration, settingsDraft, activeClient.value);
   showSettings.value = true;
 }
@@ -253,7 +211,7 @@ async function selectClient(client: AgentClient) {
     if (!canSwitch) return;
   }
   activeClient.value = client;
-  rulesLoaded = agentSettingsLoaded.value[client];
+  rulesLoaded = clientSupportsSettings(client) && agentSettingsLoaded.value[client];
   if (!agentsLoaded.value) void agentWorkspace.load();
 }
 
@@ -262,7 +220,9 @@ function closeSettingsImmediately() {
 }
 
 function discardSettingsDraft() {
-  copyClientSettings(agentConfiguration, settingsDraft, activeClient.value);
+  copyClientSettings(agentConfiguration, settingsDraft, "codexCli");
+  copyClientSettings(agentConfiguration, settingsDraft, "chatgpt");
+  copyClientSettings(agentConfiguration, settingsDraft, "claudeCode");
   closeSettingsImmediately();
 }
 
@@ -282,12 +242,16 @@ function updateSettingsVisibility(visible: boolean) {
 async function saveSettings() {
   const client = activeClient.value;
   const connection =
-    client === "codex" ? codexConnection() : claudeCodeConnection();
+    client === "codexCli" || client === "chatgpt"
+      ? codexConnection()
+      : claudeCodeConnection();
   try {
     await invokeLocalCommand("agent_settings_save", {
       settings:
-        client === "codex"
-          ? { client, settings: codexSettingsPayload(settingsDraft.codex) }
+        client === "codexCli"
+          ? { client, settings: codexSettingsPayload(settingsDraft.codexCli) }
+          : client === "chatgpt"
+            ? { client, settings: codexSettingsPayload(settingsDraft.chatgpt) }
           : {
               client,
               settings: claudeCodeSettingsPayload(settingsDraft.claudeCode),
@@ -321,7 +285,8 @@ function replaceRulesDraft(client: AgentClient, rules: string) {
 
 function discardRulesDraft() {
   if (rulesSaveTimer) clearTimeout(rulesSaveTimer);
-  replaceRulesDraft("codex", agentConfiguration.codex.rules);
+  replaceRulesDraft("codexCli", agentConfiguration.codexCli.rules);
+  replaceRulesDraft("chatgpt", agentConfiguration.chatgpt.rules);
   replaceRulesDraft("claudeCode", agentConfiguration.claudeCode.rules);
 }
 
@@ -330,14 +295,22 @@ async function saveRules(client: AgentClient) {
   try {
     await invokeLocalCommand("agent_settings_save", {
       settings:
-        client === "codex"
+        client === "codexCli"
           ? {
               client,
               settings: codexSettingsPayload({
-                ...agentConfiguration.codex,
-                rules: rulesDraft.codex,
+                ...agentConfiguration.codexCli,
+                rules: rulesDraft.codexCli,
               }),
             }
+          : client === "chatgpt"
+            ? {
+                client,
+                settings: codexSettingsPayload({
+                  ...agentConfiguration.chatgpt,
+                  rules: rulesDraft.chatgpt,
+                }),
+              }
           : {
               client,
               settings: claudeCodeSettingsPayload({
@@ -347,7 +320,13 @@ async function saveRules(client: AgentClient) {
             },
       connection: null,
     });
-    agentConfiguration[client].rules = rulesDraft[client];
+    if (client === "codexCli") {
+      agentConfiguration.codexCli.rules = rulesDraft.codexCli;
+    } else if (client === "chatgpt") {
+      agentConfiguration.chatgpt.rules = rulesDraft.chatgpt;
+    } else {
+      agentConfiguration.claudeCode.rules = rulesDraft.claudeCode;
+    }
     notifications.success("规则已保存");
     void agentWorkspace.reloadSettings(client);
   } catch {
@@ -391,12 +370,12 @@ async function loadAgentPage(force = false) {
 }
 
 function hydrateAgentSettings(value: AgentSettings) {
-  if (value.client === "codex") {
+  if (value.client === "codexCli") {
     const { endpointName, baseUrl, customToken, ...codexSettings } =
       value.settings;
-    Object.assign(agentConfiguration.codex, codexSettings);
-    Object.assign(agentConfiguration.codex.features, value.settings.features);
-    agentConfiguration.codex.customBaseUrl = baseUrl ?? "";
+    Object.assign(agentConfiguration.codexCli, codexSettings);
+    Object.assign(agentConfiguration.codexCli.features, value.settings.features);
+    agentConfiguration.codexCli.customBaseUrl = baseUrl ?? "";
     const managementUrl = bootstrap.value?.relay_url
       ? managementBaseUrl(bootstrap.value.relay_url)
       : null;
@@ -404,13 +383,33 @@ function hydrateAgentSettings(value: AgentSettings) {
       managementUrl && baseUrl && normalizeBaseUrl(baseUrl) === managementUrl
         ? endpoints.value.find((endpoint) => endpoint.name === endpointName)
         : undefined;
-    agentConfiguration.codex.endpoint =
+    agentConfiguration.codexCli.endpoint =
       codexEndpoint?.id ?? customEndpointValue;
-    agentConfiguration.codex.customToken = codexEndpoint
+    agentConfiguration.codexCli.customToken = codexEndpoint
       ? ""
       : (customToken ?? "");
-    copyClientSettings(agentConfiguration, settingsDraft, "codex");
-    replaceRulesDraft("codex", agentConfiguration.codex.rules);
+    copyClientSettings(agentConfiguration, settingsDraft, value.client);
+    replaceRulesDraft(value.client, agentConfiguration.codexCli.rules);
+  } else if (value.client === "chatgpt") {
+    const { endpointName, baseUrl, customToken, ...chatgptSettings } =
+      value.settings;
+    Object.assign(agentConfiguration.chatgpt, chatgptSettings);
+    Object.assign(agentConfiguration.chatgpt.features, value.settings.features);
+    agentConfiguration.chatgpt.customBaseUrl = baseUrl ?? "";
+    const managementUrl = bootstrap.value?.relay_url
+      ? managementBaseUrl(bootstrap.value.relay_url)
+      : null;
+    const chatgptEndpoint =
+      managementUrl && baseUrl && normalizeBaseUrl(baseUrl) === managementUrl
+        ? endpoints.value.find((endpoint) => endpoint.name === endpointName)
+        : undefined;
+    agentConfiguration.chatgpt.endpoint =
+      chatgptEndpoint?.id ?? customEndpointValue;
+    agentConfiguration.chatgpt.customToken = chatgptEndpoint
+      ? ""
+      : (customToken ?? "");
+    copyClientSettings(agentConfiguration, settingsDraft, value.client);
+    replaceRulesDraft(value.client, agentConfiguration.chatgpt.rules);
   } else {
     const { baseUrl, endpointToken, ...claudeCodeSettings } = value.settings;
     Object.assign(agentConfiguration.claudeCode, claudeCodeSettings);
@@ -481,10 +480,11 @@ watch(showSettings, (visible) => {
 });
 
 watch(
-  () => [cachedAgentSettings.value.codex, cachedAgentSettings.value.claudeCode],
-  ([codex, claudeCode], previous) => {
-    if (codex && codex !== previous?.[0]) hydrateAgentSettings(codex);
-    if (claudeCode && claudeCode !== previous?.[1]) {
+  () => [cachedAgentSettings.value.codexCli, cachedAgentSettings.value.chatgpt, cachedAgentSettings.value.claudeCode],
+  ([codexCli, chatgpt, claudeCode], previous) => {
+    if (codexCli && codexCli !== previous?.[0]) hydrateAgentSettings(codexCli);
+    if (chatgpt && chatgpt !== previous?.[1]) hydrateAgentSettings(chatgpt);
+    if (claudeCode && claudeCode !== previous?.[2]) {
       hydrateAgentSettings(claudeCode);
     }
   },
@@ -495,15 +495,20 @@ watch(
   snapshot,
   () => {
     if (!activeClientDetected.value) {
-      activeClient.value = snapshot.value.clients[0]?.client ?? "codex";
+  activeClient.value = snapshot.value.clients[0]?.client ?? "codexCli";
     }
   },
   { immediate: true },
 );
 
 watch(
-  () => rulesDraft.codex,
-  () => scheduleRulesSave("codex"),
+  () => rulesDraft.codexCli,
+  () => scheduleRulesSave("codexCli"),
+);
+
+watch(
+  () => rulesDraft.chatgpt,
+  () => scheduleRulesSave("chatgpt"),
 );
 
 watch(
@@ -549,7 +554,8 @@ onBeforeUnmount(() => {
                   :alt="client.label"
                   class="agent-client-icon"
                   :class="{
-                    'agent-client-icon--monochrome': client.client === 'codex',
+                    'agent-client-icon--monochrome':
+                      client.client === 'codexCli' || client.client === 'chatgpt',
                     'agent-client-icon--uninstalled': !client.installed,
                     'agent-client-icon--loading': isAgentSettingsLoading(
                       client.client,
@@ -566,7 +572,7 @@ onBeforeUnmount(() => {
             </template>
             <span class="agent-client-identity">
               <span>{{ client.label }}</span>
-              <small>{{ client.version ?? "-" }}</small>
+              <small>{{ client.version }}</small>
             </span>
           </ListItem>
         </List>
@@ -602,7 +608,15 @@ onBeforeUnmount(() => {
               </div>
             </div>
             <template v-if="activeSection === 'rules'">
-              <AgentRulesEditor v-model="rulesDraft[activeClient]" />
+              <AgentRulesEditor
+                v-if="activeClient === 'codexCli'"
+                v-model="rulesDraft.codexCli"
+              />
+              <AgentRulesEditor
+                v-else-if="activeClient === 'chatgpt'"
+                v-model="rulesDraft.chatgpt"
+              />
+              <AgentRulesEditor v-else v-model="rulesDraft.claudeCode" />
             </template>
             <div v-else class="item-results">
               <AgentItemList
@@ -629,8 +643,16 @@ onBeforeUnmount(() => {
       @submit.prevent="saveSettings"
     >
       <CodexSettingsForm
-        v-if="activeClient === 'codex'"
-        v-model="settingsDraft.codex"
+        v-if="activeClient === 'codexCli'"
+        v-model="settingsDraft.codexCli"
+        :visible="showSettings"
+        :endpoint-options="endpointOptions"
+        :model-options="modelOptions"
+        :custom-endpoint-value="customEndpointValue"
+      />
+      <ChatGptSettingsForm
+        v-else-if="activeClient === 'chatgpt'"
+        v-model="settingsDraft.chatgpt"
         :visible="showSettings"
         :endpoint-options="endpointOptions"
         :model-options="modelOptions"

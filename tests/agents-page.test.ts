@@ -24,9 +24,11 @@ test("智能体页保留客户端与功能区入口，并将展示职责拆分�
     'from "~/components/agents/ClaudeCodeSettingsForm.vue"',
   );
   expect(page).toContain(
-    '<AgentRulesEditor v-model="rulesDraft[activeClient]" />',
+    "v-model=\"rulesDraft.codexCli\"",
   );
+  expect(page).toContain("v-model=\"rulesDraft.chatgpt\"");
   expect(page).toContain("<CodexSettingsForm");
+  expect(page).toContain("<ChatGptSettingsForm");
   expect(page).toContain("<ClaudeCodeSettingsForm");
   expect(page).toContain('icon="ph:sliders-horizontal"');
   expect(page).toContain('aria-label="配置"');

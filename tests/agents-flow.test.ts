@@ -7,7 +7,7 @@ const source = (path: string) =>
     "\n",
   );
 
-test("智能体页自动识别本机 Codex 与 Claude Code 扩展", () => {
+test("智能体页分别管理 Codex CLI、ChatGPT 与 Claude Code", () => {
   const app = source("app.vue");
   const navigation = source("components/dashboard/DashboardShell.vue");
   const page = source("pages/agents.vue");
@@ -31,10 +31,10 @@ test("智能体页自动识别本机 Codex 与 Claude Code 扩展", () => {
   expect(page).toContain("void loadAgentPage()");
   expect(page).toContain("刷新");
   expect(page).toContain('from "~/components/agents/AgentItemList.vue"');
-  expect(page).toContain("@lobehub/icons-static-svg");
+  expect(source("utils/agentClient.ts")).toContain("@lobehub/icons-static-svg");
   expect(page).toContain("activeClient");
   expect(page).toContain("agentClients");
-  expect(page).toContain("clientDefinitions.map");
+  expect(page).toContain("agentClientDefinitions.map");
   expect(page).toContain("isClientInstalled");
   expect(page).toContain("agent-client-icon--uninstalled");
   expect(page).toMatch(
@@ -54,13 +54,19 @@ test("智能体页自动识别本机 Codex 与 Claude Code 扩展", () => {
     ".agent-loading__icon {\n  color: var(--st-text-primary);",
   );
   expect(page).toContain("snapshot.value.clients");
-  expect(page).toContain('client.version ?? "-"');
+  expect(page).toContain('const rulesDraft = reactive({ codexCli: "", chatgpt: "", claudeCode: "" })');
+  expect(page).toContain("activeClient === 'chatgpt'");
+  expect(page).toContain('from "~/components/agents/ChatGptSettingsForm.vue"');
+  expect(page).not.toContain("暂不提供本地设置管理");
   expect(page).toContain(
     "function replaceRulesDraft(client: AgentClient, rules: string)",
   );
   expect(page).toContain("rulesDraft[client] = rules");
   expect(page).toContain(
-    'replaceRulesDraft("codex", agentConfiguration.codex.rules)',
+    'replaceRulesDraft("codexCli", agentConfiguration.codexCli.rules)',
+  );
+  expect(page).toContain(
+    'replaceRulesDraft("chatgpt", agentConfiguration.chatgpt.rules)',
   );
   expect(page).toContain(
     'replaceRulesDraft("claudeCode", agentConfiguration.claudeCode.rules)',
@@ -105,6 +111,7 @@ test("智能体页自动识别本机 Codex 与 Claude Code 扩展", () => {
   expect(page).not.toContain("<Tabs");
   expect(page).not.toContain(':extra="String(client.items.length)"');
   expect(page).toContain("agent-client-icon--monochrome");
+  expect(page).toContain("client.client === 'chatgpt'");
   expect(page).toContain('class="agent-client-icon-frame"');
   expect(page).toContain("border-radius: var(--radius-md)");
   expect(page).toContain(
