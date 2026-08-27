@@ -36,7 +36,6 @@ pub struct ExtensionPackage {
     pub version: String,
     pub summary: String,
     pub kind: ExtensionKind,
-    pub risk: String,
 }
 
 #[derive(Debug, Clone, Default, Serialize)]
@@ -81,8 +80,6 @@ struct Manifest {
     name: String,
     summary: String,
     kind: ExtensionKind,
-    #[serde(default = "default_risk")]
-    risk: String,
 }
 
 #[derive(Debug, Deserialize)]
@@ -112,10 +109,6 @@ struct GiteaTreeEntry {
     path: String,
     #[serde(rename = "type")]
     entry_type: String,
-}
-
-fn default_risk() -> String {
-    "files-only".to_string()
 }
 
 pub async fn list_extensions() -> Result<ExtensionCatalogSnapshot, String> {
@@ -360,7 +353,6 @@ fn package_from_manifest(
         version: manifest.version,
         summary: manifest.summary,
         kind: manifest.kind,
-        risk: manifest.risk,
     })
 }
 
@@ -511,7 +503,6 @@ mod tests {
                 name: "工程评审".to_string(),
                 summary: "评审工程质量".to_string(),
                 kind: ExtensionKind::Skill,
-                risk: "files-only".to_string(),
             },
         );
         let invalid = package_from_manifest(
@@ -523,7 +514,6 @@ mod tests {
                 name: "无效".to_string(),
                 summary: "无效".to_string(),
                 kind: ExtensionKind::Skill,
-                risk: "files-only".to_string(),
             },
         );
 

@@ -180,7 +180,6 @@ export interface ExtensionPackage {
   version: string;
   summary: string;
   kind: ExtensionKind;
-  risk: string;
 }
 
 export interface ExtensionCatalogSnapshot {

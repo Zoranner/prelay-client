@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Drawer, Loading, Tag } from "@stellar/ui";
+import { Button, Drawer, Loading, MarkdownViewer } from "@stellar/ui";
 import type { ExtensionPackage } from "~/stores/relay";
 
 const visible = defineModel<boolean>("visible", { default: false });
@@ -9,11 +9,6 @@ const props = defineProps<{
 const { invokeLocalCommand } = useLocalCommand();
 const readme = ref("");
 const loading = ref(false);
-
-const kindLabel = computed(() => {
-  const kind = props.extension?.kind;
-  return { rule: "规则", plugin: "插件", mcp: "MCP", skill: "Skill" }[kind ?? "skill"];
-});
 
 watch(
   () => [visible.value, props.extension?.repository, props.extension?.commitSha] as const,
@@ -39,19 +34,16 @@ watch(
     :visible="visible"
     :title="extension?.name ?? '扩展详情'"
     size="large"
-    :show-footer="false"
     :blocked="loading"
     @update:visible="(nextVisible) => (visible = nextVisible)"
   >
     <div v-if="extension" class="extension-detail">
-      <div class="extension-detail__meta">
-        <Tag size="small">{{ kindLabel }}</Tag>
-        <span>{{ extension.version }}</span>
-        <span>风险：{{ extension.risk }}</span>
-      </div>
       <Loading v-if="loading" visible text="正在读取说明..." />
-      <pre v-else class="extension-detail__readme">{{ readme }}</pre>
+      <MarkdownViewer v-else :content="readme" class="extension-detail__readme" />
     </div>
+    <template #footer>
+      <Button @click="visible = false">关闭</Button>
+    </template>
   </Drawer>
 </template>
 
@@ -62,21 +54,10 @@ watch(
   height: 100%;
   min-height: 0;
   flex-direction: column;
-  gap: var(--spacing-md);
   padding: var(--spacing-lg);
 }
 
-.extension-detail__meta {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--spacing-sm);
-  color: var(--st-text-secondary);
-  font-size: 13px;
-}
-
 .extension-detail__readme {
-  margin: 0;
   min-height: 0;
   flex: 1;
   overflow: auto;
