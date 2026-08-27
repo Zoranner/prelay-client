@@ -4,12 +4,15 @@ import { readFileSync } from "node:fs";
 const source = (path: string) =>
   readFileSync(new URL(`../app/${path}`, import.meta.url), "utf8");
 
-test("扩展表格提供仓库外链", () => {
+test("扩展表格在独立链接列显示仓库地址", () => {
   const catalogTable = source("components/extensions/ExtensionCatalogTable.vue");
 
   expect(catalogTable).toContain("function repositoryUrl");
+  expect(catalogTable).toContain('key: "repository", title: "链接"');
+  expect(catalogTable).toContain("#cell-repository");
+  expect(catalogTable).toContain("repositoryUrl(row.repository)");
   expect(catalogTable).toContain('target="_blank"');
-  expect(catalogTable).toContain('icon="ph:arrow-square-out"');
+  expect(catalogTable).not.toContain('icon="ph:arrow-square-out"');
 });
 
 test("扩展库沿用智能体工作区的分类表格与单层操作表面", () => {

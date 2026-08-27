@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Button, Icon, Table } from "@stellar/ui";
+import { Button, Table } from "@stellar/ui";
 import type { ExtensionPackage } from "~/stores/relay";
 
 type ExtensionRow = ExtensionPackage & Record<string, unknown>;
@@ -21,10 +21,11 @@ const columns = [
   { key: "name", title: "名称", width: 180, ellipsis: true },
   { key: "version", title: "版本", width: 112, ellipsis: true },
   { key: "summary", title: "摘要", minWidth: 260, ellipsis: true },
+  { key: "repository", title: "链接", width: 240, ellipsis: true },
   {
     key: "actions",
     title: "操作",
-    width: 128,
+    width: 88,
     align: "right" as const,
     fixed: "right" as const,
   },
@@ -48,19 +49,20 @@ const columns = [
     <template #cell-summary="{ row }">
       <span :title="row.summary">{{ row.summary }}</span>
     </template>
+    <template #cell-repository="{ row }">
+      <a
+        :href="repositoryUrl(row.repository)"
+        target="_blank"
+        rel="noopener noreferrer"
+        class="extension-catalog-link"
+        :title="repositoryUrl(row.repository)"
+        @click.stop
+      >
+        {{ repositoryUrl(row.repository).replace("https://", "") }}
+      </a>
+    </template>
     <template #cell-actions="{ row }">
       <div class="extension-catalog-actions">
-        <a
-          :href="repositoryUrl(row.repository)"
-          target="_blank"
-          rel="noopener noreferrer"
-          class="extension-catalog-link"
-          aria-label="打开仓库"
-          title="打开仓库"
-          @click.stop
-        >
-          <Icon icon="ph:arrow-square-out" size="16" />
-        </a>
         <Button
           square
           size="small"
@@ -108,12 +110,11 @@ const columns = [
 }
 
 .extension-catalog-link {
-  display: inline-flex;
-  width: 28px;
-  height: 28px;
-  align-items: center;
-  justify-content: center;
-  color: var(--color-text-secondary);
+  display: block;
+  overflow: hidden;
+  color: var(--color-primary);
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .extension-catalog-link:hover {
