@@ -153,6 +153,7 @@ watch(selected, () => {
 
 .extension-install__targets {
   display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
   gap: var(--spacing-sm);
   padding-bottom: var(--spacing-md);
   border-bottom: 1px solid var(--st-border-divider);

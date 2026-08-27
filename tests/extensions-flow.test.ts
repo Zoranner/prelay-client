@@ -7,6 +7,7 @@ const source = (path: string) =>
 test("扩展库沿用智能体工作区的分类表格与单层操作表面", () => {
   const page = source("pages/agents.vue");
   const detailDrawer = source("components/extensions/ExtensionDetailDrawer.vue");
+  const installModal = source("components/extensions/ExtensionInstallModal.vue");
 
   expect(page).toContain("扩展库");
   expect(page).toContain('<ExtensionCatalogTable');
@@ -34,4 +35,7 @@ test("扩展库沿用智能体工作区的分类表格与单层操作表面", ()
   expect(detailDrawer).toContain(".extension-detail__readme :deep(h2)");
   expect(detailDrawer).toContain(".extension-detail__readme :deep(p)");
   expect(detailDrawer).not.toContain("white-space: pre-wrap");
+  expect(installModal).toContain(
+    "grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));",
+  );
 });
