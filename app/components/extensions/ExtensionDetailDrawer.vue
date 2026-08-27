@@ -64,6 +64,22 @@ watch(
   color: var(--st-text-primary);
   font: inherit;
   line-height: 1.65;
-  white-space: pre-wrap;
+}
+
+.extension-detail__readme :deep(h1) {
+  margin-top: 0;
+  margin-bottom: var(--spacing-md);
+}
+
+.extension-detail__readme :deep(h2) {
+  margin-top: var(--spacing-lg);
+  margin-bottom: var(--spacing-sm);
+}
+
+.extension-detail__readme :deep(p),
+.extension-detail__readme :deep(ul),
+.extension-detail__readme :deep(ol) {
+  margin-top: 0;
+  margin-bottom: var(--spacing-md);
 }
 </style>

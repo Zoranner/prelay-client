@@ -30,4 +30,7 @@ test("扩展库沿用智能体工作区的分类表格与单层操作表面", ()
   expect(detailDrawer).not.toContain("extension-detail__meta");
   expect(detailDrawer).not.toContain("risk");
   expect(detailDrawer).not.toContain(':show-footer="false"');
+  expect(detailDrawer).toContain(".extension-detail__readme :deep(h2)");
+  expect(detailDrawer).toContain(".extension-detail__readme :deep(p)");
+  expect(detailDrawer).not.toContain("white-space: pre-wrap");
 });
