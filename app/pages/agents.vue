@@ -257,7 +257,7 @@ function discardSettingsDraft() {
 
 function selectExtensionCatalog() {
   activeWorkspace.value = "extensions";
-  void extensionCatalog.load();
+  void extensionCatalog.load(true);
 }
 
 function openExtensionDetails(extension: ExtensionPackage) {
