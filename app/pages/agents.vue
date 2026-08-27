@@ -583,59 +583,62 @@ onBeforeUnmount(() => {
         </Button>
       </template>
       <div class="agent-content">
-        <List class="agent-client-list" :divided="false">
-          <ListItem
-            v-for="client in agentClients"
-            :key="client.client"
-            :active="activeClient === client.client"
-            clickable
-            @click="selectClient(client.client)"
-          >
-            <template #prefix>
-              <span class="agent-client-icon-frame">
-                <img
-                  :src="client.icon"
-                  :alt="client.label"
-                  class="agent-client-icon"
-                  :class="{
-                    'agent-client-icon--monochrome':
-                      client.client === 'codexCli' || client.client === 'chatgpt',
-                    'agent-client-icon--uninstalled': !client.installed,
-                    'agent-client-icon--loading': isAgentSettingsLoading(
-                      client.client,
-                    ),
-                  }"
-                />
-                <span
-                  v-if="isAgentSettingsLoading(client.client)"
-                  class="agent-client-loading"
-                >
-                  <Icon icon="ph:circle-notch" size="28" />
+        <aside class="agent-sidebar">
+          <List class="agent-client-list" :divided="false">
+            <ListItem
+              v-for="client in agentClients"
+              :key="client.client"
+              :active="activeClient === client.client"
+              clickable
+              @click="selectClient(client.client)"
+            >
+              <template #prefix>
+                <span class="agent-client-icon-frame">
+                  <img
+                    :src="client.icon"
+                    :alt="client.label"
+                    class="agent-client-icon"
+                    :class="{
+                      'agent-client-icon--monochrome':
+                        client.client === 'codexCli' || client.client === 'chatgpt',
+                      'agent-client-icon--uninstalled': !client.installed,
+                      'agent-client-icon--loading': isAgentSettingsLoading(
+                        client.client,
+                      ),
+                    }"
+                  />
+                  <span
+                    v-if="isAgentSettingsLoading(client.client)"
+                    class="agent-client-loading"
+                  >
+                    <Icon icon="ph:circle-notch" size="28" />
+                  </span>
                 </span>
+              </template>
+              <span class="agent-client-identity">
+                <span>{{ client.label }}</span>
+                <small>{{ client.version }}</small>
               </span>
-            </template>
-            <span class="agent-client-identity">
-              <span>{{ client.label }}</span>
-              <small>{{ client.version }}</small>
-            </span>
-          </ListItem>
-          <ListItem
-            class="agent-extension-library"
-            :active="showExtensionCatalog"
-            clickable
-            @click="selectExtensionCatalog"
-          >
-            <template #prefix>
-              <span class="agent-client-icon-frame">
-                <Icon icon="ph:storefront" size="24" />
+            </ListItem>
+          </List>
+          <List class="agent-extension-library" :divided="false">
+            <ListItem
+              :active="showExtensionCatalog"
+              clickable
+              @click="selectExtensionCatalog"
+            >
+              <template #prefix>
+                <span class="agent-client-icon-frame">
+                  <Icon icon="ph:storefront" size="24" />
+                </span>
+              </template>
+              <span class="agent-client-identity">
+                <span>扩展库</span>
+                <small>agents</small>
               </span>
-            </template>
-            <span class="agent-client-identity">
-              <span>扩展库</span>
-              <small>agents</small>
-            </span>
-          </ListItem>
-        </List>
+            </ListItem>
+          </List>
+        </aside>
         <div :key="showExtensionCatalog ? 'extensions' : activeClient" class="agent-main">
           <template v-if="showExtensionCatalog">
             <div class="agent-toolbar">
@@ -792,10 +795,18 @@ onBeforeUnmount(() => {
   grid-template-columns: 184px minmax(0, 1fr);
 }
 
-.agent-client-list {
+.agent-sidebar {
+  display: flex;
   min-height: 0;
+  flex-direction: column;
   padding-right: var(--spacing-md);
   border-right: 1px solid var(--st-border-divider);
+}
+
+.agent-client-list {
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
 }
 
 .agent-client-list :deep(.st-list-item > div:first-child) {
@@ -806,8 +817,16 @@ onBeforeUnmount(() => {
   justify-content: center;
 }
 
+.agent-extension-library :deep(.st-list-item > div:first-child) {
+  display: flex;
+  width: 40px;
+  height: 40px;
+  align-items: center;
+  justify-content: center;
+}
+
 .agent-extension-library {
-  margin-top: var(--spacing-sm);
+  margin-top: auto;
   padding-top: var(--spacing-sm);
   border-top: 1px solid var(--st-border-divider);
 }
