@@ -90,9 +90,7 @@ test("桌面窗口只保留自绘标题栏和内容工作区", () => {
   expect(shell).not.toContain("<AppTitlebar");
   expect(shell).toContain("DashboardStatusbar");
   expect(shell).toContain("--pr-statusbar-height");
-  expect(styles).toContain(
-    "--pr-statusbar-height: var(--height-status);",
-  );
+  expect(styles).toContain("--pr-statusbar-height: var(--height-status);");
   expect(capability).toContain('"core:window:allow-start-dragging"');
   expect(shell).toContain('<Sidebar variant="rail" :show-header="false">');
   expect(statusbar).toContain("dashboard-statusbar");
@@ -125,8 +123,8 @@ test("客户端更新在检查、下载和待安装之间保持明确状态", ()
   );
   expect(update).toContain('"client_update_prepare"');
   expect(update).toContain('invoke("client_update_prepare", {');
-  expect(update).toContain("state.value = \"downloading\"");
-  expect(update).toContain("state.value = \"ready\"");
+  expect(update).toContain('state.value = "downloading"');
+  expect(update).toContain('state.value = "ready"');
   expect(dialog).toContain("稍后安装");
 });
 
@@ -144,9 +142,13 @@ test("桌面和网页标题栏复用 Prelay 图标资产", () => {
 
   expect(tauriConfig.bundle.icon).toEqual(["icons/icon.ico", "icons/icon.png"]);
   expect(
-    existsSync(new URL("../app/assets/images/prelay-icon.png", import.meta.url)),
+    existsSync(
+      new URL("../app/assets/images/prelay-icon.png", import.meta.url),
+    ),
   ).toBe(true);
-  expect(titlebar).toContain('import prelayIcon from "~/assets/images/prelay-icon.png"');
+  expect(titlebar).toContain(
+    'import prelayIcon from "~/assets/images/prelay-icon.png"',
+  );
   expect(titlebar).toContain('<img :src="prelayIcon" alt=""');
   expect(titlebar).not.toContain(">PR</span>");
   expect(titlebar).toMatch(
@@ -166,7 +168,9 @@ test("仪表盘头像使用 DiceBear Cutouts 预设", () => {
   expect(packageJson.dependencies["@dicebear/core"]).toBe("10.5.0");
   expect(packageJson.dependencies["@dicebear/styles"]).toBe("10.5.0");
   expect(packageJson.dependencies["@dicebear/identicon"]).toBeUndefined();
-  expect(shell).toContain('import cutouts from "@dicebear/styles/cutouts.json"');
+  expect(shell).toContain(
+    'import cutouts from "@dicebear/styles/cutouts.json"',
+  );
   expect(shell).toContain("new Style(cutouts)");
   expect(shell).toContain("new DiceBearAvatar(cutoutsStyle");
 });
@@ -192,10 +196,8 @@ test("全局浮层始终为窗口边框、标题栏和状态栏保留安全区",
 
   expect(appSource()).not.toContain("pr-desktop-shell");
   expect(styles).not.toContain('@import "@stellar/ui/styles"');
-  expect(config).toContain('"modules:done"');
-  expect(config).toContain('"@stellar/ui/styles"');
-  expect(config).toContain("nuxt.options.css.splice");
-  expect(config).toContain("nuxt.options.css.unshift");
+  expect(config).toContain('"@stellar/ui/nuxt"');
+  expect(config).not.toContain("modules:done");
   expect(styles).toMatch(
     /:root\s*\{[\s\S]*--st-overlay-inset:\s*calc\(var\(--pr-titlebar-height\) \+ 1px\) 1px\s+calc\(var\(--pr-statusbar-height\) \+ 1px\) 1px;/,
   );
