@@ -1,10 +1,12 @@
 import { expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
 
-const providerSource = readFileSync(
-  new URL("../app/components/providers/ProviderForm.vue", import.meta.url),
-  "utf8",
-);
+const providerSource = [
+  "../app/components/providers/ProviderForm.vue",
+  "../app/composables/useProviderForm.ts",
+]
+  .map((path) => readFileSync(new URL(path, import.meta.url), "utf8"))
+  .join("\n");
 
 test("保存供应商后立即清除只用于请求的密钥输入", () => {
   expect(providerSource).toContain('apiKey.value = ""');
@@ -26,8 +28,8 @@ test("切换供应商模板时同步回填模板名称", () => {
 });
 
 test("供应商表单将 Chat Completions 排在支持协议首位并包含图像生成", () => {
-  expect(providerSource).toContain(
-    'const allProtocols: UpstreamProtocol[] = ["openai", "responses", "anthropic", "images_generations"]',
+  expect(providerSource).toMatch(
+    /const allProtocols: UpstreamProtocol\[\] = \[\s*"openai",\s*"responses",\s*"anthropic",\s*"images_generations",\s*\]/,
   );
   expect(providerSource).toContain('images_generations: "",');
   expect(providerSource).toContain(

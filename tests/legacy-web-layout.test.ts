@@ -49,7 +49,10 @@ test("供应商和接入点页面通过 Stellar UI 的 PanelSection、Table 和 
 });
 
 test("供应商和接入点表单保留历史业务字段，并用 Stellar UI 表单组件承载", () => {
-  const providerForm = source("components/providers/ProviderForm.vue");
+  const providerForm = [
+    source("components/providers/ProviderForm.vue"),
+    source("composables/useProviderForm.ts"),
+  ].join("\n");
   const endpointForm = source("components/endpoints/EndpointForm.vue");
 
   expect(providerForm).toContain("PROVIDER_TEMPLATE_GROUPS");

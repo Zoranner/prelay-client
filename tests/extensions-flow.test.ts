@@ -27,11 +27,13 @@ test("扩展表格显示仓库、版本和可复制的参考来源", () => {
 
 test("扩展库沿用智能体工作区的分类表格与单层操作表面", () => {
   const page = source("pages/agents.vue");
+  const sidebar = source("components/agents/AgentSidebar.vue");
+  const workspace = source("components/agents/AgentWorkspaceContent.vue");
   const detailDrawer = source("components/extensions/ExtensionDetailDrawer.vue");
   const installModal = source("components/extensions/ExtensionInstallModal.vue");
 
-  expect(page).toContain("扩展库");
-  expect(page).toContain('<ExtensionCatalogTable');
+  expect(sidebar).toContain("扩展库");
+  expect(workspace).toContain('<ExtensionCatalogTable');
   expect(page).toContain('<ExtensionDetailDrawer');
   expect(page).toContain('<ExtensionInstallModal');
   expect(page).toContain('value: "rule"');
@@ -39,8 +41,8 @@ test("扩展库沿用智能体工作区的分类表格与单层操作表面", ()
   expect(page).toContain('value: "mcp"');
   expect(page).toContain('value: "skill"');
   expect(page).toContain('type AgentWorkspace = AgentClient | "extensions";');
-  expect(page).toContain(':active="activeWorkspace === client.client"');
-  expect(page).toContain(':active="activeWorkspace === \'extensions\'"');
+  expect(sidebar).toContain(':active="activeWorkspace === client.client"');
+  expect(sidebar).toContain(':active="activeWorkspace === \'extensions\'"');
   expect(page).toMatch(
     /function selectExtensionCatalog\(\) \{\s+activeWorkspace\.value = "extensions";\s+void extensionCatalog\.load\(activeExtensionSection\.value\);/,
   );

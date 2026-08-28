@@ -3,6 +3,14 @@ import { readFileSync } from "node:fs";
 
 import { getProviderOperationFeedback } from "../app/utils/providerOperations";
 
+const providerFormDomain = () =>
+  [
+    "../app/components/providers/ProviderForm.vue",
+    "../app/composables/useProviderForm.ts",
+  ]
+    .map((path) => readFileSync(new URL(path, import.meta.url), "utf8"))
+    .join("\n");
+
 test("上游 200 但 ok 为 false 时将供应商操作显示为失败，并保留诊断指标", () => {
   const feedback = getProviderOperationFeedback({
     ok: false,
@@ -81,13 +89,7 @@ test("供应商页面按供应商 ID 执行连通性检查，不传 API Key", ()
 });
 
 test("供应商表单内的协议测试也发送全局通知并保留指标", () => {
-  const form = readFileSync(
-    new URL(
-      "../app/components/providers/ProviderForm.vue",
-      import.meta.url,
-    ),
-    "utf8",
-  );
+  const form = providerFormDomain();
 
   expect(form).toContain("getProviderOperationFeedback");
   expect(form).toContain("notifications.notify");
@@ -96,13 +98,7 @@ test("供应商表单内的协议测试也发送全局通知并保留指标", ()
 });
 
 test("供应商表单以模型发现结果覆盖本地清单并发送结果通知", () => {
-  const form = readFileSync(
-    new URL(
-      "../app/components/providers/ProviderForm.vue",
-      import.meta.url,
-    ),
-    "utf8",
-  );
+  const form = providerFormDomain();
 
   expect(form).toContain("notifications.success(");
   expect(form).toContain('title: "模型已获取"');
@@ -111,13 +107,7 @@ test("供应商表单以模型发现结果覆盖本地清单并发送结果通�
 });
 
 test("模型发现失败时提示可手工添加模型后继续保存", () => {
-  const form = readFileSync(
-    new URL(
-      "../app/components/providers/ProviderForm.vue",
-      import.meta.url,
-    ),
-    "utf8",
-  );
+  const form = providerFormDomain();
 
   expect(form).toContain("notifications.warning(");
   expect(form).toContain('title: "模型列表暂不可用"');

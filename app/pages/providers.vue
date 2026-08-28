@@ -1,24 +1,14 @@
 <script setup lang="ts">
 import type {
   Provider,
-  ProviderCapabilities,
   UpstreamProtocol,
 } from "~/stores/relay";
+import type { ProviderFormPayload } from "~/composables/useProviderForm";
 import { type ProviderOperationResult } from "~/utils/providerOperations";
 import { Button, Drawer, useConfirm, useNotification } from "@stellar/ui";
 import ProviderForm from "~/components/providers/ProviderForm.vue";
 import ProviderList from "~/components/providers/ProviderList.vue";
 import PanelSection from "~/components/shell/PanelSection.vue";
-
-type ProviderFormPayload = {
-  id?: string;
-  name: string;
-  provider_type: string;
-  base_url: string;
-  api_key: string;
-  capabilities: ProviderCapabilities;
-  models: string[];
-};
 
 const { pending, invokeCommand } = useRelayCommand();
 const { confirm: confirmAction } = useConfirm();

@@ -1,0 +1,24 @@
+.page-dashboard {
+  display: flex;
+  height: 100%;
+  min-height: 0;
+  flex-direction: column;
+  padding: var(--pr-dashboard-padding);
+}
+
+.agent-content {
+  display: grid;
+  flex: 1;
+  min-height: 0;
+  grid-template-columns: 184px minmax(0, 1fr);
+}
+
+.agent-refresh-icon--loading {
+  animation: agent-refresh-spin 800ms linear infinite;
+}
+
+@keyframes agent-refresh-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}

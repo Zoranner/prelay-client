@@ -7,48 +7,35 @@ const source = (path: string) =>
     "\n",
   );
 
-test("智能体页保留客户端与功能区入口，并将展示职责拆分为子组件", () => {
+test("智能体页面只编排路由级状态，展示和设置由领域组件承担", () => {
   const page = source("pages/agents.vue");
   const shell = source("components/dashboard/DashboardShell.vue");
+  const sidebar = source("components/agents/AgentSidebar.vue");
+  const content = source("components/agents/AgentWorkspaceContent.vue");
+  const drawer = source("components/agents/AgentSettingsDrawer.vue");
 
   expect(shell).toContain(
     '{ label: "智能体", path: "/agents", icon: "ph:robot" }',
   );
   expect(page).toContain('title="智能体"');
-  expect(page).toContain("activeClient");
-  expect(page).toContain("agent-client-list");
-  expect(page).toContain("agent-client-icon--monochrome");
   expect(page).toContain("availableSectionOptions");
-  expect(page).toContain('from "~/components/agents/AgentRulesEditor.vue"');
-  expect(page).toContain('from "~/components/agents/CodexSettingsForm.vue"');
+  expect(page).toContain("AgentSidebar");
+  expect(page).toContain("AgentWorkspaceContent");
+  expect(page).toContain("AgentSettingsDrawer");
   expect(page).not.toContain("ClaudeCode");
   expect(page).not.toContain("claudeCode");
-  expect(page).toContain(
-    "v-model=\"rulesDraft.codexCli\"",
-  );
-  expect(page).toContain("v-model=\"rulesDraft.chatgpt\"");
-  expect(page).toContain("v-model=\"rulesDraft.openCode\"");
-  expect(page).toContain("<CodexSettingsForm");
-  expect(page).toContain("<ChatGptSettingsForm");
-  expect(page).toContain('icon="ph:sliders-horizontal"');
-  expect(page).toContain('aria-label="配置"');
-  expect(page).toContain(
-    ">\n                  配置\n                </Button>",
-  );
-  expect(page).not.toContain('icon="ph:gear-six"');
-  expect(page).toContain('label: "规则"');
+  expect(sidebar).toContain("agent-client-list");
+  expect(sidebar).toContain("agent-client-icon--monochrome");
+  expect(content).toContain("@update:model-value");
+  expect(page).toContain('value: "rules"');
   expect(page).toContain("插件");
   expect(page).toContain("MCP");
   expect(page).toContain("Skill");
-  expect(page).toContain("agent_settings_save");
-  expect(page).toContain("openCodeConnection");
-  expect(page).toContain("endpointToken");
-  expect(page).toContain("function discardSettingsDraft()");
-  expect(page).toContain("workspaceExit.register");
-  expect(page).not.toContain("function syncRulesScroll");
-  expect(page).not.toContain("function updateCodexNumber");
-  expect(page).not.toContain("agent-settings__group");
-  expect(page).not.toContain("agent-rules__editor");
+  expect(content).not.toContain('icon="ph:gear-six"');
+  expect(drawer).toContain("CodexSettingsForm");
+  expect(drawer).toContain("ChatGptSettingsForm");
+  expect(drawer).toContain("OpenCodeSettingsForm");
+  expect(drawer).toContain("agent-settings-form");
 });
 
 test("规则编辑器独立负责输入、预览和滚动同步", () => {

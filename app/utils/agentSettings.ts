@@ -36,6 +36,17 @@ export type AgentConfiguration = {
   openCode: OpenCodeSettingsDraft;
 };
 
+export type AgentSettingsSaveRequest = {
+  settings: {
+    client: AgentClient;
+    settings: Record<string, unknown>;
+  };
+  connection: {
+    client: AgentClient;
+    connection: Record<string, string | undefined>;
+  } | null;
+};
+
 function createCodexSettingsDraft(): CodexSettingsDraft {
   return {
     endpoint: "",
@@ -73,3 +84,33 @@ export function createAgentConfiguration(): AgentConfiguration {
     },
   };
 }
+
+export function copyAgentClientSettings(
+  source: AgentConfiguration,
+  target: AgentConfiguration,
+  client: AgentClient,
+) {
+  if (client === "codexCli") {
+    Object.assign(target.codexCli, source.codexCli, {
+      features: { ...source.codexCli.features },
+    });
+  } else if (client === "chatgpt") {
+    Object.assign(target.chatgpt, source.chatgpt, {
+      features: { ...source.chatgpt.features },
+    });
+  } else {
+    Object.assign(target.openCode, source.openCode);
+  }
+}
+
+export function codexSettingsPayload(
+  settings: CodexSettingsDraft | ChatGptSettingsDraft,
+) {
+  const { customToken, ...payload } = settings;
+  return { ...payload, features: { ...payload.features } };
+}
+
+export function openCodeSettingsPayload(settings: OpenCodeSettingsDraft) {
+  return { ...settings };
+}
+import type { AgentClient } from "~/stores/relay";

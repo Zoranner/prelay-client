@@ -10,6 +10,10 @@ test("活动页只读取和展示请求明细", () => {
     new URL("../app/components/activity/RequestTable.vue", import.meta.url),
     "utf8",
   );
+  const tableStyles = readFileSync(
+    new URL("../app/components/activity/RequestTable.css", import.meta.url),
+    "utf8",
+  );
   const requestLogDto = readFileSync(
     new URL("../crates/protocol/src/stats.rs", import.meta.url),
     "utf8",
@@ -58,7 +62,7 @@ test("活动页只读取和展示请求明细", () => {
   expect(table).toContain("requestColumns");
   expect(table).toContain("fixed-header");
   expect(table).toContain("activity-table__grid");
-  expect(table).toContain("overflow: auto");
+  expect(tableStyles).toContain("overflow: auto");
   expect(table).not.toContain("<EmptyState");
   expect(table).toContain('empty-text="暂无请求记录"');
   expect(table).toContain(':loading="pending"');
