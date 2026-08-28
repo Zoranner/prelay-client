@@ -72,7 +72,9 @@ export function useProviderForm(options: ProviderFormOptions) {
   const modelDraft = ref("");
   const upstreamProtocols = ref<UpstreamProtocol[]>([]);
   const orderedUpstreamProtocols = computed(() =>
-    allProtocols.filter((protocol) => upstreamProtocols.value.includes(protocol)),
+    allProtocols.filter((protocol) =>
+      upstreamProtocols.value.includes(protocol),
+    ),
   );
   const protocolBaseUrls = reactive<Record<UpstreamProtocol, string>>({
     responses: "",
@@ -281,7 +283,9 @@ export function useProviderForm(options: ProviderFormOptions) {
   }
 
   watch(options.provider, resetDraft, { immediate: true });
-  watch(serializeDraft, (draft) => options.onDirtyChange(draft !== initialDraft));
+  watch(serializeDraft, (draft) =>
+    options.onDirtyChange(draft !== initialDraft),
+  );
 
   return {
     addModel,

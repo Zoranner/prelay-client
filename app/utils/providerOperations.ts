@@ -20,8 +20,12 @@ export function getProviderOperationFeedback(
 ): ProviderOperationFeedback {
   const models = result.models?.filter(Boolean) ?? [];
   const metrics = [
-    typeof result.latency_ms === "number" ? `延迟 ${result.latency_ms} ms` : null,
-    typeof result.first_token_ms === "number" ? `首 Token ${result.first_token_ms} ms` : null,
+    typeof result.latency_ms === "number"
+      ? `延迟 ${result.latency_ms} ms`
+      : null,
+    typeof result.first_token_ms === "number"
+      ? `首 Token ${result.first_token_ms} ms`
+      : null,
   ].filter(Boolean);
 
   if (!result.ok) {

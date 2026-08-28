@@ -1,11 +1,5 @@
 <script setup lang="ts">
-import {
-  Button,
-  DropdownMenu,
-  Icon,
-  MenuDivider,
-  MenuItem,
-} from "@stellar/ui";
+import { Button, DropdownMenu, Icon, MenuDivider, MenuItem } from "@stellar/ui";
 
 import type { StatsRange } from "~/stores/relay";
 
@@ -48,10 +42,11 @@ const groups: Array<{ label: string; options: RangeOption[] }> = [
   },
 ];
 
-const selectedLabel = computed(() =>
-  groups
-    .flatMap((group) => group.options)
-    .find((option) => option.value === props.modelValue)?.label ?? "本周",
+const selectedLabel = computed(
+  () =>
+    groups
+      .flatMap((group) => group.options)
+      .find((option) => option.value === props.modelValue)?.label ?? "本周",
 );
 
 function selectRange(value: StatsRange, close: () => void) {

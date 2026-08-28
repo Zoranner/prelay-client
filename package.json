@@ -8,17 +8,24 @@
     "build": "nuxt build",
     "generate": "nuxt generate",
     "typecheck": "nuxt typecheck",
+    "lint": "eslint .",
+    "format:check": "prettier --check app tests .github/workflows/release.yml eslint.config.mjs nuxt.config.ts package.json prettier.config.mjs",
     "test": "bun test",
     "tauri": "tauri"
   },
   "devDependencies": {
+    "@eslint/js": "^10.0.1",
     "@nuxt/icon": "^2.5.1",
     "@nuxtjs/tailwindcss": "^6.14.0",
     "@tailwindcss/vite": "^4.3.3",
     "@tauri-apps/cli": "^2.0.0",
+    "eslint": "^10.9.1",
+    "eslint-plugin-vue": "^10.10.0",
     "nuxt": "^4.0.0",
+    "prettier": "^3.9.6",
     "tailwindcss": "^4.0.0",
     "typescript": "^5.0.0",
+    "typescript-eslint": "^8.68.0",
     "vue-tsc": "^3.3.9"
   },
   "dependencies": {

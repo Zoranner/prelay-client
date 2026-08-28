@@ -5,7 +5,9 @@ const source = (path: string) =>
   readFileSync(new URL(`../app/${path}`, import.meta.url), "utf8");
 
 test("扩展表格显示仓库、版本和可复制的参考来源", () => {
-  const catalogTable = source("components/extensions/ExtensionCatalogTable.vue");
+  const catalogTable = source(
+    "components/extensions/ExtensionCatalogTable.vue",
+  );
 
   expect(catalogTable).toContain("function repositoryUrl");
   expect(catalogTable).toContain("function copyRepositoryUrl");
@@ -29,30 +31,36 @@ test("扩展库沿用智能体工作区的分类表格与单层操作表面", ()
   const page = source("pages/agents.vue");
   const sidebar = source("components/agents/AgentSidebar.vue");
   const workspace = source("components/agents/AgentWorkspaceContent.vue");
-  const detailDrawer = source("components/extensions/ExtensionDetailDrawer.vue");
-  const installModal = source("components/extensions/ExtensionInstallModal.vue");
+  const detailDrawer = source(
+    "components/extensions/ExtensionDetailDrawer.vue",
+  );
+  const installModal = source(
+    "components/extensions/ExtensionInstallModal.vue",
+  );
 
   expect(sidebar).toContain("扩展库");
-  expect(workspace).toContain('<ExtensionCatalogTable');
-  expect(page).toContain('<ExtensionDetailDrawer');
-  expect(page).toContain('<ExtensionInstallModal');
+  expect(workspace).toContain("<ExtensionCatalogTable");
+  expect(page).toContain("<ExtensionDetailDrawer");
+  expect(page).toContain("<ExtensionInstallModal");
   expect(page).toContain('value: "rule"');
   expect(page).toContain('value: "plugin"');
   expect(page).toContain('value: "mcp"');
   expect(page).toContain('value: "skill"');
   expect(page).toContain('type AgentWorkspace = AgentClient | "extensions";');
   expect(sidebar).toContain(':active="activeWorkspace === client.client"');
-  expect(sidebar).toContain(':active="activeWorkspace === \'extensions\'"');
+  expect(sidebar).toContain(":active=\"activeWorkspace === 'extensions'\"");
   expect(page).toMatch(
     /function selectExtensionCatalog\(\) \{\s+activeWorkspace\.value = "extensions";\s+void extensionCatalog\.load\(activeExtensionSection\.value\);/,
   );
   expect(page).toContain("watch(activeExtensionSection");
-  expect(page).toContain("extensionCatalog.loading.value[activeExtensionSection]");
+  expect(page).toContain(
+    "extensionCatalog.loading.value[activeExtensionSection]",
+  );
   expect(page).not.toContain("showExtensionCatalog");
   expect(page).not.toContain("<small>agents</small>");
   expect(detailDrawer).toContain("MarkdownViewer");
   expect(detailDrawer).toContain('title="扩展详情"');
-  expect(detailDrawer).toContain('<template #footer>');
+  expect(detailDrawer).toContain("<template #footer>");
   expect(detailDrawer).toContain(">关闭</Button>");
   expect(detailDrawer).not.toContain("extension-detail__meta");
   expect(detailDrawer).not.toContain("risk");

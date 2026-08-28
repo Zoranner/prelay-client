@@ -103,12 +103,10 @@ watch(
       <Button :disabled="installing" @click="visible = false">取消</Button>
       <Button
         variant="primary"
-        :disabled="
-          installing || !selectedClients.length
-        "
+        :disabled="installing || !selectedClients.length"
         @click="install"
       >
-        {{ installing ? '安装中...' : '安装' }}
+        {{ installing ? "安装中..." : "安装" }}
       </Button>
     </template>
   </Modal>

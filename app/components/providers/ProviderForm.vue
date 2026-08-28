@@ -1,11 +1,5 @@
 <script setup lang="ts">
-import {
-  Button,
-  FormField,
-  Input,
-  Popover,
-  Select,
-} from "@stellar/ui";
+import { Button, FormField, Input, Popover, Select } from "@stellar/ui";
 import type { Provider } from "~/stores/relay";
 import {
   type ProviderFormPayload,

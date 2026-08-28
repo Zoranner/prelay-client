@@ -38,10 +38,16 @@ test("Nuxt 管理页面只通过固定的 Tauri command 调用服务端", () => 
 test("仪表盘使用同一范围读取概览、趋势、模型和供应商统计", () => {
   const page = source("pages/index.vue");
 
-  expect(page).toContain('invokeCommand<StatsOverview>("stats_overview", range)');
+  expect(page).toContain(
+    'invokeCommand<StatsOverview>("stats_overview", range)',
+  );
   expect(page).toContain('invokeCommand<ModelStats[]>("stats_models", range)');
-  expect(page).toContain('invokeCommand<ProviderStats[]>("stats_providers", range)');
-  expect(page).toContain('invokeCommand<TokenUsageTimelinePoint[]>("stats_timeline", range)');
+  expect(page).toContain(
+    'invokeCommand<ProviderStats[]>("stats_providers", range)',
+  );
+  expect(page).toContain(
+    'invokeCommand<TokenUsageTimelinePoint[]>("stats_timeline", range)',
+  );
   expect(page).not.toContain("查看活动");
 });
 

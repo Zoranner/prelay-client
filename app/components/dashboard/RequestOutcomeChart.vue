@@ -7,7 +7,9 @@ const props = defineProps<{ overview: StatsOverview | null }>();
 
 const successRate = computed(() => {
   if (!props.overview?.total_requests) return 0;
-  return (props.overview.successful_requests / props.overview.total_requests) * 100;
+  return (
+    (props.overview.successful_requests / props.overview.total_requests) * 100
+  );
 });
 </script>
 
@@ -31,13 +33,23 @@ const successRate = computed(() => {
       </div>
       <div class="outcome-summary">
         <p class="outcome-summary__item">
-          成功 <strong class="outcome-summary__value">{{ overview?.successful_requests ?? 0 }}</strong>
+          成功
+          <strong class="outcome-summary__value">{{
+            overview?.successful_requests ?? 0
+          }}</strong>
         </p>
         <p class="outcome-summary__item">
-          失败 <strong class="outcome-summary__value outcome-summary__value--danger">{{ overview?.failed_requests ?? 0 }}</strong>
+          失败
+          <strong
+            class="outcome-summary__value outcome-summary__value--danger"
+            >{{ overview?.failed_requests ?? 0 }}</strong
+          >
         </p>
         <p class="outcome-summary__item">
-          成功率 <strong class="outcome-summary__value">{{ successRate.toFixed(1) }}%</strong>
+          成功率
+          <strong class="outcome-summary__value"
+            >{{ successRate.toFixed(1) }}%</strong
+          >
         </p>
       </div>
     </section>

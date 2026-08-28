@@ -11,7 +11,7 @@ type StatsBreakdownRow = Record<string, unknown> & {
   average_latency_ms: number | null;
 };
 
-const props = defineProps<{
+defineProps<{
   emptyMessage: string;
   rows: StatsBreakdownRow[];
   title: string;

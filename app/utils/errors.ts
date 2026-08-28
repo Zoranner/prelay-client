@@ -15,7 +15,10 @@ const knownCodes = new Set([
 export function toRelayError(error: unknown): RelayError {
   if (typeof error === "object" && error !== null) {
     const candidate = error as Partial<RelayError>;
-    if (typeof candidate.code === "string" && typeof candidate.message === "string") {
+    if (
+      typeof candidate.code === "string" &&
+      typeof candidate.message === "string"
+    ) {
       return { code: candidate.code, message: candidate.message };
     }
   }

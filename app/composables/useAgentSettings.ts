@@ -147,7 +147,8 @@ export function useAgentSettings(options: AgentSettingsOptions) {
       ? managementBaseUrl(options.bootstrap.value.relay_url)
       : null;
     if (value.client === "codexCli" || value.client === "chatgpt") {
-      const { endpointName, baseUrl, customToken, ...settings } = value.settings;
+      const { endpointName, baseUrl, customToken, ...settings } =
+        value.settings;
       const target = configuration[value.client];
       Object.assign(target, settings);
       Object.assign(target.features, value.settings.features);

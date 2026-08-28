@@ -46,12 +46,13 @@ const providerRows = computed(() =>
 async function loadDashboard() {
   try {
     const range = { range: selectedRange.value };
-    const [overviewValue, modelRows, providerRows, timelineRows] = await Promise.all([
-      invokeCommand<StatsOverview>("stats_overview", range),
-      invokeCommand<ModelStats[]>("stats_models", range),
-      invokeCommand<ProviderStats[]>("stats_providers", range),
-      invokeCommand<TokenUsageTimelinePoint[]>("stats_timeline", range),
-    ]);
+    const [overviewValue, modelRows, providerRows, timelineRows] =
+      await Promise.all([
+        invokeCommand<StatsOverview>("stats_overview", range),
+        invokeCommand<ModelStats[]>("stats_models", range),
+        invokeCommand<ProviderStats[]>("stats_providers", range),
+        invokeCommand<TokenUsageTimelinePoint[]>("stats_timeline", range),
+      ]);
     overview.value = overviewValue;
     models.value = modelRows;
     providers.value = providerRows;

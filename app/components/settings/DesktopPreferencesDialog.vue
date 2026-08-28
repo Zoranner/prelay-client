@@ -5,7 +5,9 @@ import type { DesktopPreferences } from "~/composables/useDesktopPreferences";
 const visible = defineModel<boolean>("visible", { default: false });
 const desktopPreferences = useDesktopPreferences();
 const workspaceExit = useWorkspaceExitGuard();
-const draft = reactive<DesktopPreferences>({ ...desktopPreferences.preferences.value });
+const draft = reactive<DesktopPreferences>({
+  ...desktopPreferences.preferences.value,
+});
 const loading = ref(false);
 const saving = ref(false);
 const savedDraft = ref("");
@@ -37,7 +39,12 @@ watch(visible, async (isVisible) => {
 
   exitRegistration = workspaceExit.register({
     close: closeImmediately,
-    state: () => (loading.value || saving.value ? "blocked" : isDirty.value ? "discard" : "allow"),
+    state: () =>
+      loading.value || saving.value
+        ? "blocked"
+        : isDirty.value
+          ? "discard"
+          : "allow",
   });
   loading.value = true;
   try {
@@ -49,9 +56,12 @@ watch(visible, async (isVisible) => {
   }
 });
 
-watch(() => draft.theme, (theme) => {
-  if (visible.value) desktopPreferences.applyTheme(theme);
-});
+watch(
+  () => draft.theme,
+  (theme) => {
+    if (visible.value) desktopPreferences.applyTheme(theme);
+  },
+);
 
 async function save() {
   saving.value = true;
@@ -73,7 +83,9 @@ async function save() {
     :blocked="loading || saving || isDirty"
     :show-cancel="false"
     :show-confirm="false"
-    @update:visible="(nextVisible) => nextVisible ? (visible = true) : void requestClose()"
+    @update:visible="
+      (nextVisible) => (nextVisible ? (visible = true) : void requestClose())
+    "
   >
     <div class="desktop-preferences-dialog">
       <div class="preferences-item preferences-item--theme">

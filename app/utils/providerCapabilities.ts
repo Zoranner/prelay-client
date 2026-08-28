@@ -7,7 +7,9 @@ const protocolValues: UpstreamProtocol[] = [
   "images_generations",
 ];
 
-export function providerProtocolOptions(provider: Provider): UpstreamProtocol[] {
+export function providerProtocolOptions(
+  provider: Provider,
+): UpstreamProtocol[] {
   return protocolValues.filter((protocol) =>
     provider.upstream_protocols.includes(protocol),
   );

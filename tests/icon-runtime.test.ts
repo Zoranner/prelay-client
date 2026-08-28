@@ -29,14 +29,14 @@ test("Nuxt 将应用图标打包到客户端且不使用远程图标服务", () 
   );
 
   expect(nuxtConfig).toContain('"@nuxt/icon",');
-  expect(nuxtConfig).toContain('"@stellar/ui/nuxt",');
+  expect(nuxtConfig).toContain('"@stellar/ui/nuxt"');
   expect(nuxtConfig).toContain('provider: "none"');
   expect(nuxtConfig).toContain('componentName: "NuxtIcon"');
   expect(nuxtConfig).toContain("clientBundle:");
   expect(nuxtConfig).toContain("scan: true");
   expect(nuxtConfig).not.toContain("icons: [");
   expect(nuxtConfig).not.toContain("stellarStyles");
-  expect(nuxtConfig).not.toContain('modules:done');
+  expect(nuxtConfig).not.toContain("modules:done");
 });
 
 test("Nuxt 启动扫描能够发现宿主源码中的字面量图标", async () => {

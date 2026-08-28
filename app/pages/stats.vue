@@ -34,10 +34,10 @@ onMounted(loadRequests);
         </Button>
       </template>
       <RequestTable
-      v-model:limit="limit"
-      :pending="pending"
-      :requests="requests"
-      @reload="loadRequests"
+        v-model:limit="limit"
+        :pending="pending"
+        :requests="requests"
+        @reload="loadRequests"
       />
     </PanelSection>
   </main>

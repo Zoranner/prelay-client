@@ -26,9 +26,15 @@ test("智能体设置放弃修改时恢复所有客户端草稿", () => {
   );
 
   expect(source).toContain("function discard()");
-  expect(source).toContain('copyAgentClientSettings(configuration, draft, "codexCli")');
-  expect(source).toContain('copyAgentClientSettings(configuration, draft, "chatgpt")');
-  expect(source).toContain('copyAgentClientSettings(configuration, draft, "openCode")');
+  expect(source).toContain(
+    'copyAgentClientSettings(configuration, draft, "codexCli")',
+  );
+  expect(source).toContain(
+    'copyAgentClientSettings(configuration, draft, "chatgpt")',
+  );
+  expect(source).toContain(
+    'copyAgentClientSettings(configuration, draft, "openCode")',
+  );
   expect(source).not.toContain("claudeCode");
 });
 

@@ -49,6 +49,14 @@ jobs:
         shell: bash
         run: bun run typecheck
 
+      - name: Lint frontend
+        shell: bash
+        run: bun run lint
+
+      - name: Check frontend formatting
+        shell: bash
+        run: bun run format:check
+
       - name: Run frontend tests
         shell: bash
         run: bun test

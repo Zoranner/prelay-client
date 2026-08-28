@@ -4,9 +4,7 @@ import type {
   AgentClientStatus,
   AgentSettings,
 } from "~/stores/relay";
-import { agentClients, clientSupportsSettings } from "~/utils/agentClient";
-
-const clients: AgentClient[] = agentClients;
+import { clientSupportsSettings } from "~/utils/agentClient";
 
 function emptyClientFlags() {
   return {
@@ -106,7 +104,10 @@ export function useAgentWorkspace() {
 
   async function loadSettings(client: AgentClient, force = false) {
     if (!clientSupportsSettings(client)) return;
-    if (!force && (settingsLoaded.value[client] || settingsLoading.value[client])) {
+    if (
+      !force &&
+      (settingsLoaded.value[client] || settingsLoading.value[client])
+    ) {
       return;
     }
 
@@ -127,7 +128,10 @@ export function useAgentWorkspace() {
   }
 
   async function refreshClient(client: AgentClient) {
-    await Promise.all([loadClientItems(client, true), loadSettings(client, true)]);
+    await Promise.all([
+      loadClientItems(client, true),
+      loadSettings(client, true),
+    ]);
   }
 
   async function reloadSettings(client: AgentClient) {

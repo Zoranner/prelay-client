@@ -1,4 +1,7 @@
-import type { ExtensionCatalogSnapshot, ExtensionPackage } from "~/stores/relay";
+import type {
+  ExtensionCatalogSnapshot,
+  ExtensionPackage,
+} from "~/stores/relay";
 
 function emptyCatalog(): ExtensionCatalogSnapshot {
   return { packages: [] };
@@ -9,7 +12,12 @@ type LoadingState = Record<ExtensionPackage["kind"], boolean>;
 type LoadedState = Record<ExtensionPackage["kind"], boolean>;
 
 function emptyCatalogs(): CatalogState {
-  return { rule: emptyCatalog(), skill: emptyCatalog(), plugin: emptyCatalog(), mcp: emptyCatalog() };
+  return {
+    rule: emptyCatalog(),
+    skill: emptyCatalog(),
+    plugin: emptyCatalog(),
+    mcp: emptyCatalog(),
+  };
 }
 
 const loadPromises = new Map<ExtensionPackage["kind"], Promise<void>>();
@@ -18,8 +26,18 @@ let generation = 0;
 export function useExtensionCatalog() {
   const { invokeLocalCommand } = useLocalCommand();
   const catalogs = useState<CatalogState>("extension-catalog", emptyCatalogs);
-  const loaded = useState<LoadedState>("extension-catalog-loaded", () => ({ rule: false, skill: false, plugin: false, mcp: false }));
-  const loading = useState<LoadingState>("extension-catalog-loading", () => ({ rule: false, skill: false, plugin: false, mcp: false }));
+  const loaded = useState<LoadedState>("extension-catalog-loaded", () => ({
+    rule: false,
+    skill: false,
+    plugin: false,
+    mcp: false,
+  }));
+  const loading = useState<LoadingState>("extension-catalog-loading", () => ({
+    rule: false,
+    skill: false,
+    plugin: false,
+    mcp: false,
+  }));
 
   async function load(kind: ExtensionPackage["kind"], force = false) {
     if (loaded.value[kind] && !force) return;

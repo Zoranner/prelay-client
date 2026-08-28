@@ -13,10 +13,7 @@ export interface ProviderModel {
 }
 
 export type UpstreamProtocol =
-  | "responses"
-  | "openai"
-  | "anthropic"
-  | "images_generations";
+  "responses" | "openai" | "anthropic" | "images_generations";
 
 export interface ProviderProtocolBaseUrls {
   responses?: string | null;
@@ -192,30 +189,30 @@ export interface ExtensionCatalogSnapshot {
 }
 
 export type CodexSettings = Partial<{
-    endpointName: string;
-    baseUrl: string;
-    customToken: string;
-    model: string;
-    reasoningEffort: string;
-    personality: string;
-    webSearch: boolean;
-    sandbox: string;
-    disableResponseStorage: boolean;
-    maxThreads: number;
-    maxDepth: number;
-    jobMaxRuntimeSeconds: number;
-    networkAccess: boolean;
-    shellEnvironmentInherit: string;
-    windowsSandbox: string;
-    features: Partial<{
-      memories: boolean;
-      goals: boolean;
-      workspaceDependencies: boolean;
-    }>;
-    rules: string;
+  endpointName: string;
+  baseUrl: string;
+  customToken: string;
+  model: string;
+  reasoningEffort: string;
+  personality: string;
+  webSearch: boolean;
+  sandbox: string;
+  disableResponseStorage: boolean;
+  maxThreads: number;
+  maxDepth: number;
+  jobMaxRuntimeSeconds: number;
+  networkAccess: boolean;
+  shellEnvironmentInherit: string;
+  windowsSandbox: string;
+  features: Partial<{
+    memories: boolean;
+    goals: boolean;
+    workspaceDependencies: boolean;
+  }>;
+  rules: string;
 }>;
 
-export interface ChatGptSettings extends CodexSettings {}
+export type ChatGptSettings = CodexSettings;
 
 export type OpenCodeSettings = Partial<{
   baseUrl: string;
@@ -230,7 +227,10 @@ export type AgentSettings =
   | { client: "openCode"; settings: OpenCodeSettings };
 
 export function useRelayStore() {
-  const bootstrap = useState<BootstrapState | null>("relay-bootstrap", () => null);
+  const bootstrap = useState<BootstrapState | null>(
+    "relay-bootstrap",
+    () => null,
+  );
 
   function setBootstrap(value: BootstrapState) {
     bootstrap.value = value;

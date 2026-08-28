@@ -95,9 +95,18 @@ export function useAgentRules(options: AgentRulesOptions) {
     if (timer) clearTimeout(timer);
   }
 
-  watch(() => draft.codexCli, () => schedule("codexCli"));
-  watch(() => draft.chatgpt, () => schedule("chatgpt"));
-  watch(() => draft.openCode, () => schedule("openCode"));
+  watch(
+    () => draft.codexCli,
+    () => schedule("codexCli"),
+  );
+  watch(
+    () => draft.chatgpt,
+    () => schedule("chatgpt"),
+  );
+  watch(
+    () => draft.openCode,
+    () => schedule("openCode"),
+  );
 
   return { discard, dirty, draft, hydrate, pause, saving, stop };
 }

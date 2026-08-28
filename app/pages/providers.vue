@@ -1,8 +1,5 @@
 <script setup lang="ts">
-import type {
-  Provider,
-  UpstreamProtocol,
-} from "~/stores/relay";
+import type { Provider, UpstreamProtocol } from "~/stores/relay";
 import type { ProviderFormPayload } from "~/composables/useProviderForm";
 import { type ProviderOperationResult } from "~/utils/providerOperations";
 import { Button, Drawer, useConfirm, useNotification } from "@stellar/ui";
@@ -171,7 +168,8 @@ watch(showForm, (visible) => {
   }
   exitRegistration = workspaceExit.register({
     close: closeFormImmediately,
-    state: () => (pending.value ? "blocked" : formDirty.value ? "discard" : "allow"),
+    state: () =>
+      pending.value ? "blocked" : formDirty.value ? "discard" : "allow",
   });
 });
 
@@ -187,7 +185,9 @@ onMounted(loadProviders);
         <Button :disabled="loadingProviders" @click="loadProviders">
           {{ loadingProviders ? "刷新中..." : "刷新" }}
         </Button>
-        <Button variant="primary" icon="ph:plus" @click="newProvider">新增</Button>
+        <Button variant="primary" icon="ph:plus" @click="newProvider"
+          >新增</Button
+        >
       </template>
       <ProviderList
         :loading="loadingProviders"

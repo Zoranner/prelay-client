@@ -3,10 +3,7 @@ import tailwindcss from "@tailwindcss/vite";
 export default defineNuxtConfig({
   srcDir: "app/",
   ssr: false,
-  modules: [
-    "@nuxt/icon",
-    "@stellar/ui/nuxt",
-  ],
+  modules: ["@nuxt/icon", "@stellar/ui/nuxt"],
   icon: {
     provider: "none",
     componentName: "NuxtIcon",

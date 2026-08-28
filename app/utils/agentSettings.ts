@@ -22,7 +22,7 @@ export type CodexSettingsDraft = {
   rules: string;
 };
 
-export interface ChatGptSettingsDraft extends CodexSettingsDraft {}
+export type ChatGptSettingsDraft = CodexSettingsDraft;
 
 export type OpenCodeSettingsDraft = {
   endpoint: string;

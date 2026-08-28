@@ -132,7 +132,7 @@ test("供应商编辑抽屉将操作固定在 Drawer footer", () => {
 
 test("供应商页面的页面级命令使用简短文案", () => {
   const page = pageSource();
-  expect(page).toMatch(/@click="newProvider">新增<\/Button>/);
+  expect(page).toMatch(/@click="newProvider"\s*>\s*新增\s*<\/Button\s*>/);
   expect(page).toContain('pending ? "保存中..." : "保存"');
   expect(providerSource).toContain("<template #title>新增模型</template>");
 });

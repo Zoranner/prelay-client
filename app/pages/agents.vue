@@ -11,10 +11,7 @@ import type {
   RelayEndpoint,
 } from "~/stores/relay";
 import { useRelayStore } from "~/stores/relay";
-import {
-  agentClientDefinitions,
-  clientSupportsRules,
-} from "~/utils/agentClient";
+import { agentClientDefinitions } from "~/utils/agentClient";
 import AgentSidebar from "~/components/agents/AgentSidebar.vue";
 import AgentWorkspaceContent from "~/components/agents/AgentWorkspaceContent.vue";
 import AgentSettingsDrawer from "~/components/agents/AgentSettingsDrawer.vue";
@@ -56,11 +53,9 @@ const selectedExtension = ref<ExtensionPackage | null>(null);
 const showExtensionDetails = ref(false);
 const showExtensionInstall = ref(false);
 let settingsExitRegistration:
-  | ReturnType<typeof workspaceExit.register>
-  | undefined;
+  ReturnType<typeof workspaceExit.register> | undefined;
 let rulesExitRegistration:
-  | ReturnType<typeof workspaceExit.register>
-  | undefined;
+  ReturnType<typeof workspaceExit.register> | undefined;
 
 const agentSettings = useAgentSettings({
   activeClient,
@@ -121,7 +116,9 @@ const availableSectionOptions = computed(() => {
   const definition = agentClientDefinitions.find(
     (candidate) => candidate.client === activeClient.value,
   );
-  return sectionOptions.filter(({ value }) => definition?.sections.includes(value));
+  return sectionOptions.filter(({ value }) =>
+    definition?.sections.includes(value),
+  );
 });
 const extensionSectionOptions: Array<{
   value: ExtensionKind;
@@ -144,9 +141,13 @@ const sectionItems = computed(() =>
     ? activeItems.value.filter((item) => item.kind === activeKind.value)
     : [],
 );
-const extensionPackages = extensionCatalog.packages(activeExtensionSection.value);
+const extensionPackages = extensionCatalog.packages(
+  activeExtensionSection.value,
+);
 const pending = computed(() => agentsPending.value || endpointsPending.value);
-const activeClientDetected = computed(() => isClientInstalled(activeClient.value));
+const activeClientDetected = computed(() =>
+  isClientInstalled(activeClient.value),
+);
 
 function isClientInstalled(client: AgentClient) {
   return clientStatuses.value.some(
@@ -372,7 +373,11 @@ onBeforeUnmount(() => {
         >
           <template #icon>
             <Icon
-              :icon="clientStatusesLoading ? 'ph:circle-notch' : 'ph:arrows-clockwise'"
+              :icon="
+                clientStatusesLoading
+                  ? 'ph:circle-notch'
+                  : 'ph:arrows-clockwise'
+              "
               :class="{ 'agent-refresh-icon--loading': clientStatusesLoading }"
             />
           </template>
@@ -395,7 +400,9 @@ onBeforeUnmount(() => {
           :client-content-loading="isAgentContentLoading(activeClient)"
           :client-installed="activeClientDetected"
           :client-statuses-loaded="clientStatusesLoaded"
-          :extension-loading="extensionCatalog.loading.value[activeExtensionSection]"
+          :extension-loading="
+            extensionCatalog.loading.value[activeExtensionSection]
+          "
           :extension-packages="extensionPackages"
           :extension-section-options="extensionSectionOptions"
           :item-pending="pending"
@@ -430,7 +437,11 @@ onBeforeUnmount(() => {
   <ExtensionInstallModal
     v-model:visible="showExtensionInstall"
     :extension="selectedExtension"
-    :detected-clients="agentClients.filter((client) => client.installed).map((client) => client.client)"
+    :detected-clients="
+      agentClients
+        .filter((client) => client.installed)
+        .map((client) => client.client)
+    "
     @installed="onExtensionInstalled"
   />
 </template>

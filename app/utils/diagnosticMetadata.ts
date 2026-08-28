@@ -25,7 +25,9 @@ export function requestDiagnostics(
       ? parsed.diagnostics.flatMap(parseDiagnostic)
       : [];
     const streamIssue = parseStreamIssue(parsed.stream);
-    return diagnostics.length || streamIssue ? { diagnostics, streamIssue } : null;
+    return diagnostics.length || streamIssue
+      ? { diagnostics, streamIssue }
+      : null;
   } catch {
     return null;
   }

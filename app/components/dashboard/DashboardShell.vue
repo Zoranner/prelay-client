@@ -35,7 +35,6 @@ onMounted(async () => {
     // The command composable exposes the management API error.
   }
 });
-
 </script>
 
 <template>

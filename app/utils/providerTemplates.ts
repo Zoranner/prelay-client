@@ -148,7 +148,7 @@ export function protocolLabel(protocol: string | null) {
         ? "Chat Completions"
         : protocol === "images_generations"
           ? "图像生成"
-        : "-";
+          : "-";
 }
 
 export function protocolTagVariant(

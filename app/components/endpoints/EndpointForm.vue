@@ -86,10 +86,7 @@ watch(
   { immediate: true },
 );
 
-watch(
-  serializeDraft,
-  (draft) => emit("dirty-change", draft !== initialDraft),
-);
+watch(serializeDraft, (draft) => emit("dirty-change", draft !== initialDraft));
 
 function emptyModelForm(): ModelForm {
   return { provider_id: "", upstream_model: "", model_name: "" };

@@ -155,7 +155,8 @@ watch(showForm, (visible) => {
   }
   exitRegistration = workspaceExit.register({
     close: closeFormImmediately,
-    state: () => (pending.value ? "blocked" : formDirty.value ? "discard" : "allow"),
+    state: () =>
+      pending.value ? "blocked" : formDirty.value ? "discard" : "allow",
   });
 });
 

@@ -11,7 +11,12 @@ const readme = ref("");
 const loading = ref(false);
 
 watch(
-  () => [visible.value, props.extension?.repository, props.extension?.commitSha] as const,
+  () =>
+    [
+      visible.value,
+      props.extension?.repository,
+      props.extension?.commitSha,
+    ] as const,
   async ([isVisible]) => {
     if (!isVisible || !props.extension) return;
     loading.value = true;
@@ -39,7 +44,11 @@ watch(
   >
     <div v-if="extension" class="extension-detail">
       <Loading v-if="loading" visible text="正在读取说明..." />
-      <MarkdownViewer v-else :content="readme" class="extension-detail__readme" />
+      <MarkdownViewer
+        v-else
+        :content="readme"
+        class="extension-detail__readme"
+      />
     </div>
     <template #footer>
       <Button @click="visible = false">关闭</Button>

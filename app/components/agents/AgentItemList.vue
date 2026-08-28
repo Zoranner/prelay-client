@@ -159,5 +159,4 @@ async function copySourcePath(sourcePath: string) {
   color: var(--st-danger);
   font-size: 12px;
 }
-
 </style>

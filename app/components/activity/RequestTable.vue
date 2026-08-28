@@ -65,31 +65,30 @@ const visibleRequests = computed(() =>
     ? props.requests
     : props.requests.filter((row) => row.status === statusFilter.value),
 );
-const tableRows = computed<RequestTableRow[]>(
-  () =>
-    visibleRequests.value.map((request) => ({
-      ...request,
-      model_upstream: request.model_upstream ?? "-",
-      diagnostics: requestDiagnostics(request.metadata_json),
-    })),
+const tableRows = computed<RequestTableRow[]>(() =>
+  visibleRequests.value.map((request) => ({
+    ...request,
+    model_upstream: request.model_upstream ?? "-",
+    diagnostics: requestDiagnostics(request.metadata_json),
+  })),
 );
 const selectedDiagnostics = ref<RequestDiagnostics | null>(null);
 const workspaceExit = useWorkspaceExitGuard();
 let diagnosticsExitRegistration:
-  | ReturnType<typeof workspaceExit.register>
-  | undefined;
+  ReturnType<typeof workspaceExit.register> | undefined;
 const diagnosticsDialogOpen = computed({
   get: () => selectedDiagnostics.value !== null,
   set: (visible: boolean) => {
     if (!visible) selectedDiagnostics.value = null;
   },
 });
-const diagnosticRows = computed(() =>
-  selectedDiagnostics.value?.diagnostics.map((diagnostic) => ({
-    ...diagnostic,
-    diagnostic: `${diagnostic.code}\n${diagnostic.message}`,
-    paths: diagnostic.paths.join("\n") || "-",
-  })) ?? [],
+const diagnosticRows = computed(
+  () =>
+    selectedDiagnostics.value?.diagnostics.map((diagnostic) => ({
+      ...diagnostic,
+      diagnostic: `${diagnostic.code}\n${diagnostic.message}`,
+      paths: diagnostic.paths.join("\n") || "-",
+    })) ?? [],
 );
 
 function statusTitle(row: RequestLog) {
@@ -134,7 +133,6 @@ function updateLimit(value: string | number | boolean | null) {
     emit("reload");
   }
 }
-
 </script>
 
 <template>

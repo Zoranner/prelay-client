@@ -12,9 +12,13 @@ import AgentRulesEditor from "~/components/agents/AgentRulesEditor.vue";
 import ExtensionCatalogTable from "~/components/extensions/ExtensionCatalogTable.vue";
 
 type AgentSection = "rules" | AgentItemKind;
-type SectionOption<T extends string> = { icon: string; label: string; value: T };
+type SectionOption<T extends string> = {
+  icon: string;
+  label: string;
+  value: T;
+};
 
-const props = defineProps<{
+defineProps<{
   activeClient: AgentClient;
   activeExtensionSection: ExtensionKind;
   activeSection: AgentSection;
@@ -42,7 +46,8 @@ const emit = defineEmits<{
 }>();
 
 function updateActiveSection(value: string | number | boolean | null) {
-  if (typeof value === "string") emit("update:activeSection", value as AgentSection);
+  if (typeof value === "string")
+    emit("update:activeSection", value as AgentSection);
 }
 
 function updateExtensionSection(value: string | number | boolean | null) {

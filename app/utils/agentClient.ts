@@ -11,9 +11,30 @@ export const agentClientDefinitions: Array<{
   monochrome: boolean;
   sections: Array<"rules" | AgentItemKind>;
 }> = [
-  { client: "codexCli", label: "Codex CLI", icon: codexIcon, configurable: true, monochrome: true, sections: ["rules", "plugin", "mcp", "skill"] },
-  { client: "chatgpt", label: "ChatGPT", icon: openaiIcon, configurable: true, monochrome: true, sections: ["rules", "plugin", "mcp", "skill"] },
-  { client: "openCode", label: "OpenCode", icon: openCodeIcon, configurable: true, monochrome: true, sections: ["rules", "plugin", "mcp", "skill"] },
+  {
+    client: "codexCli",
+    label: "Codex CLI",
+    icon: codexIcon,
+    configurable: true,
+    monochrome: true,
+    sections: ["rules", "plugin", "mcp", "skill"],
+  },
+  {
+    client: "chatgpt",
+    label: "ChatGPT",
+    icon: openaiIcon,
+    configurable: true,
+    monochrome: true,
+    sections: ["rules", "plugin", "mcp", "skill"],
+  },
+  {
+    client: "openCode",
+    label: "OpenCode",
+    icon: openCodeIcon,
+    configurable: true,
+    monochrome: true,
+    sections: ["rules", "plugin", "mcp", "skill"],
+  },
 ];
 
 export const agentClients = agentClientDefinitions.map(({ client }) => client);
@@ -26,6 +47,7 @@ export function clientSupportsSettings(client: AgentClient) {
 
 export function clientSupportsRules(client: AgentClient) {
   return agentClientDefinitions.some(
-    (definition) => definition.client === client && definition.sections.includes("rules"),
+    (definition) =>
+      definition.client === client && definition.sections.includes("rules"),
   );
 }

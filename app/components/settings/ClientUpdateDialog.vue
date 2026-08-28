@@ -43,7 +43,9 @@ onBeforeUnmount(() => exitRegistration?.unregister());
     :blocked="clientUpdate.installing.value"
     :show-cancel="false"
     :show-confirm="false"
-    @update:visible="(nextVisible) => nextVisible ? (visible = true) : requestClose()"
+    @update:visible="
+      (nextVisible) => (nextVisible ? (visible = true) : requestClose())
+    "
   >
     <p class="client-update-dialog__copy">
       Prelay {{ version }} 已下载。开始安装后，当前应用将退出。
