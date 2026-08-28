@@ -2,11 +2,15 @@ use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, State};
 
 use crate::{
-    api_client::{normalize_relay_url, ApiClient, ClientError},
-    autostart,
-    desktop_preferences::{DesktopPreferences, DesktopPreferencesStore, ThemeMode},
-    identity::IdentitySource,
-    relay_settings::RelaySettingsStore,
+    identity::windows::IdentitySource,
+    preferences::{
+        autostart,
+        desktop::{DesktopPreferences, DesktopPreferencesStore, ThemeMode},
+    },
+    relay::{
+        client::{normalize_relay_url, ApiClient, ClientError},
+        settings::RelaySettingsStore,
+    },
     NativeState,
 };
 

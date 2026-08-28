@@ -13,6 +13,7 @@ use serde::{Deserialize, Serialize};
 use toml_edit::DocumentMut;
 
 mod integrations;
+pub mod settings;
 use integrations::integration;
 
 #[cfg(windows)]

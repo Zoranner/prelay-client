@@ -1,7 +1,7 @@
 use tauri::AppHandle;
 use tauri_plugin_autostart::ManagerExt;
 
-use crate::desktop_preferences::DesktopPreferencesStore;
+use super::desktop::DesktopPreferencesStore;
 
 pub fn is_enabled(app: &AppHandle) -> Result<bool, String> {
     let manager = app.autolaunch();

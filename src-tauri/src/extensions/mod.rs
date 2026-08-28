@@ -6,8 +6,8 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     agents::{agent_rule_targets, agent_skill_target_roots, AgentClient},
-    api_client::ClientError,
-    commands::authenticated_api,
+    identity::registration::authenticated_api,
+    relay::client::ClientError,
     NativeState,
 };
 

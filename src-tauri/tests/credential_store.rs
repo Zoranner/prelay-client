@@ -7,7 +7,9 @@ use std::{
     time::Duration,
 };
 
-use prelay_client::credential_store::{CredentialRecord, CredentialStore, FileCredentialStore};
+use prelay_client::identity::credentials::{
+    CredentialRecord, CredentialStore, FileCredentialStore,
+};
 use tempfile::tempdir;
 use tokio::sync::{oneshot, Notify};
 

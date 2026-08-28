@@ -4,7 +4,7 @@ use std::{
     net::TcpListener,
 };
 
-use prelay_client::relay_settings::{FileRelaySettingsStore, RelaySettingsStore};
+use prelay_client::relay::settings::{FileRelaySettingsStore, RelaySettingsStore};
 #[cfg(windows)]
 use prelay_client::{commands::settings::connect_and_save_relay_settings, NativeState};
 use tempfile::tempdir;

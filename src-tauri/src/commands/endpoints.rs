@@ -5,9 +5,8 @@ use serde::{Deserialize, Serialize};
 use tauri::State;
 
 use crate::{
-    api_client::ClientError,
-    commands::{authenticated_api, OperationStatus},
-    NativeState,
+    commands::status::OperationStatus, identity::registration::authenticated_api,
+    relay::client::ClientError, NativeState,
 };
 
 #[derive(Debug, Clone, Default, Deserialize, Serialize)]

@@ -4,7 +4,7 @@ use tauri::{
     AppHandle, Emitter, Manager, Runtime, WindowEvent,
 };
 
-use crate::desktop_preferences::DesktopPreferencesStore;
+use super::desktop::DesktopPreferencesStore;
 
 const SHOW_MENU_ID: &str = "show";
 const SETTINGS_MENU_ID: &str = "settings";

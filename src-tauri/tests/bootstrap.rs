@@ -1,8 +1,10 @@
 use prelay_client::{
-    api_client::ApiClient,
     commands::bootstrap::collect_bootstrap,
-    credential_store::MemoryCredentialStore,
-    identity::{IdentitySource, WindowsIdentity},
+    identity::{
+        credentials::MemoryCredentialStore,
+        windows::{IdentitySource, WindowsIdentity},
+    },
+    relay::client::ApiClient,
 };
 
 struct FakeWindowsIdentity {

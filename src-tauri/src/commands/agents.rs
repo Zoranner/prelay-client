@@ -1,12 +1,12 @@
 use std::path::{Path, PathBuf};
 
 use crate::{
-    agent_settings::{read_user_settings, save_user_settings, AgentConnection, AgentSettings},
+    agents::settings::{read_user_settings, save_user_settings, AgentConnection, AgentSettings},
     agents::{
         agent_client_statuses, scan_agent_items, uninstall_user_item, AgentClient,
         AgentClientItems, AgentClientStatus, AgentItemKind,
     },
-    api_client::ClientError,
+    relay::client::ClientError,
 };
 
 #[tauri::command]

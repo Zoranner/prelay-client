@@ -2,9 +2,9 @@ use serde::Serialize;
 use tauri::State;
 
 use crate::{
-    api_client::{ApiClient, ClientError},
-    commands::authenticated_api,
-    identity::IdentitySource,
+    identity::registration::authenticated_api,
+    identity::windows::IdentitySource,
+    relay::client::{ApiClient, ClientError},
     NativeState,
 };
 

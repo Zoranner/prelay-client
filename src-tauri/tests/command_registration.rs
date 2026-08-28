@@ -7,11 +7,11 @@ fn source_file(relative_path: &str) -> String {
 
 #[test]
 fn registers_the_bootstrap_command_without_a_legacy_alias() {
-    let library = source_file("src/lib.rs");
+    let application = source_file("src/app/mod.rs");
     let command = source_file("src/commands/bootstrap.rs");
 
-    assert!(library.contains("commands::bootstrap::bootstrap"));
-    assert!(!library.contains("bootstrap_client"));
+    assert!(application.contains("crate::commands::bootstrap::bootstrap"));
+    assert!(!application.contains("bootstrap_client"));
     assert!(command.contains("#[tauri::command]\npub async fn bootstrap("));
     assert!(!command.contains("bootstrap_client"));
 }
@@ -22,6 +22,6 @@ fn bootstrap_does_not_access_the_credential_store_directly() {
 
     assert!(!command.contains("credential_store"));
     assert!(!command.contains("CredentialStore"));
-    assert!(command.contains("api_client::{ApiClient, ClientError}"));
+    assert!(command.contains("relay::client::{ApiClient, ClientError}"));
     assert!(command.contains("has_stored_credential"));
 }

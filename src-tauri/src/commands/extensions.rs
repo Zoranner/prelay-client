@@ -1,11 +1,11 @@
 use std::path::PathBuf;
 
 use crate::{
-    api_client::ClientError,
     extensions::{
         install_extension, list_extensions, read_extension_readme, ExtensionCatalogSnapshot,
         ExtensionInstallRequest, ExtensionInstallResult, ExtensionKind, ExtensionPackage,
     },
+    relay::client::ClientError,
     NativeState,
 };
 

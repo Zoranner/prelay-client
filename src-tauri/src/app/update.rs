@@ -8,7 +8,7 @@ use prelay_protocol::{ClientUpdateResponse, ClientUpdateTarget};
 use serde::Serialize;
 use tauri::{AppHandle, Manager};
 
-use crate::{api_client::ClientError, commands::authenticated_api, NativeState};
+use crate::{identity::registration::authenticated_api, relay::client::ClientError, NativeState};
 
 const CURRENT_VERSION: &str = env!("CARGO_PKG_VERSION");
 

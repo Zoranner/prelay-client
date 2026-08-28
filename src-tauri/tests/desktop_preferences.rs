@@ -1,5 +1,5 @@
 use prelay_client::commands::settings::{DesktopPreferencesInput, DesktopPreferencesResponse};
-use prelay_client::desktop_preferences::{
+use prelay_client::preferences::desktop::{
     DesktopPreferences, DesktopPreferencesStore, FileDesktopPreferencesStore, ThemeMode,
 };
 use serde_json::json;

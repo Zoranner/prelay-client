@@ -6,9 +6,9 @@ use rand::RngCore;
 use reqwest::{header::AUTHORIZATION, Method, StatusCode};
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 
-use crate::{
-    credential_store::{CredentialRecord, CredentialStore},
-    identity::WindowsIdentity,
+use crate::identity::{
+    credentials::{CredentialRecord, CredentialStore},
+    windows::WindowsIdentity,
 };
 
 #[derive(Clone, Debug, Serialize)]

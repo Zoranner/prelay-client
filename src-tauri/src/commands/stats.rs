@@ -4,7 +4,7 @@ use prelay_protocol::{
 };
 use tauri::State;
 
-use crate::{api_client::ClientError, commands::authenticated_api, NativeState};
+use crate::{identity::registration::authenticated_api, relay::client::ClientError, NativeState};
 
 fn range_path(path: &str, range: Option<String>) -> String {
     match range {

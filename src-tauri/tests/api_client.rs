@@ -1,7 +1,9 @@
 use prelay_client::{
-    api_client::{ApiClient, ClientError, RegistrationGate},
-    credential_store::{CredentialStore, MemoryCredentialStore},
-    identity::WindowsIdentity,
+    identity::{
+        credentials::{CredentialStore, MemoryCredentialStore},
+        windows::WindowsIdentity,
+    },
+    relay::client::{ApiClient, ClientError, RegistrationGate},
 };
 use std::{
     io::{Read, Write},
@@ -154,7 +156,7 @@ fn stored_credential_retries_registration_with_the_same_identity() {
     assert_eq!(requests.load(Ordering::SeqCst), 1);
     assert_eq!(
         store.load().expect("load credential"),
-        Some(prelay_client::credential_store::CredentialRecord {
+        Some(prelay_client::identity::credentials::CredentialRecord {
             current: "persisted-device-secret".into(),
             pending: None,
         })
@@ -232,7 +234,7 @@ fn pending_credential_registration_confirms_a_rotation_whose_response_was_lost()
 
     assert_eq!(
         store.load().expect("load credential"),
-        Some(prelay_client::credential_store::CredentialRecord {
+        Some(prelay_client::identity::credentials::CredentialRecord {
             current: "credential-new".into(),
             pending: None,
         })
@@ -263,7 +265,7 @@ fn rejected_pending_registration_falls_back_to_current_credential() {
 
     assert_eq!(
         store.load().expect("load credential"),
-        Some(prelay_client::credential_store::CredentialRecord {
+        Some(prelay_client::identity::credentials::CredentialRecord {
             current: "credential-old".into(),
             pending: None,
         })
@@ -284,7 +286,7 @@ fn accepted_pending_credential_becomes_current_after_an_authenticated_request() 
 
     assert_eq!(
         store.load().expect("load credential"),
-        Some(prelay_client::credential_store::CredentialRecord {
+        Some(prelay_client::identity::credentials::CredentialRecord {
             current: "credential-new".into(),
             pending: None,
         })
@@ -312,7 +314,7 @@ fn rejected_pending_credential_falls_back_to_current_and_is_discarded() {
 
     assert_eq!(
         store.load().expect("load credential"),
-        Some(prelay_client::credential_store::CredentialRecord {
+        Some(prelay_client::identity::credentials::CredentialRecord {
             current: "credential-old".into(),
             pending: None,
         })
@@ -336,7 +338,7 @@ fn server_failure_preserves_pending_credential_for_later_recovery() {
     assert_eq!(error.code(), "internal");
     assert_eq!(
         store.load().expect("load credential"),
-        Some(prelay_client::credential_store::CredentialRecord {
+        Some(prelay_client::identity::credentials::CredentialRecord {
             current: "credential-old".into(),
             pending: Some("credential-new".into()),
         })
