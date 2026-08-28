@@ -4,7 +4,7 @@ use atomic_write_file::AtomicWriteFile;
 use serde::{Deserialize, Serialize};
 use toml_edit::{value, DocumentMut, Item, Table};
 
-use crate::agents::AgentClient;
+use crate::agents::{opencode_configuration_path, AgentClient};
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase", tag = "client", content = "settings")]
@@ -12,7 +12,7 @@ pub enum AgentSettings {
     CodexCli(CodexSettings),
     #[serde(rename = "chatgpt")]
     ChatGpt(ChatGptSettings),
-    ClaudeCode(ClaudeCodeSettings),
+    OpenCode(OpenCodeSettings),
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -40,7 +40,7 @@ pub enum CodexConnection {
 #[serde(rename_all = "camelCase")]
 #[serde(rename_all_fields = "camelCase")]
 #[serde(tag = "kind")]
-pub enum ClaudeCodeConnection {
+pub enum OpenCodeConnection {
     Prelay {
         relay_url: String,
         endpoint_token: String,
@@ -53,7 +53,7 @@ pub enum AgentConnection {
     CodexCli(CodexConnection),
     #[serde(rename = "chatgpt")]
     ChatGpt(CodexConnection),
-    ClaudeCode(ClaudeCodeConnection),
+    OpenCode(OpenCodeConnection),
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -89,9 +89,9 @@ pub struct CodexSettings {
     pub shell_environment_inherit: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub windows_sandbox: Option<String>,
-    pub features: CodexFeatures,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub rules: Option<String>,
+    pub features: CodexFeatures,
 }
 
 impl Default for CodexSettings {
@@ -112,8 +112,8 @@ impl Default for CodexSettings {
             network_access: Some(true),
             shell_environment_inherit: Some("all".to_string()),
             windows_sandbox: Some("unelevated".to_string()),
-            features: CodexFeatures::default(),
             rules: Some(String::new()),
+            features: CodexFeatures::default(),
         }
     }
 }
@@ -139,53 +139,24 @@ impl Default for CodexFeatures {
     }
 }
 
-#[derive(Debug, Clone, Deserialize, Serialize)]
+#[derive(Debug, Clone, Default, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct ClaudeCodeSettings {
+pub struct OpenCodeSettings {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub base_url: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub endpoint_token: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub opus_model: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub sonnet_model: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub haiku_model: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub subagent_model: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub effort: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub language: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub permission_mode: Option<String>,
+    pub model: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub rules: Option<String>,
-}
-
-impl Default for ClaudeCodeSettings {
-    fn default() -> Self {
-        Self {
-            base_url: None,
-            endpoint_token: None,
-            opus_model: None,
-            sonnet_model: None,
-            haiku_model: None,
-            subagent_model: None,
-            effort: Some("high".to_string()),
-            language: Some("中文".to_string()),
-            permission_mode: Some("acceptEdits".to_string()),
-            rules: Some(String::new()),
-        }
-    }
 }
 
 pub fn read_user_settings(home: &Path, client: AgentClient) -> AgentSettings {
     match client {
         AgentClient::CodexCli => AgentSettings::CodexCli(read_codex_settings(home)),
         AgentClient::ChatGpt => AgentSettings::ChatGpt(ChatGptSettings(read_codex_settings(home))),
-        AgentClient::ClaudeCode => AgentSettings::ClaudeCode(read_claude_code_settings(home)),
+        AgentClient::OpenCode => AgentSettings::OpenCode(read_opencode_settings(home)),
     }
 }
 
@@ -203,11 +174,9 @@ pub fn save_user_settings(
         (AgentSettings::ChatGpt(settings), Some(AgentConnection::ChatGpt(connection))) => {
             save_codex_settings(home, &settings.0, Some(connection))
         }
-        (AgentSettings::ClaudeCode(settings), None) => {
-            save_claude_code_settings(home, settings, None)
-        }
-        (AgentSettings::ClaudeCode(settings), Some(AgentConnection::ClaudeCode(connection))) => {
-            save_claude_code_settings(home, settings, Some(connection))
+        (AgentSettings::OpenCode(settings), None) => save_opencode_settings(home, settings, None),
+        (AgentSettings::OpenCode(settings), Some(AgentConnection::OpenCode(connection))) => {
+            save_opencode_settings(home, settings, Some(connection))
         }
         _ => Err("智能体设置与接入配置不匹配".to_string()),
     }
@@ -370,84 +339,6 @@ fn prelay_base_url(relay_url: &str) -> String {
     }
 }
 
-fn save_claude_code_settings(
-    home: &Path,
-    settings: &ClaudeCodeSettings,
-    connection: Option<&ClaudeCodeConnection>,
-) -> Result<(), String> {
-    let settings_path = home.join(".claude").join("settings.json");
-    let mut document = read_json_document(&settings_path, "Claude Code settings")?;
-    let root = document
-        .as_object_mut()
-        .ok_or_else(|| "Claude Code settings root must be an object".to_string())?;
-    set_json_string(root, "effortLevel", settings.effort.as_deref());
-    set_json_string(root, "language", settings.language.as_deref());
-    let permissions = root
-        .entry("permissions")
-        .or_insert_with(|| serde_json::json!({}));
-    let permissions = permissions
-        .as_object_mut()
-        .ok_or_else(|| "Claude Code permissions must be an object".to_string())?;
-    set_json_string(
-        permissions,
-        "defaultMode",
-        settings
-            .permission_mode
-            .as_deref()
-            .map(claude_permission_mode),
-    );
-
-    if root.contains_key("env")
-        || connection.is_some()
-        || settings.opus_model.is_some()
-        || settings.sonnet_model.is_some()
-        || settings.haiku_model.is_some()
-        || settings.subagent_model.is_some()
-    {
-        let env = root.entry("env").or_insert_with(|| serde_json::json!({}));
-        let env = env
-            .as_object_mut()
-            .ok_or_else(|| "Claude Code env must be an object".to_string())?;
-        set_json_string(
-            env,
-            "ANTHROPIC_DEFAULT_OPUS_MODEL",
-            settings.opus_model.as_deref(),
-        );
-        set_json_string(
-            env,
-            "ANTHROPIC_DEFAULT_SONNET_MODEL",
-            settings.sonnet_model.as_deref(),
-        );
-        set_json_string(
-            env,
-            "ANTHROPIC_DEFAULT_HAIKU_MODEL",
-            settings.haiku_model.as_deref(),
-        );
-        set_json_string(
-            env,
-            "CLAUDE_CODE_SUBAGENT_MODEL",
-            settings.subagent_model.as_deref(),
-        );
-        if let Some(ClaudeCodeConnection::Prelay {
-            relay_url,
-            endpoint_token,
-        }) = connection
-        {
-            let base_url = prelay_base_url(relay_url);
-            set_json_string(env, "ANTHROPIC_BASE_URL", Some(&base_url));
-            set_json_string(env, "ANTHROPIC_AUTH_TOKEN", Some(endpoint_token));
-        }
-    }
-
-    let contents = serde_json::to_vec_pretty(&document)
-        .map_err(|error| format!("Claude Code settings cannot be serialized: {error}"))?;
-    write_text(&settings_path, &contents)?;
-    write_text(
-        &home.join(".claude").join("CLAUDE.md"),
-        settings.rules.as_deref().unwrap_or_default().as_bytes(),
-    )
-}
-
 fn read_codex_settings(home: &Path) -> CodexSettings {
     let config = read_toml(&home.join(".codex").join("config.toml"));
     let provider_id = toml_string(config.as_ref(), &["model_provider"]);
@@ -501,22 +392,106 @@ fn read_codex_settings(home: &Path) -> CodexSettings {
     }
 }
 
-fn read_claude_code_settings(home: &Path) -> ClaudeCodeSettings {
-    let settings = read_json(&home.join(".claude").join("settings.json"));
-    ClaudeCodeSettings {
-        base_url: json_string(settings.as_ref(), &["env", "ANTHROPIC_BASE_URL"]),
-        endpoint_token: json_string(settings.as_ref(), &["env", "ANTHROPIC_AUTH_TOKEN"]),
-        opus_model: json_string(settings.as_ref(), &["env", "ANTHROPIC_DEFAULT_OPUS_MODEL"]),
-        sonnet_model: json_string(
-            settings.as_ref(),
-            &["env", "ANTHROPIC_DEFAULT_SONNET_MODEL"],
+fn save_opencode_settings(
+    home: &Path,
+    settings: &OpenCodeSettings,
+    connection: Option<&OpenCodeConnection>,
+) -> Result<(), String> {
+    let config_path = opencode_configuration_path(home);
+    let mut document = read_jsonc_document(&config_path, "OpenCode config")?;
+    let root = document
+        .as_object_mut()
+        .ok_or_else(|| "OpenCode config root must be an object".to_string())?;
+    root.entry("$schema")
+        .or_insert_with(|| serde_json::json!("https://opencode.ai/config.json"));
+
+    let model = settings
+        .model
+        .as_deref()
+        .filter(|model| !model.trim().is_empty());
+    if let Some(model) = model {
+        root.insert(
+            "model".to_string(),
+            serde_json::Value::String(format!("prelay/{model}")),
+        );
+    }
+
+    if let Some(OpenCodeConnection::Prelay {
+        relay_url,
+        endpoint_token,
+    }) = connection
+    {
+        let providers = root
+            .entry("provider")
+            .or_insert_with(|| serde_json::json!({}));
+        let providers = providers
+            .as_object_mut()
+            .ok_or_else(|| "OpenCode providers must be an object".to_string())?;
+        let prelay = providers
+            .entry("prelay")
+            .or_insert_with(|| serde_json::json!({}));
+        let prelay = prelay
+            .as_object_mut()
+            .ok_or_else(|| "OpenCode Prelay provider must be an object".to_string())?;
+        prelay.insert(
+            "npm".to_string(),
+            serde_json::Value::String("@ai-sdk/openai-compatible".to_string()),
+        );
+        prelay.insert(
+            "name".to_string(),
+            serde_json::Value::String("Prelay".to_string()),
+        );
+        let options = prelay
+            .entry("options")
+            .or_insert_with(|| serde_json::json!({}));
+        let options = options
+            .as_object_mut()
+            .ok_or_else(|| "OpenCode Prelay provider options must be an object".to_string())?;
+        options.insert(
+            "baseURL".to_string(),
+            serde_json::Value::String(prelay_base_url(relay_url)),
+        );
+        options.insert(
+            "apiKey".to_string(),
+            serde_json::Value::String(endpoint_token.to_string()),
+        );
+        if let Some(model) = model {
+            let models = prelay
+                .entry("models")
+                .or_insert_with(|| serde_json::json!({}));
+            let models = models
+                .as_object_mut()
+                .ok_or_else(|| "OpenCode Prelay models must be an object".to_string())?;
+            models
+                .entry(model.to_string())
+                .or_insert_with(|| serde_json::json!({}));
+        }
+    }
+
+    let contents = serde_json::to_vec_pretty(&document)
+        .map_err(|error| format!("OpenCode config cannot be serialized: {error}"))?;
+    write_text(&config_path, &contents)?;
+    write_text(
+        &config_path.with_file_name("AGENTS.md"),
+        settings.rules.as_deref().unwrap_or_default().as_bytes(),
+    )
+}
+
+fn read_opencode_settings(home: &Path) -> OpenCodeSettings {
+    let config = read_jsonc(&opencode_configuration_path(home));
+    let model = json_string(config.as_ref(), &["model"])
+        .and_then(|model| model.strip_prefix("prelay/").map(str::to_string));
+    OpenCodeSettings {
+        base_url: json_string(
+            config.as_ref(),
+            &["provider", "prelay", "options", "baseURL"],
         ),
-        haiku_model: json_string(settings.as_ref(), &["env", "ANTHROPIC_DEFAULT_HAIKU_MODEL"]),
-        subagent_model: json_string(settings.as_ref(), &["env", "CLAUDE_CODE_SUBAGENT_MODEL"]),
-        effort: json_string(settings.as_ref(), &["effortLevel"]),
-        language: json_string(settings.as_ref(), &["language"]),
-        permission_mode: json_permission_mode(settings.as_ref()),
-        rules: read_optional_text(&home.join(".claude").join("CLAUDE.md")),
+        endpoint_token: json_string(
+            config.as_ref(),
+            &["provider", "prelay", "options", "apiKey"],
+        ),
+        model,
+        rules: read_optional_text(&opencode_configuration_path(home).with_file_name("AGENTS.md")),
     }
 }
 
@@ -530,6 +505,12 @@ fn read_json(path: &Path) -> Option<serde_json::Value> {
     fs::read_to_string(path)
         .ok()
         .and_then(|contents| serde_json::from_str(&contents).ok())
+}
+
+fn read_jsonc(path: &Path) -> Option<serde_json::Value> {
+    fs::read_to_string(path)
+        .ok()
+        .and_then(|contents| json5::from_str(&contents).ok())
 }
 
 fn read_optional_text(path: &Path) -> Option<String> {
@@ -551,6 +532,16 @@ fn read_json_document(path: &Path, description: &str) -> Result<serde_json::Valu
         Ok(contents) if contents.trim().is_empty() => Ok(serde_json::json!({})),
         Ok(contents) => serde_json::from_str(&contents)
             .map_err(|error| format!("{description} is not valid JSON: {error}")),
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(serde_json::json!({})),
+        Err(error) => Err(format!("{description} cannot be read: {error}")),
+    }
+}
+
+fn read_jsonc_document(path: &Path, description: &str) -> Result<serde_json::Value, String> {
+    match fs::read_to_string(path) {
+        Ok(contents) if contents.trim().is_empty() => Ok(serde_json::json!({})),
+        Ok(contents) => json5::from_str(&contents)
+            .map_err(|error| format!("{description} is not valid JSONC: {error}")),
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(serde_json::json!({})),
         Err(error) => Err(format!("{description} cannot be read: {error}")),
     }
@@ -627,32 +618,6 @@ fn set_table_integer(table: &mut Table, key: &str, setting: Option<u64>) {
     }
 }
 
-fn set_json_string(
-    object: &mut serde_json::Map<String, serde_json::Value>,
-    key: &str,
-    setting: Option<&str>,
-) {
-    match setting.filter(|value| !value.trim().is_empty()) {
-        Some(setting) => {
-            object.insert(
-                key.to_string(),
-                serde_json::Value::String(setting.to_string()),
-            );
-        }
-        None => {
-            object.remove(key);
-        }
-    }
-}
-
-fn claude_permission_mode(mode: &str) -> &str {
-    match mode {
-        "acceptEdits" => "acceptEdits",
-        "auto" => "bypassPermissions",
-        _ => "ask",
-    }
-}
-
 fn toml_value<'a>(value: Option<&'a toml::Value>, path: &[&str]) -> Option<&'a toml::Value> {
     let mut current = value?;
     for segment in path {
@@ -703,14 +668,6 @@ fn json_string(value: Option<&serde_json::Value>, path: &[&str]) -> Option<Strin
         .map(str::to_owned)
 }
 
-fn json_permission_mode(value: Option<&serde_json::Value>) -> Option<String> {
-    match json_string(value, &["permissions", "defaultMode"])?.as_str() {
-        "acceptEdits" => Some("acceptEdits".to_string()),
-        "bypassPermissions" => Some("auto".to_string()),
-        _ => Some("manual".to_string()),
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use std::fs;
@@ -720,9 +677,8 @@ mod tests {
     use crate::agents::AgentClient;
 
     use super::{
-        read_user_settings, save_claude_code_settings, save_user_settings, AgentConnection,
-        AgentSettings, ChatGptSettings, ClaudeCodeConnection, ClaudeCodeSettings, CodexConnection,
-        CodexSettings,
+        read_user_settings, save_user_settings, AgentConnection, AgentSettings, ChatGptSettings,
+        CodexConnection, CodexSettings, OpenCodeConnection, OpenCodeSettings,
     };
 
     #[test]
@@ -856,48 +812,62 @@ sandbox = "unelevated"
     }
 
     #[test]
-    fn saves_claude_code_connection_and_model_aliases() {
+    fn saves_opencode_prelay_provider_without_replacing_other_configuration() {
         let directory = tempdir().unwrap();
-        let claude_root = directory.path().join(".claude");
-        fs::create_dir_all(&claude_root).unwrap();
-        fs::write(claude_root.join("settings.json"), "{}").unwrap();
+        let config_directory = directory.path().join(".config").join("opencode");
+        fs::create_dir_all(&config_directory).unwrap();
+        fs::write(
+            config_directory.join("opencode.jsonc"),
+            r#"{
+  // This provider is not managed by Prelay.
+  "provider": {
+    "other": { "options": { "apiKey": "other-token" } }
+  },
+  "mcp": { "keep": { "type": "local", "command": ["keep"] } }
+}"#,
+        )
+        .unwrap();
 
-        let settings = ClaudeCodeSettings {
-            opus_model: Some("opus-model".to_string()),
-            sonnet_model: Some("sonnet-model".to_string()),
-            haiku_model: Some("haiku-model".to_string()),
-            subagent_model: Some("subagent-model".to_string()),
+        let settings = OpenCodeSettings {
+            model: Some("deepseek-coder".to_string()),
+            rules: Some("始终先阅读仓库约束。".to_string()),
             ..Default::default()
         };
-        let connection = ClaudeCodeConnection::Prelay {
+        let connection = OpenCodeConnection::Prelay {
             relay_url: "https://relay.example.test/".to_string(),
             endpoint_token: "endpoint-token".to_string(),
         };
 
-        save_claude_code_settings(directory.path(), &settings, Some(&connection)).unwrap();
+        save_user_settings(
+            directory.path(),
+            &AgentSettings::OpenCode(settings),
+            Some(&AgentConnection::OpenCode(connection)),
+        )
+        .unwrap();
 
-        let saved = fs::read_to_string(claude_root.join("settings.json")).unwrap();
-        let settings: serde_json::Value = serde_json::from_str(&saved).unwrap();
+        let saved = fs::read_to_string(config_directory.join("opencode.jsonc")).unwrap();
+        let config: serde_json::Value = json5::from_str(&saved).unwrap();
         assert_eq!(
-            settings["env"]["ANTHROPIC_BASE_URL"],
+            config["provider"]["other"]["options"]["apiKey"],
+            "other-token"
+        );
+        assert_eq!(config["mcp"]["keep"]["command"][0], "keep");
+        assert_eq!(
+            config["provider"]["prelay"]["npm"],
+            "@ai-sdk/openai-compatible"
+        );
+        assert_eq!(
+            config["provider"]["prelay"]["options"]["baseURL"],
             "https://relay.example.test/v1"
         );
-        assert_eq!(settings["env"]["ANTHROPIC_AUTH_TOKEN"], "endpoint-token");
         assert_eq!(
-            settings["env"]["ANTHROPIC_DEFAULT_OPUS_MODEL"],
-            "opus-model"
+            config["provider"]["prelay"]["options"]["apiKey"],
+            "endpoint-token"
         );
+        assert_eq!(config["model"], "prelay/deepseek-coder");
         assert_eq!(
-            settings["env"]["ANTHROPIC_DEFAULT_SONNET_MODEL"],
-            "sonnet-model"
-        );
-        assert_eq!(
-            settings["env"]["ANTHROPIC_DEFAULT_HAIKU_MODEL"],
-            "haiku-model"
-        );
-        assert_eq!(
-            settings["env"]["CLAUDE_CODE_SUBAGENT_MODEL"],
-            "subagent-model"
+            fs::read_to_string(config_directory.join("AGENTS.md")).unwrap(),
+            "始终先阅读仓库约束。"
         );
     }
 }

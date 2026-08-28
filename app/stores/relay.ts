@@ -143,7 +143,7 @@ export interface RequestLog {
   metadata_json: string | null;
 }
 
-export type AgentClient = "codexCli" | "chatgpt" | "claudeCode";
+export type AgentClient = "codexCli" | "chatgpt" | "openCode";
 export type AgentItemKind = "mcp" | "skill" | "plugin";
 export type AgentItemStatus = "enabled" | "disabled" | "error";
 
@@ -168,6 +168,12 @@ export interface AgentItemsSnapshot {
 
 export interface AgentClientVersion {
   client: AgentClient;
+  version: string | null;
+}
+
+export interface AgentClientStatus {
+  client: AgentClient;
+  installed: boolean;
   version: string | null;
 }
 
@@ -208,25 +214,19 @@ export type CodexSettings = Partial<{
     rules: string;
 }>;
 
-export type ClaudeCodeSettings = Partial<{
-    baseUrl: string;
-    endpointToken: string;
-    opusModel: string;
-    sonnetModel: string;
-    haikuModel: string;
-    subagentModel: string;
-    effort: string;
-    language: string;
-    permissionMode: string;
-    rules: string;
-}>;
-
 export interface ChatGptSettings extends CodexSettings {}
+
+export type OpenCodeSettings = Partial<{
+  baseUrl: string;
+  endpointToken: string;
+  model: string;
+  rules: string;
+}>;
 
 export type AgentSettings =
   | { client: "codexCli"; settings: CodexSettings }
   | { client: "chatgpt"; settings: ChatGptSettings }
-  | { client: "claudeCode"; settings: ClaudeCodeSettings };
+  | { client: "openCode"; settings: OpenCodeSettings };
 
 export function useRelayStore() {
   const bootstrap = useState<BootstrapState | null>("relay-bootstrap", () => null);

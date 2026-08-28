@@ -30,7 +30,7 @@ onMounted(async () => {
   await desktopPreferences.load();
   if (!isDesktopRuntime) return;
 
-  void agentWorkspace.load();
+  void agentWorkspace.refreshClientStatuses();
   if (relayUrl.value) void clientUpdate.check();
 
   unlistenTraySettings = await listen("tray:open-settings", () => {

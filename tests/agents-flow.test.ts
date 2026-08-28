@@ -7,7 +7,7 @@ const source = (path: string) =>
     "\n",
   );
 
-test("智能体页分别管理 Codex CLI、ChatGPT 与 Claude Code", () => {
+test("智能体页分别管理 Codex CLI、ChatGPT 与 OpenCode", () => {
   const app = source("app.vue");
   const navigation = source("components/dashboard/DashboardShell.vue");
   const page = source("pages/agents.vue");
@@ -18,17 +18,25 @@ test("智能体页分别管理 Codex CLI、ChatGPT 与 Claude Code", () => {
   expect(navigation).toContain('label: "智能体"');
   expect(navigation).toContain('path: "/agents"');
   expect(app).toContain("useAgentWorkspace");
-  expect(app).toContain("void agentWorkspace.load()");
+  expect(app).toContain("void agentWorkspace.refreshClientStatuses()");
   expect(page).toContain("useAgentWorkspace");
-  expect(page).toContain("agentWorkspace.load(force)");
-  expect(page).toContain("agentWorkspace.refresh()");
+  expect(page).toContain("agentWorkspace.refreshClient(activeClient.value)");
+  expect(page).toContain("agentWorkspace.refreshClientStatuses()");
   expect(page).not.toContain('"agents_list"');
-  expect(workspace).toContain('"agents_list"');
+  expect(workspace).toContain('"agents_status"');
+  expect(workspace).toContain('"agent_items_get"');
+  expect(workspace).not.toContain('"agents_list"');
   expect(workspace).toContain('"agent_settings_get"');
-  expect(workspace).toContain("const loaded = useState");
-  expect(workspace).toContain("if (loaded.value && !force) return");
+  expect(workspace).toContain('"agent-workspace-client-statuses"');
+  expect(workspace).toContain("const clientStatusesLoaded = useState");
+  expect(workspace).toContain("const clientItems = useState");
   expect(page).toContain("workspaceExit.register");
   expect(page).toContain("void loadAgentPage()");
+  expect(page).toContain("function refreshAgentClients()");
+  expect(page).toContain("@click=\"refreshAgentClients\"");
+  expect(page).toContain(':disabled="clientStatusesLoading"');
+  expect(page).toContain("clientStatusesLoading ? 'ph:circle-notch' : 'ph:arrows-clockwise'");
+  expect(page).toContain("'agent-refresh-icon--loading': clientStatusesLoading");
   expect(page).toContain("刷新");
   expect(page).toContain('from "~/components/agents/AgentItemList.vue"');
   expect(source("utils/agentClient.ts")).toContain("@lobehub/icons-static-svg");
@@ -38,13 +46,14 @@ test("智能体页分别管理 Codex CLI、ChatGPT 与 Claude Code", () => {
   expect(page).toContain("isClientInstalled");
   expect(page).toContain("agent-client-icon--uninstalled");
   expect(page).toMatch(
-    /'agent-client-icon--loading':\s*isAgentSettingsLoading\(\s*client\.client,\s*\),/,
+    /'agent-client-icon--loading':\s*isAgentStatusLoading\(\),/,
   );
+  expect(page).toContain("return clientStatusesLoading.value;");
   expect(page).toContain('class="agent-client-loading"');
   expect(page).not.toContain('class="agent-client-loading-icon"');
   expect(page).toMatch(/icon="ph:circle-notch"\s+size="28"/);
   expect(page).toContain("Loading,");
-  expect(page).toContain('visible\n            text="正在读取智能体设置..."');
+  expect(page).toContain('text="正在读取智能体设置..."');
   expect(page).not.toContain("agent-main-loading");
   expect(page).not.toContain("agent-loading__icon");
   expect(page).toContain(
@@ -53,10 +62,17 @@ test("智能体页分别管理 Codex CLI、ChatGPT 与 Claude Code", () => {
   expect(page).not.toContain(
     ".agent-loading__icon {\n  color: var(--st-text-primary);",
   );
-  expect(page).toContain("snapshot.value.clients");
-  expect(page).toContain('const rulesDraft = reactive({ codexCli: "", chatgpt: "", claudeCode: "" })');
+  expect(page).toContain("clientStatuses.value");
+  expect(page).toContain("clientItems.value[activeClient.value]?.items");
+  expect(page).toContain("clientStatusesLoaded.value && status?.installed");
+  expect(workspace).toContain("clientStatusesLoaded.value = false;");
+  expect(page).toContain('const rulesDraft = reactive({ codexCli: "", chatgpt: "", openCode: "" })');
+  expect(page).not.toContain("claudeCode");
+  expect(page).not.toContain("ClaudeCode");
   expect(page).toContain("activeClient === 'chatgpt'");
   expect(page).toContain('from "~/components/agents/ChatGptSettingsForm.vue"');
+  expect(page).toContain('from "~/components/agents/OpenCodeSettingsForm.vue"');
+  expect(page).toContain('v-model="rulesDraft.openCode"');
   expect(page).not.toContain("暂不提供本地设置管理");
   expect(page).toContain(
     "function replaceRulesDraft(client: AgentClient, rules: string)",
@@ -69,7 +85,7 @@ test("智能体页分别管理 Codex CLI、ChatGPT 与 Claude Code", () => {
     'replaceRulesDraft("chatgpt", agentConfiguration.chatgpt.rules)',
   );
   expect(page).toContain(
-    'replaceRulesDraft("claudeCode", agentConfiguration.claudeCode.rules)',
+    'replaceRulesDraft("openCode", agentConfiguration.openCode.rules)',
   );
   expect(page).not.toContain(
     "rulesDraft.codex = agentConfiguration.codex.rules",
@@ -111,13 +127,20 @@ test("智能体页分别管理 Codex CLI、ChatGPT 与 Claude Code", () => {
   expect(page).not.toContain("<Tabs");
   expect(page).not.toContain(':extra="String(client.items.length)"');
   expect(page).toContain("agent-client-icon--monochrome");
-  expect(page).toContain("client.client === 'chatgpt'");
+  expect(page).toContain("availableSectionOptions");
+  expect(page).toContain("'agent-client-icon--monochrome': client.monochrome");
+  expect(source("utils/agentClient.ts")).toContain(
+    '{ client: "openCode", label: "OpenCode", icon: openCodeIcon, configurable: true, monochrome: true, sections: ["rules", "plugin", "mcp", "skill"] }',
+  );
   expect(page).toContain('class="agent-client-icon-frame"');
   expect(page).toContain("border-radius: var(--radius-md)");
   expect(page).toContain(
     ".agent-client-list :deep(.st-list-item > div:first-child) {\n  display: flex;\n  width: 40px;",
   );
   expect(page).toContain("filter: var(--pr-monochrome-icon-filter)");
+  expect(page).toContain(
+    "filter: var(--pr-monochrome-icon-filter) grayscale(1)",
+  );
   expect(source("assets/css/main.css")).toContain("html.light");
   expect(source("assets/css/main.css")).toContain(
     "--pr-monochrome-icon-filter: brightness(0)",
@@ -168,14 +191,18 @@ test("智能体页的本地 command 不复用管理服务命令状态", () => {
   expect(page).toContain("useLocalCommand");
   expect(localCommand).toContain('from "@tauri-apps/api/core"');
   expect(localCommand).toContain('"agents_remove"');
-  expect(localCommand).toContain('"agents_versions"');
+  expect(localCommand).toContain('"agents_status"');
+  expect(localCommand).toContain('"agent_items_get"');
   expect(relayCommand).not.toContain('"agents_list"');
-  expect(workspace).toContain('"agents_versions"');
-  expect(workspace).toContain("void loadVersions");
+  expect(workspace).toContain('"agents_status"');
+  expect(workspace).toContain('"agent_items_get"');
+  expect(workspace).not.toContain('"agents_versions"');
   expect(page).toContain("agentSettingsLoading");
   expect(workspace).toContain("Promise.all(");
-  expect(page).toContain("isAgentSettingsLoading(client.client)");
-  expect(page).toContain('v-if="isAgentSettingsLoading(activeClient)"');
+  expect(page).not.toContain("isAgentContentLoading(client.client)");
+  expect(page).toContain('v-if="!clientStatusesLoaded"');
+  expect(page).toContain('text="正在检测智能体安装状态..."');
+  expect(page).toContain('v-else-if="isAgentContentLoading(activeClient)"');
   expect(page).toContain('v-else-if="!isClientInstalled(activeClient)"');
   expect(page).toContain("未检测到本机安装");
   expect(nativeAgents).toContain("CREATE_NO_WINDOW");

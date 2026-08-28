@@ -20,14 +20,18 @@ import type {
   ExtensionPackage,
   RelayEndpoint,
 } from "~/stores/relay";
-import { agentClientDefinitions, clientSupportsSettings } from "~/utils/agentClient";
+import {
+  agentClientDefinitions,
+  clientSupportsRules,
+  clientSupportsSettings,
+} from "~/utils/agentClient";
 import { createAgentConfiguration } from "~/utils/agentSettings";
 import { useRelayStore } from "~/stores/relay";
 import AgentItemList from "~/components/agents/AgentItemList.vue";
 import AgentRulesEditor from "~/components/agents/AgentRulesEditor.vue";
-import ClaudeCodeSettingsForm from "~/components/agents/ClaudeCodeSettingsForm.vue";
 import ChatGptSettingsForm from "~/components/agents/ChatGptSettingsForm.vue";
 import CodexSettingsForm from "~/components/agents/CodexSettingsForm.vue";
+import OpenCodeSettingsForm from "~/components/agents/OpenCodeSettingsForm.vue";
 import ExtensionCatalogTable from "~/components/extensions/ExtensionCatalogTable.vue";
 import ExtensionDetailDrawer from "~/components/extensions/ExtensionDetailDrawer.vue";
 import ExtensionInstallModal from "~/components/extensions/ExtensionInstallModal.vue";
@@ -47,11 +51,13 @@ const { bootstrap, setBootstrap } = useRelayStore();
 const agentWorkspace = useAgentWorkspace();
 const extensionCatalog = useExtensionCatalog();
 const {
-  snapshot,
-  loaded: agentsLoaded,
+  clientStatuses,
+  clientStatusesLoaded,
+  clientStatusesLoading,
+  clientItems,
+  itemsLoading,
   settings: cachedAgentSettings,
   settingsLoading: agentSettingsLoading,
-  settingsLoaded: agentSettingsLoaded,
 } = agentWorkspace;
 const endpoints = ref<RelayEndpoint[]>([]);
 const activeWorkspace = ref<AgentWorkspace>("codexCli");
@@ -73,7 +79,7 @@ let suppressRulesSave = false;
 const showSettings = ref(false);
 const agentConfiguration = reactive(createAgentConfiguration());
 const settingsDraft = reactive(createAgentConfiguration());
-const rulesDraft = reactive({ codexCli: "", chatgpt: "", claudeCode: "" });
+const rulesDraft = reactive({ codexCli: "", chatgpt: "", openCode: "" });
 let settingsExitRegistration:
   ReturnType<typeof workspaceExit.register> | undefined;
 let rulesExitRegistration:
@@ -81,22 +87,32 @@ let rulesExitRegistration:
 
 const agentClients = computed(() =>
   agentClientDefinitions.map((definition) => {
-    const detected = snapshot.value.clients.find(
+    const status = clientStatuses.value.find(
       ({ client }) => client === definition.client,
     );
     return {
       ...definition,
-      installed: Boolean(detected),
-      version: detected?.version ?? "-",
+      installed: clientStatusesLoaded.value && status?.installed,
+      version: clientStatusesLoaded.value ? (status?.version ?? "-") : "-",
     };
   }),
 );
-const sectionOptions = [
+const sectionOptions: Array<{
+  value: AgentSection;
+  label: string;
+  icon: string;
+}> = [
   { value: "rules", label: "规则", icon: "ph:notebook" },
   { value: "plugin", label: "插件", icon: "ph:puzzle-piece" },
   { value: "mcp", label: "MCP", icon: "ph:terminal-window" },
   { value: "skill", label: "Skill", icon: "ph:book-open-text" },
 ];
+const availableSectionOptions = computed(() => {
+  const definition = agentClientDefinitions.find(
+    (candidate) => candidate.client === activeClient.value,
+  );
+  return sectionOptions.filter(({ value }) => definition?.sections.includes(value));
+});
 const extensionSectionOptions = [
   { value: "rule", label: "规则", icon: "ph:notebook" },
   { value: "plugin", label: "插件", icon: "ph:puzzle-piece" },
@@ -128,9 +144,7 @@ const modelOptions = computed(() =>
 );
 const activeItems = computed(
   () =>
-    snapshot.value.clients.find(
-      (client) => client.client === activeClient.value,
-    )?.items ?? [],
+    clientItems.value[activeClient.value]?.items ?? [],
 );
 const activeClientDetected = computed(() =>
   isClientInstalled(activeClient.value),
@@ -156,15 +170,21 @@ const rulesDirty = computed(
   () =>
     rulesDraft.codexCli !== agentConfiguration.codexCli.rules ||
     rulesDraft.chatgpt !== agentConfiguration.chatgpt.rules ||
-    rulesDraft.claudeCode !== agentConfiguration.claudeCode.rules,
+    rulesDraft.openCode !== agentConfiguration.openCode.rules,
 );
 
 function isClientInstalled(client: AgentClient) {
-  return snapshot.value.clients.some((item) => item.client === client);
+  return clientStatuses.value.some(
+    (status) => status.client === client && status.installed,
+  );
 }
 
-function isAgentSettingsLoading(client: AgentClient) {
-  return !agentsLoaded.value || agentSettingsLoading.value[client];
+function isAgentContentLoading(client: AgentClient) {
+  return itemsLoading.value[client] || agentSettingsLoading.value[client];
+}
+
+function isAgentStatusLoading() {
+  return clientStatusesLoading.value;
 }
 
 function copyClientSettings(
@@ -177,7 +197,7 @@ function copyClientSettings(
   } else if (client === "chatgpt") {
     Object.assign(target.chatgpt, source.chatgpt, { features: { ...source.chatgpt.features } });
   } else {
-    Object.assign(target.claudeCode, source.claudeCode);
+    Object.assign(target.openCode, source.openCode);
   }
 }
 
@@ -188,8 +208,8 @@ function codexSettingsPayload(
   return { ...codexSettings, features: { ...codexSettings.features } };
 }
 
-function claudeCodeSettingsPayload(claudeCode = agentConfiguration.claudeCode) {
-  return { ...claudeCode };
+function openCodeSettingsPayload(openCode = agentConfiguration.openCode) {
+  return { ...openCode };
 }
 
 function codexConnection() {
@@ -215,18 +235,6 @@ function codexConnection() {
   return null;
 }
 
-function claudeCodeConnection() {
-  const endpoint = selectedEndpoint.value;
-  if (endpoint && bootstrap.value?.relay_url) {
-    return {
-      kind: "prelay",
-      endpointToken: endpoint.token,
-      relayUrl: bootstrap.value.relay_url,
-    };
-  }
-  return null;
-}
-
 function openSettings() {
   if (!activeClientDetected.value || !clientSupportsSettings(activeClient.value)) return;
   copyClientSettings(agentConfiguration, settingsDraft, activeClient.value);
@@ -240,8 +248,13 @@ async function selectClient(client: AgentClient) {
   }
   lastActiveClient.value = client;
   activeWorkspace.value = client;
-  rulesLoaded = clientSupportsSettings(client) && agentSettingsLoaded.value[client];
-  if (!agentsLoaded.value) void agentWorkspace.load();
+  rulesLoaded = false;
+  if (!availableSectionOptions.value.some(({ value }) => value === activeSection.value)) {
+    activeSection.value = availableSectionOptions.value[0]?.value ?? "mcp";
+  }
+  if (clientStatusesLoaded.value && isClientInstalled(client)) {
+    void agentWorkspace.refreshClient(client);
+  }
 }
 
 function closeSettingsImmediately() {
@@ -251,8 +264,20 @@ function closeSettingsImmediately() {
 function discardSettingsDraft() {
   copyClientSettings(agentConfiguration, settingsDraft, "codexCli");
   copyClientSettings(agentConfiguration, settingsDraft, "chatgpt");
-  copyClientSettings(agentConfiguration, settingsDraft, "claudeCode");
+  copyClientSettings(agentConfiguration, settingsDraft, "openCode");
   closeSettingsImmediately();
+}
+
+function openCodeConnection() {
+  const endpoint = selectedEndpoint.value;
+  if (endpoint && bootstrap.value?.relay_url) {
+    return {
+      kind: "prelay",
+      endpointToken: endpoint.token,
+      relayUrl: bootstrap.value.relay_url,
+    };
+  }
+  return null;
 }
 
 function selectExtensionCatalog() {
@@ -271,7 +296,7 @@ function openExtensionInstall(extension: ExtensionPackage) {
 }
 
 async function onExtensionInstalled() {
-  await agentWorkspace.refresh();
+  await agentWorkspace.refreshClient(lastActiveClient.value);
   notifications.success("扩展已安装");
 }
 
@@ -293,7 +318,7 @@ async function saveSettings() {
   const connection =
     client === "codexCli" || client === "chatgpt"
       ? codexConnection()
-      : claudeCodeConnection();
+      : openCodeConnection();
   try {
     await invokeLocalCommand("agent_settings_save", {
       settings:
@@ -301,9 +326,9 @@ async function saveSettings() {
           ? { client, settings: codexSettingsPayload(settingsDraft.codexCli) }
           : client === "chatgpt"
             ? { client, settings: codexSettingsPayload(settingsDraft.chatgpt) }
-          : {
+            : {
               client,
-              settings: claudeCodeSettingsPayload(settingsDraft.claudeCode),
+              settings: openCodeSettingsPayload(settingsDraft.openCode),
             },
       connection: connection ? { client, connection } : null,
     });
@@ -336,7 +361,7 @@ function discardRulesDraft() {
   if (rulesSaveTimer) clearTimeout(rulesSaveTimer);
   replaceRulesDraft("codexCli", agentConfiguration.codexCli.rules);
   replaceRulesDraft("chatgpt", agentConfiguration.chatgpt.rules);
-  replaceRulesDraft("claudeCode", agentConfiguration.claudeCode.rules);
+  replaceRulesDraft("openCode", agentConfiguration.openCode.rules);
 }
 
 async function saveRules(client: AgentClient) {
@@ -352,20 +377,18 @@ async function saveRules(client: AgentClient) {
                 rules: rulesDraft.codexCli,
               }),
             }
-          : client === "chatgpt"
-            ? {
-                client,
-                settings: codexSettingsPayload({
-                  ...agentConfiguration.chatgpt,
-                  rules: rulesDraft.chatgpt,
-                }),
-              }
           : {
               client,
-              settings: claudeCodeSettingsPayload({
-                ...agentConfiguration.claudeCode,
-                rules: rulesDraft.claudeCode,
-              }),
+              settings:
+                client === "chatgpt"
+                  ? codexSettingsPayload({
+                      ...agentConfiguration.chatgpt,
+                      rules: rulesDraft.chatgpt,
+                    })
+                  : openCodeSettingsPayload({
+                      ...agentConfiguration.openCode,
+                      rules: rulesDraft.openCode,
+                    }),
             },
       connection: null,
     });
@@ -374,7 +397,7 @@ async function saveRules(client: AgentClient) {
     } else if (client === "chatgpt") {
       agentConfiguration.chatgpt.rules = rulesDraft.chatgpt;
     } else {
-      agentConfiguration.claudeCode.rules = rulesDraft.claudeCode;
+      agentConfiguration.openCode.rules = rulesDraft.openCode;
     }
     notifications.success("规则已保存");
     void agentWorkspace.reloadSettings(client);
@@ -394,13 +417,7 @@ function managementBaseUrl(relayUrl: string) {
   return normalized.endsWith("/v1") ? normalized : `${normalized}/v1`;
 }
 
-async function loadAgentPage(force = false) {
-  if (force) {
-    rulesLoaded = false;
-    void agentWorkspace.refresh();
-  } else {
-    void agentWorkspace.load(force);
-  }
+async function loadAgentPage() {
   const endpointsRequest = invokeCommand<RelayEndpoint[]>("endpoints_list")
     .then((value) => {
       endpoints.value = value;
@@ -416,7 +433,20 @@ async function loadAgentPage(force = false) {
           // The application-level management API status owns bootstrap failures.
         });
   await Promise.all([endpointsRequest, bootstrapRequest]);
-  if (force && activeWorkspace.value === "extensions") void extensionCatalog.load(true);
+}
+
+function refreshAgentClients() {
+  void agentWorkspace.refreshClientStatuses();
+}
+
+function refreshActiveClient() {
+  if (
+    activeWorkspace.value !== "extensions" &&
+    clientStatusesLoaded.value &&
+    activeClientDetected.value
+  ) {
+    void agentWorkspace.refreshClient(activeClient.value);
+  }
 }
 
 function hydrateAgentSettings(value: AgentSettings) {
@@ -461,22 +491,21 @@ function hydrateAgentSettings(value: AgentSettings) {
     copyClientSettings(agentConfiguration, settingsDraft, value.client);
     replaceRulesDraft(value.client, agentConfiguration.chatgpt.rules);
   } else {
-    const { baseUrl, endpointToken, ...claudeCodeSettings } = value.settings;
-    Object.assign(agentConfiguration.claudeCode, claudeCodeSettings);
+    const { baseUrl, endpointToken, ...openCodeSettings } = value.settings;
+    Object.assign(agentConfiguration.openCode, openCodeSettings);
     const managementUrl = bootstrap.value?.relay_url
       ? managementBaseUrl(bootstrap.value.relay_url)
       : null;
-    const claudeEndpoint =
+    const openCodeEndpoint =
       managementUrl && baseUrl && normalizeBaseUrl(baseUrl) === managementUrl
         ? endpoints.value.find((endpoint) => endpoint.token === endpointToken)
         : undefined;
-    agentConfiguration.claudeCode.endpoint =
-      claudeEndpoint?.id ?? customEndpointValue;
-    copyClientSettings(agentConfiguration, settingsDraft, "claudeCode");
-    replaceRulesDraft("claudeCode", agentConfiguration.claudeCode.rules);
+    agentConfiguration.openCode.endpoint = openCodeEndpoint?.id ?? customEndpointValue;
+    copyClientSettings(agentConfiguration, settingsDraft, "openCode");
+    replaceRulesDraft("openCode", agentConfiguration.openCode.rules);
   }
 
-  if (value.client === activeClient.value) {
+  if (clientSupportsRules(value.client) && value.client === activeClient.value) {
     void nextTick().then(() => {
       if (value.client === activeClient.value) rulesLoaded = true;
     });
@@ -500,7 +529,7 @@ async function uninstallAgentItem(item: AgentItem) {
       name: item.name,
       sourcePath: item.sourcePath,
     });
-    await agentWorkspace.refresh();
+    await agentWorkspace.refreshClient(activeClient.value);
     notifications.success(`${kindLabel}已卸载`);
   } catch {
     // The local command composable exposes the stable error to this view.
@@ -530,31 +559,36 @@ watch(showSettings, (visible) => {
 });
 
 watch(
-  () => [cachedAgentSettings.value.codexCli, cachedAgentSettings.value.chatgpt, cachedAgentSettings.value.claudeCode],
-  ([codexCli, chatgpt, claudeCode], previous) => {
+  () => [cachedAgentSettings.value.codexCli, cachedAgentSettings.value.chatgpt, cachedAgentSettings.value.openCode],
+  ([codexCli, chatgpt, openCode], previous) => {
     if (codexCli && codexCli !== previous?.[0]) hydrateAgentSettings(codexCli);
     if (chatgpt && chatgpt !== previous?.[1]) hydrateAgentSettings(chatgpt);
-    if (claudeCode && claudeCode !== previous?.[2]) {
-      hydrateAgentSettings(claudeCode);
-    }
+    if (openCode && openCode !== previous?.[2]) hydrateAgentSettings(openCode);
   },
   { immediate: true },
 );
 
 watch(
-  snapshot,
+  clientStatuses,
   () => {
     if (
       activeWorkspace.value !== "extensions" &&
       !activeClientDetected.value
     ) {
-      const fallback = snapshot.value.clients[0]?.client ?? "codexCli";
+      const fallback =
+        clientStatuses.value.find((status) => status.installed)?.client ?? "codexCli";
       lastActiveClient.value = fallback;
       activeWorkspace.value = fallback;
     }
   },
   { immediate: true },
 );
+
+watch([clientStatusesLoaded, activeWorkspace], refreshActiveClient, {
+  immediate: true,
+});
+
+
 
 watch(
   () => rulesDraft.codexCli,
@@ -567,8 +601,8 @@ watch(
 );
 
 watch(
-  () => rulesDraft.claudeCode,
-  () => scheduleRulesSave("claudeCode"),
+  () => rulesDraft.openCode,
+  () => scheduleRulesSave("openCode"),
 );
 
 onBeforeUnmount(() => {
@@ -584,12 +618,17 @@ onBeforeUnmount(() => {
       <template #header-actions>
         <Button
           variant="primary"
-          icon="ph:arrows-clockwise"
-          :loading="pending"
+          :disabled="clientStatusesLoading"
           aria-label="刷新"
           title="刷新"
-          @click="loadAgentPage(true)"
+          @click="refreshAgentClients"
         >
+          <template #icon>
+            <Icon
+              :icon="clientStatusesLoading ? 'ph:circle-notch' : 'ph:arrows-clockwise'"
+              :class="{ 'agent-refresh-icon--loading': clientStatusesLoading }"
+            />
+          </template>
           刷新
         </Button>
       </template>
@@ -610,16 +649,13 @@ onBeforeUnmount(() => {
                     :alt="client.label"
                     class="agent-client-icon"
                     :class="{
-                      'agent-client-icon--monochrome':
-                        client.client === 'codexCli' || client.client === 'chatgpt',
+                      'agent-client-icon--monochrome': client.monochrome,
                       'agent-client-icon--uninstalled': !client.installed,
-                      'agent-client-icon--loading': isAgentSettingsLoading(
-                        client.client,
-                      ),
+                      'agent-client-icon--loading': isAgentStatusLoading(),
                     }"
                   />
                   <span
-                    v-if="isAgentSettingsLoading(client.client)"
+                    v-if="isAgentStatusLoading()"
                     class="agent-client-loading"
                   >
                     <Icon icon="ph:circle-notch" size="28" />
@@ -669,9 +705,14 @@ onBeforeUnmount(() => {
           </template>
           <template v-else>
             <Loading
-              v-if="isAgentSettingsLoading(activeClient)"
+              v-if="!clientStatusesLoaded"
               visible
-            text="正在读取智能体设置..."
+              text="正在检测智能体安装状态..."
+            />
+            <Loading
+              v-else-if="isAgentContentLoading(activeClient)"
+              visible
+              text="正在读取智能体设置..."
             />
             <section
               v-else-if="!isClientInstalled(activeClient)"
@@ -684,7 +725,7 @@ onBeforeUnmount(() => {
               <div class="agent-toolbar">
                 <RadioGroup
                   v-model="activeSection"
-                  :options="sectionOptions"
+                  :options="availableSectionOptions"
                   variant="button"
                 />
                 <div class="agent-toolbar__actions">
@@ -707,7 +748,7 @@ onBeforeUnmount(() => {
                   v-else-if="activeClient === 'chatgpt'"
                   v-model="rulesDraft.chatgpt"
                 />
-                <AgentRulesEditor v-else v-model="rulesDraft.claudeCode" />
+                <AgentRulesEditor v-else v-model="rulesDraft.openCode" />
               </template>
               <div v-else class="item-results">
                 <AgentItemList
@@ -750,9 +791,9 @@ onBeforeUnmount(() => {
         :model-options="modelOptions"
         :custom-endpoint-value="customEndpointValue"
       />
-      <ClaudeCodeSettingsForm
+      <OpenCodeSettingsForm
         v-else
-        v-model="settingsDraft.claudeCode"
+        v-model="settingsDraft.openCode"
         :endpoint-options="endpointOptions"
         :model-options="modelOptions"
       />
@@ -776,7 +817,7 @@ onBeforeUnmount(() => {
   <ExtensionInstallModal
     v-model:visible="showExtensionInstall"
     :extension="selectedExtension"
-    :detected-clients="snapshot.clients.map((client) => client.client)"
+    :detected-clients="agentClients.filter((client) => client.installed).map((client) => client.client)"
     @installed="onExtensionInstalled"
   />
 </template>
@@ -865,7 +906,7 @@ onBeforeUnmount(() => {
 
 .agent-client-icon--uninstalled,
 .agent-client-icon--loading {
-  filter: grayscale(1);
+  filter: var(--pr-monochrome-icon-filter) grayscale(1);
   opacity: 0.45;
 }
 
@@ -914,6 +955,10 @@ onBeforeUnmount(() => {
   justify-items: center;
   gap: var(--spacing-sm);
   color: var(--st-text-secondary);
+}
+
+.agent-refresh-icon--loading {
+  animation: agent-loading-spin 800ms linear infinite;
 }
 
 @keyframes agent-loading-spin {

@@ -24,22 +24,16 @@ export type CodexSettingsDraft = {
 
 export interface ChatGptSettingsDraft extends CodexSettingsDraft {}
 
-export type ClaudeCodeSettingsDraft = {
+export type OpenCodeSettingsDraft = {
   endpoint: string;
-  opusModel: string;
-  sonnetModel: string;
-  haikuModel: string;
-  subagentModel: string;
-  effort: string;
-  language: string;
-  permissionMode: string;
+  model: string;
   rules: string;
 };
 
 export type AgentConfiguration = {
   codexCli: CodexSettingsDraft;
   chatgpt: ChatGptSettingsDraft;
-  claudeCode: ClaudeCodeSettingsDraft;
+  openCode: OpenCodeSettingsDraft;
 };
 
 function createCodexSettingsDraft(): CodexSettingsDraft {
@@ -72,15 +66,9 @@ export function createAgentConfiguration(): AgentConfiguration {
   return {
     codexCli: createCodexSettingsDraft(),
     chatgpt: createCodexSettingsDraft(),
-    claudeCode: {
+    openCode: {
       endpoint: "",
-      opusModel: "",
-      sonnetModel: "",
-      haikuModel: "",
-      subagentModel: "",
-      effort: "high",
-      language: "中文",
-      permissionMode: "acceptEdits",
+      model: "",
       rules: "",
     },
   };

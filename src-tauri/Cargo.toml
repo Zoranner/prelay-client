@@ -18,6 +18,7 @@ tauri-build = { version = "2", features = [] }
 atomic-write-file = "0.3.1"
 base64 = "0.22"
 fs2 = "0.4.3"
+json5 = "0.4"
 prelay-protocol = { path = "../crates/protocol" }
 rand = "0.8"
 reqwest = { version = "0.12", features = ["json"] }

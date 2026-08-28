@@ -25,9 +25,9 @@ const clientOptions = computed(() => [
     disabled: !detected.value.has("chatgpt"),
   },
   {
-    value: "claudeCode",
-    label: "Claude Code",
-    disabled: !detected.value.has("claudeCode"),
+    value: "openCode",
+    label: "OpenCode",
+    disabled: !detected.value.has("openCode"),
   },
 ]);
 

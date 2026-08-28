@@ -1,4 +1,4 @@
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use super::{AgentIntegration, AgentItem, AgentItemKind};
 use crate::agents::{
@@ -19,6 +19,15 @@ impl AgentIntegration for ChatGptIntegration {
     fn version(&self) -> Option<String> {
         chatgpt_desktop_version()
     }
+
+    fn rule_target(&self, home: &Path) -> Option<PathBuf> {
+        Some(home.join(".codex").join("AGENTS.md"))
+    }
+
+    fn skill_target_root(&self, home: &Path) -> Option<PathBuf> {
+        Some(home.join(".agents").join("skills"))
+    }
+
     fn uninstall(
         &self,
         home: &Path,

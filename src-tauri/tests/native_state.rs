@@ -17,6 +17,23 @@ fn tray_uses_the_packaged_default_icon() {
 }
 
 #[test]
+fn tray_restores_a_minimized_main_window_before_focusing_it() {
+    let source = std::fs::read_to_string(concat!(env!("CARGO_MANIFEST_DIR"), "/src/tray.rs"))
+        .expect("read tray implementation");
+
+    let unminimize = source
+        .find("window.unminimize()")
+        .expect("unminimize main window");
+    let show = source.find("window.show()").expect("show main window");
+    let focus = source
+        .find("window.set_focus()")
+        .expect("focus main window");
+
+    assert!(unminimize < show);
+    assert!(show < focus);
+}
+
+#[test]
 fn tray_double_click_restores_the_main_window() {
     let tray_source =
         std::fs::read_to_string(Path::new(env!("CARGO_MANIFEST_DIR")).join("src/tray.rs"))

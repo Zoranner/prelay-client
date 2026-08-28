@@ -25,7 +25,7 @@ test("智能体设置放弃修改时恢复所有客户端草稿", () => {
   expect(source).toContain("function discardSettingsDraft()");
   expect(source).toContain('copyClientSettings(agentConfiguration, settingsDraft, "codexCli")');
   expect(source).toContain('copyClientSettings(agentConfiguration, settingsDraft, "chatgpt")');
-  expect(source).toContain('copyClientSettings(agentConfiguration, settingsDraft, "claudeCode")');
+  expect(source).not.toContain("claudeCode");
 });
 
 test("状态栏和有草稿的编辑面都接入工作区退出守卫", () => {

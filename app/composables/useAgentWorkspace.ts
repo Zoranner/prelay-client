@@ -1,36 +1,46 @@
 import type {
   AgentClient,
-  AgentClientVersion,
-  AgentItemsSnapshot,
+  AgentClientItems,
+  AgentClientStatus,
   AgentSettings,
 } from "~/stores/relay";
-import { clientSupportsSettings } from "~/utils/agentClient";
+import { agentClients, clientSupportsSettings } from "~/utils/agentClient";
 
-const clients: AgentClient[] = ["codexCli", "chatgpt", "claudeCode"];
-
-function emptySnapshot(): AgentItemsSnapshot {
-  return { clients: [] };
-}
+const clients: AgentClient[] = agentClients;
 
 function emptyClientFlags() {
   return {
     codexCli: false,
     chatgpt: false,
-    claudeCode: false,
+    openCode: false,
   } satisfies Record<AgentClient, boolean>;
 }
 
-let loadPromise: Promise<void> | undefined;
-let loadGeneration = 0;
+let clientStatusRequest: Promise<void> | undefined;
+const clientContentRequests: Partial<Record<AgentClient, Promise<void>>> = {};
 
 export function useAgentWorkspace() {
   const { invokeLocalCommand } = useLocalCommand();
-  const snapshot = useState<AgentItemsSnapshot>(
-    "agent-workspace-snapshot",
-    emptySnapshot,
+  const clientStatuses = useState<AgentClientStatus[]>(
+    "agent-workspace-client-statuses",
+    () => [],
   );
-  const loaded = useState("agent-workspace-loaded", () => false);
-  const loading = useState("agent-workspace-loading", () => false);
+  const clientStatusesLoaded = useState(
+    "agent-workspace-client-statuses-loaded",
+    () => false,
+  );
+  const clientStatusesLoading = useState(
+    "agent-workspace-client-statuses-loading",
+    () => false,
+  );
+  const clientItems = useState<Partial<Record<AgentClient, AgentClientItems>>>(
+    "agent-workspace-client-items",
+    () => ({}),
+  );
+  const itemsLoading = useState<Record<AgentClient, boolean>>(
+    "agent-workspace-items-loading",
+    emptyClientFlags,
+  );
   const settings = useState<Partial<Record<AgentClient, AgentSettings>>>(
     "agent-workspace-settings",
     () => ({}),
@@ -44,45 +54,57 @@ export function useAgentWorkspace() {
     emptyClientFlags,
   );
 
-  function resetSettings(detectedClients: AgentClient[]) {
-    const detected = new Set(detectedClients);
-    for (const client of clients) {
-      settingsLoaded.value[client] = false;
-      settingsLoading.value[client] =
-        clientSupportsSettings(client) && detected.has(client);
-    }
+  async function refreshClientStatuses() {
+    if (clientStatusRequest) return clientStatusRequest;
+
+    clientStatusesLoaded.value = false;
+    clientStatusesLoading.value = true;
+    clientStatusRequest = (async () => {
+      try {
+        clientStatuses.value = await invokeLocalCommand<AgentClientStatus[]>(
+          "agents_status",
+          undefined,
+          { notify: false, trackPending: false },
+        );
+      } catch {
+        // The status list remains empty when local detection is unavailable.
+      } finally {
+        clientStatusesLoaded.value = true;
+        clientStatusesLoading.value = false;
+        clientStatusRequest = undefined;
+      }
+    })();
+
+    return clientStatusRequest;
   }
 
-  async function loadVersions(
-    detectedClients: AgentClient[],
-    generation: number,
-  ) {
-    try {
-      const versions = await invokeLocalCommand<AgentClientVersion[]>(
-        "agents_versions",
-        { clients: detectedClients },
-        { notify: false, trackPending: false },
-      );
-      const versionsByClient = new Map(
-        versions.map(({ client, version }) => [client, version]),
-      );
-      if (generation !== loadGeneration) return;
-      snapshot.value = {
-        clients: snapshot.value.clients.map((client) => ({
-          ...client,
-          version: versionsByClient.get(client.client) ?? client.version,
-        })),
-      };
-    } catch {
-      // Version detection is an optional background enhancement.
+  async function loadClientItems(client: AgentClient, force = false) {
+    if (!force && (clientItems.value[client] || itemsLoading.value[client])) {
+      return;
     }
+    if (clientContentRequests[client]) return clientContentRequests[client];
+
+    itemsLoading.value[client] = true;
+    clientContentRequests[client] = (async () => {
+      try {
+        const items = await invokeLocalCommand<AgentClientItems>(
+          "agent_items_get",
+          { client },
+          { notify: false, trackPending: false },
+        );
+        clientItems.value = { ...clientItems.value, [client]: items };
+      } catch {
+        // The page represents unavailable local content with an empty result.
+      } finally {
+        itemsLoading.value[client] = false;
+        clientContentRequests[client] = undefined;
+      }
+    })();
+
+    return clientContentRequests[client];
   }
 
-  async function loadSettings(
-    client: AgentClient,
-    force = false,
-    generation = loadGeneration,
-  ) {
+  async function loadSettings(client: AgentClient, force = false) {
     if (!clientSupportsSettings(client)) return;
     if (!force && (settingsLoaded.value[client] || settingsLoading.value[client])) {
       return;
@@ -95,49 +117,17 @@ export function useAgentWorkspace() {
         { client },
         { notify: false, trackPending: false },
       );
-      if (generation !== loadGeneration) return;
       settings.value = { ...settings.value, [client]: value };
       settingsLoaded.value[client] = true;
     } catch {
       // The page-level loading state represents unavailable local settings.
     } finally {
-      if (generation === loadGeneration) {
-        settingsLoading.value[client] = false;
-      }
+      settingsLoading.value[client] = false;
     }
   }
 
-  async function load(force = false) {
-    if (loaded.value && !force) return;
-    if (loadPromise) return loadPromise;
-
-    loading.value = true;
-    const generation = ++loadGeneration;
-    loadPromise = (async () => {
-      try {
-        snapshot.value = await invokeLocalCommand<AgentItemsSnapshot>(
-          "agents_list",
-          undefined,
-          { notify: false, trackPending: false },
-        );
-        loaded.value = true;
-        const detectedClients = snapshot.value.clients.map(({ client }) => client);
-        resetSettings(detectedClients);
-        void loadVersions(detectedClients, generation);
-        void Promise.all(
-          detectedClients.map((client) => loadSettings(client, true, generation)),
-        );
-      } finally {
-        loading.value = false;
-        loadPromise = undefined;
-      }
-    })();
-
-    return loadPromise;
-  }
-
-  async function refresh() {
-    await load(true);
+  async function refreshClient(client: AgentClient) {
+    await Promise.all([loadClientItems(client, true), loadSettings(client, true)]);
   }
 
   async function reloadSettings(client: AgentClient) {
@@ -145,14 +135,16 @@ export function useAgentWorkspace() {
   }
 
   return {
-    snapshot,
-    loaded,
-    loading,
+    clientStatuses,
+    clientStatusesLoaded,
+    clientStatusesLoading,
+    clientItems,
+    itemsLoading,
     settings,
     settingsLoading,
     settingsLoaded,
-    load,
-    refresh,
+    refreshClientStatuses,
+    refreshClient,
     reloadSettings,
   };
 }

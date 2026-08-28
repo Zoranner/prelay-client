@@ -5,8 +5,8 @@ import { useNotification } from "@stellar/ui";
 import { toRelayError, type RelayError } from "~/utils/errors";
 
 export type LocalCommand =
-  | "agents_list"
-  | "agents_versions"
+  | "agents_status"
+  | "agent_items_get"
   | "agents_remove"
   | "agent_settings_get"
   | "agent_settings_save"

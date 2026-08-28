@@ -18,18 +18,18 @@ test("智能体页保留客户端与功能区入口，并将展示职责拆分�
   expect(page).toContain("activeClient");
   expect(page).toContain("agent-client-list");
   expect(page).toContain("agent-client-icon--monochrome");
+  expect(page).toContain("availableSectionOptions");
   expect(page).toContain('from "~/components/agents/AgentRulesEditor.vue"');
   expect(page).toContain('from "~/components/agents/CodexSettingsForm.vue"');
-  expect(page).toContain(
-    'from "~/components/agents/ClaudeCodeSettingsForm.vue"',
-  );
+  expect(page).not.toContain("ClaudeCode");
+  expect(page).not.toContain("claudeCode");
   expect(page).toContain(
     "v-model=\"rulesDraft.codexCli\"",
   );
   expect(page).toContain("v-model=\"rulesDraft.chatgpt\"");
+  expect(page).toContain("v-model=\"rulesDraft.openCode\"");
   expect(page).toContain("<CodexSettingsForm");
   expect(page).toContain("<ChatGptSettingsForm");
-  expect(page).toContain("<ClaudeCodeSettingsForm");
   expect(page).toContain('icon="ph:sliders-horizontal"');
   expect(page).toContain('aria-label="配置"');
   expect(page).toContain(
@@ -41,7 +41,7 @@ test("智能体页保留客户端与功能区入口，并将展示职责拆分�
   expect(page).toContain("MCP");
   expect(page).toContain("Skill");
   expect(page).toContain("agent_settings_save");
-  expect(page).toContain("claudeCodeConnection");
+  expect(page).toContain("openCodeConnection");
   expect(page).toContain("endpointToken");
   expect(page).toContain("function discardSettingsDraft()");
   expect(page).toContain("workspaceExit.register");
@@ -80,16 +80,4 @@ test("Codex 设置表单独立承载连接、执行和运行环境字段", () =>
   expect(form).not.toContain('type="password"');
   expect(form).toContain("watch(");
   expect(form).toContain('customBaseUrl = ""');
-});
-
-test("Claude Code 设置表单独立承载模型和工具权限字段", () => {
-  const form = source("components/agents/ClaudeCodeSettingsForm.vue");
-
-  expect(form).toContain("defineModel<ClaudeCodeSettingsDraft>");
-  expect(form).toContain("Opus 模型");
-  expect(form).toContain("Sonnet 模型");
-  expect(form).toContain("Haiku 模型");
-  expect(form).toContain("子智能体模型");
-  expect(form).toContain("工具权限");
-  expect(form).toContain("RadioGroup");
 });

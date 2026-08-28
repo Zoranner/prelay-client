@@ -1,4 +1,4 @@
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use super::{AgentIntegration, AgentItem, AgentItemKind};
 use crate::agents::{
@@ -19,6 +19,15 @@ impl AgentIntegration for CodexCliIntegration {
     fn version(&self) -> Option<String> {
         command_path("codex").and_then(|path| command_client_version(&path))
     }
+
+    fn rule_target(&self, home: &Path) -> Option<PathBuf> {
+        Some(home.join(".codex").join("AGENTS.md"))
+    }
+
+    fn skill_target_root(&self, home: &Path) -> Option<PathBuf> {
+        Some(home.join(".agents").join("skills"))
+    }
+
     fn uninstall(
         &self,
         home: &Path,

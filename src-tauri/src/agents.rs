@@ -1,4 +1,5 @@
 use std::{
+    collections::BTreeSet,
     env, fs,
     io::{Read, Write},
     path::{Path, PathBuf},
@@ -34,7 +35,7 @@ pub enum AgentClient {
     CodexCli,
     #[serde(rename = "chatgpt")]
     ChatGpt,
-    ClaudeCode,
+    OpenCode,
 }
 
 #[derive(Debug, Clone, Copy, Deserialize, PartialEq, Eq, Serialize)]
@@ -85,9 +86,23 @@ pub struct AgentClientVersion {
     pub version: Option<String>,
 }
 
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AgentClientStatus {
+    pub client: AgentClient,
+    pub installed: bool,
+    pub version: Option<String>,
+}
+
 pub fn scan_user_items(home: &Path) -> AgentItemsSnapshot {
     scan_user_items_with_installation(home, agent_client_is_installed)
 }
+
+pub const REGISTERED_AGENT_CLIENTS: [AgentClient; 3] = [
+    AgentClient::CodexCli,
+    AgentClient::ChatGpt,
+    AgentClient::OpenCode,
+];
 
 pub fn agent_client_versions(clients: Vec<AgentClient>) -> Vec<AgentClientVersion> {
     clients
@@ -102,16 +117,69 @@ pub fn agent_client_versions(clients: Vec<AgentClient>) -> Vec<AgentClientVersio
         .collect()
 }
 
+pub fn agent_client_statuses() -> Vec<AgentClientStatus> {
+    agent_client_statuses_with(agent_client_is_installed, agent_client_versions)
+}
+
+fn agent_client_statuses_with(
+    is_installed: impl Fn(AgentClient) -> bool,
+    load_versions: impl Fn(Vec<AgentClient>) -> Vec<AgentClientVersion>,
+) -> Vec<AgentClientStatus> {
+    let installed_clients = REGISTERED_AGENT_CLIENTS
+        .into_iter()
+        .filter(|client| is_installed(*client))
+        .collect::<Vec<_>>();
+    let versions = load_versions(installed_clients.clone());
+
+    REGISTERED_AGENT_CLIENTS
+        .into_iter()
+        .map(|client| AgentClientStatus {
+            client,
+            installed: installed_clients.contains(&client),
+            version: versions
+                .iter()
+                .find(|version| version.client == client)
+                .and_then(|version| version.version.clone()),
+        })
+        .collect()
+}
+
+pub fn scan_agent_items(home: &Path, client: AgentClient) -> AgentClientItems {
+    AgentClientItems {
+        client,
+        version: None,
+        items: integration(client).scan(home),
+    }
+}
+
+pub fn agent_rule_targets(clients: &[AgentClient], home: &Path) -> Vec<PathBuf> {
+    clients
+        .iter()
+        .filter_map(|client| integration(*client).rule_target(home))
+        .collect::<BTreeSet<_>>()
+        .into_iter()
+        .collect()
+}
+
+pub fn agent_skill_target_roots(clients: &[AgentClient], home: &Path) -> Vec<PathBuf> {
+    clients
+        .iter()
+        .filter_map(|client| integration(*client).skill_target_root(home))
+        .collect::<BTreeSet<_>>()
+        .into_iter()
+        .collect()
+}
+
+pub(crate) fn opencode_configuration_path(home: &Path) -> PathBuf {
+    integrations::opencode::configuration_path(home)
+}
+
 fn scan_user_items_with_installation(
     home: &Path,
     is_installed: impl Fn(AgentClient) -> bool,
 ) -> AgentItemsSnapshot {
     let mut snapshot = AgentItemsSnapshot::default();
-    for client in [
-        AgentClient::CodexCli,
-        AgentClient::ChatGpt,
-        AgentClient::ClaudeCode,
-    ] {
+    for client in REGISTERED_AGENT_CLIENTS {
         if is_installed(client) {
             let items = integration(client).scan(home);
             snapshot.clients.push(AgentClientItems {
@@ -353,20 +421,6 @@ pub(super) fn scan_codex(home: &Path) -> Vec<AgentItem> {
     deduplicate(items)
 }
 
-pub(super) fn scan_claude_code(home: &Path) -> Vec<AgentItem> {
-    let claude_root = home.join(".claude");
-    let config_path = home.join(".claude.json");
-    if !claude_root.exists() && !config_path.exists() {
-        return Vec::new();
-    }
-    let mut items = parse_claude_mcp_items(&config_path);
-    items.extend(parse_claude_plugins(
-        claude_root.join("plugins").join("installed_plugins.json"),
-    ));
-    items.extend(scan_skills(claude_root.join("skills")));
-    deduplicate(items)
-}
-
 fn read_toml(path: &Path) -> Result<Option<toml::Value>, ()> {
     if !path.exists() {
         return Ok(None);
@@ -503,72 +557,8 @@ pub(super) fn remove_codex_plugin(home: &Path, name: &str) -> Result<(), String>
     )
 }
 
-pub(super) fn remove_claude_mcp_item(home: &Path, name: &str) -> Result<(), String> {
-    let path = home.join(".claude.json");
-    let mut document = read_claude_document(&path)?;
-    let servers = document
-        .get_mut("mcpServers")
-        .and_then(serde_json::Value::as_object_mut)
-        .ok_or_else(|| "未找到要卸载的 MCP 配置。".to_string())?;
-    if servers.remove(name).is_none() {
-        return Err("未找到要卸载的 MCP 配置。".to_string());
-    }
-    write_json(&path, &document)
-}
-
-pub(super) fn remove_claude_plugin(home: &Path, name: &str) -> Result<(), String> {
-    let path = home
-        .join(".claude")
-        .join("plugins")
-        .join("installed_plugins.json");
-    let mut document = read_claude_document(&path)?;
-    let plugins = document
-        .get_mut("plugins")
-        .and_then(serde_json::Value::as_object_mut)
-        .ok_or_else(|| "未找到要卸载的插件登记。".to_string())?;
-    let records = plugins
-        .get_mut(name)
-        .and_then(serde_json::Value::as_array_mut)
-        .ok_or_else(|| "未找到要卸载的插件登记。".to_string())?;
-    let install_paths = records
-        .iter()
-        .filter(|record| record.get("scope").and_then(serde_json::Value::as_str) == Some("user"))
-        .filter_map(|record| {
-            record
-                .get("installPath")
-                .and_then(serde_json::Value::as_str)
-        })
-        .map(PathBuf::from)
-        .collect::<Vec<_>>();
-    records
-        .retain(|record| record.get("scope").and_then(serde_json::Value::as_str) != Some("user"));
-    if records.is_empty() {
-        plugins.remove(name);
-    }
-    write_json(&path, &document)?;
-    for install_path in install_paths {
-        remove_directory(&install_path)?;
-    }
-    Ok(())
-}
-
 pub(super) fn remove_skill_directory(source_path: &str) -> Result<(), String> {
     remove_directory(Path::new(source_path))
-}
-
-fn read_claude_document(path: &Path) -> Result<serde_json::Value, String> {
-    fs::read_to_string(path)
-        .map_err(|error| format!("无法读取 Claude Code 配置：{error}"))
-        .and_then(|contents| {
-            serde_json::from_str(&contents)
-                .map_err(|error| format!("Claude Code 配置不是有效的 JSON：{error}"))
-        })
-}
-
-fn write_json(path: &Path, document: &serde_json::Value) -> Result<(), String> {
-    let contents = serde_json::to_vec_pretty(document)
-        .map_err(|error| format!("无法写入 Claude Code 配置：{error}"))?;
-    write_text(path, &contents)
 }
 
 fn remove_directory(path: &Path) -> Result<(), String> {
@@ -588,72 +578,10 @@ fn write_text(path: &Path, contents: &[u8]) -> Result<(), String> {
         .map_err(|error| format!("无法保存配置文件：{error}"))
 }
 
-fn parse_claude_mcp_items(path: &Path) -> Vec<AgentItem> {
-    if !path.exists() {
-        return Vec::new();
-    }
-    let value = match fs::read_to_string(path).and_then(|contents| {
-        serde_json::from_str::<serde_json::Value>(&contents).map_err(std::io::Error::other)
-    }) {
-        Ok(value) => value,
-        Err(_) => return vec![error_item(AgentItemKind::Mcp, path)],
-    };
-    value
-        .get("mcpServers")
-        .and_then(serde_json::Value::as_object)
-        .into_iter()
-        .flatten()
-        .map(|(name, _)| AgentItem {
-            kind: AgentItemKind::Mcp,
-            name: name.to_owned(),
-            version: None,
-            source_path: path.display().to_string(),
-            status: AgentItemStatus::Enabled,
-            error_message: None,
-        })
-        .collect()
-}
-
-fn parse_claude_plugins(path: PathBuf) -> Vec<AgentItem> {
-    if !path.exists() {
-        return Vec::new();
-    }
-    let value = match fs::read_to_string(&path).and_then(|contents| {
-        serde_json::from_str::<serde_json::Value>(&contents).map_err(std::io::Error::other)
-    }) {
-        Ok(value) => value,
-        Err(_) => return vec![error_item(AgentItemKind::Plugin, &path)],
-    };
-    value
-        .get("plugins")
-        .and_then(serde_json::Value::as_object)
-        .into_iter()
-        .flatten()
-        .flat_map(|(name, records)| {
-            records
-                .as_array()
-                .into_iter()
-                .flatten()
-                .filter(|record| {
-                    record.get("scope").and_then(serde_json::Value::as_str) == Some("user")
-                })
-                .map(|record| AgentItem {
-                    kind: AgentItemKind::Plugin,
-                    name: name.to_owned(),
-                    version: record
-                        .get("version")
-                        .and_then(serde_json::Value::as_str)
-                        .map(str::to_owned),
-                    source_path: record
-                        .get("installPath")
-                        .and_then(serde_json::Value::as_str)
-                        .map(str::to_owned)
-                        .unwrap_or_else(|| path.display().to_string()),
-                    status: AgentItemStatus::Enabled,
-                    error_message: None,
-                })
-        })
-        .collect()
+pub(super) fn write_json(path: &Path, document: &serde_json::Value) -> Result<(), String> {
+    let contents = serde_json::to_vec_pretty(document)
+        .map_err(|error| format!("无法序列化 JSON 配置：{error}"))?;
+    write_text(path, &contents)
 }
 
 fn scan_skills(root: PathBuf) -> Vec<AgentItem> {
@@ -722,9 +650,10 @@ mod tests {
     use tempfile::tempdir;
 
     use super::{
-        command_path_in, command_version_from_output, newest_chatgpt_desktop_version,
-        scan_user_items_with_installation, uninstall_user_item_with_installation, AgentClient,
-        AgentItemKind, AgentItemStatus,
+        agent_client_statuses_with, command_path_in, command_version_from_output,
+        newest_chatgpt_desktop_version, scan_user_items_with_installation,
+        uninstall_user_item_with_installation, AgentClient, AgentClientVersion, AgentItemKind,
+        AgentItemStatus,
     };
 
     #[test]
@@ -864,38 +793,6 @@ enabled = true
                 .display()
                 .to_string()
         );
-    }
-
-    #[test]
-    fn does_not_treat_agents_skills_as_claude_code_skills() {
-        let directory = tempdir().unwrap();
-        write(
-            directory.path().join(".claude.json"),
-            r#"{"mcpServers":{"prelay-search":{}}}"#,
-        );
-        write(
-            directory
-                .path()
-                .join(".agents")
-                .join("skills")
-                .join("cavecrew")
-                .join("SKILL.md"),
-            "---\nname: cavecrew\n---\n",
-        );
-
-        let snapshot = scan_user_items_with_installation(directory.path(), |client| {
-            client == AgentClient::ClaudeCode
-        });
-        let claude_code = snapshot
-            .clients
-            .iter()
-            .find(|client| client.client == AgentClient::ClaudeCode)
-            .unwrap();
-
-        assert!(claude_code
-            .items
-            .iter()
-            .all(|item| { item.kind != AgentItemKind::Skill || item.name != "cavecrew" }));
     }
 
     #[test]
@@ -1065,6 +962,141 @@ enabled = true
     }
 
     #[test]
+    fn includes_every_registered_agent_client_when_installed() {
+        let directory = tempdir().unwrap();
+
+        let snapshot = scan_user_items_with_installation(directory.path(), |_| true);
+        let clients = snapshot
+            .clients
+            .iter()
+            .map(|client| serde_json::to_value(client.client).unwrap())
+            .collect::<Vec<_>>();
+
+        assert_eq!(
+            clients,
+            vec![
+                serde_json::json!("codexCli"),
+                serde_json::json!("chatgpt"),
+                serde_json::json!("openCode"),
+            ]
+        );
+    }
+
+    #[test]
+    fn reports_every_registered_client_with_its_installation_status() {
+        let statuses = agent_client_statuses_with(
+            |client| client == AgentClient::OpenCode,
+            |clients| {
+                assert_eq!(clients, vec![AgentClient::OpenCode]);
+                vec![AgentClientVersion {
+                    client: AgentClient::OpenCode,
+                    version: Some("1.2.3".to_string()),
+                }]
+            },
+        );
+
+        assert_eq!(statuses.len(), 3);
+        assert!(!statuses[0].installed);
+        assert!(!statuses[1].installed);
+        assert_eq!(statuses[2].client, AgentClient::OpenCode);
+        assert!(statuses[2].installed);
+        assert_eq!(statuses[2].version.as_deref(), Some("1.2.3"));
+    }
+
+    #[test]
+    fn scans_only_opencode_jsonc() {
+        let directory = tempdir().unwrap();
+        write(
+            directory
+                .path()
+                .join(".config")
+                .join("opencode")
+                .join("config.json"),
+            r#"{ "mcp": { "ignore-config": {} } }"#,
+        );
+        write(
+            directory
+                .path()
+                .join(".config")
+                .join("opencode")
+                .join("opencode.json"),
+            r#"{ "plugin": ["ignore-opencode"] }"#,
+        );
+        write(
+            directory
+                .path()
+                .join(".config")
+                .join("opencode")
+                .join("opencode.jsonc"),
+            r#"// Global OpenCode configuration
+{
+  "mcp": {
+    "prelay-search": { "type": "local", "command": ["prelay-search"] },
+    "retired-search": { "type": "local", "enabled": false, "command": ["retired-search"] }
+  },
+  "plugin": ["@prelay/opencode-tools"],
+}"#,
+        );
+        write(
+            directory
+                .path()
+                .join(".config")
+                .join("opencode")
+                .join("skills")
+                .join("legacy-skill")
+                .join("SKILL.md"),
+            "---\nname: legacy-skill\n---\n",
+        );
+        write(
+            directory
+                .path()
+                .join(".agents")
+                .join("skills")
+                .join("web-research")
+                .join("SKILL.md"),
+            "---\nname: web-research\n---\n",
+        );
+
+        let snapshot = scan_user_items_with_installation(directory.path(), |client| {
+            client == AgentClient::OpenCode
+        });
+        let opencode = snapshot.clients.first().unwrap();
+
+        assert!(opencode.items.iter().any(|item| {
+            item.kind == AgentItemKind::Mcp
+                && item.name == "prelay-search"
+                && item.status == AgentItemStatus::Enabled
+        }));
+        assert!(opencode.items.iter().any(|item| {
+            item.kind == AgentItemKind::Mcp
+                && item.name == "retired-search"
+                && item.status == AgentItemStatus::Disabled
+        }));
+        assert!(opencode.items.iter().any(|item| {
+            item.kind == AgentItemKind::Plugin
+                && item.name == "@prelay/opencode-tools"
+                && item.status == AgentItemStatus::Enabled
+        }));
+        assert!(opencode
+            .items
+            .iter()
+            .all(|item| item.name != "ignore-config"));
+        assert!(opencode
+            .items
+            .iter()
+            .all(|item| item.name != "ignore-opencode"));
+        assert!(opencode.items.iter().any(|item| {
+            item.kind == AgentItemKind::Skill
+                && item.name == "web-research"
+                && item.status == AgentItemStatus::Enabled
+        }));
+        assert!(opencode
+            .items
+            .iter()
+            .all(|item| item.name != "legacy-skill"));
+    }
+
+    #[test]
     fn keeps_chatgpt_desktop_and_codex_cli_as_separate_clients() {
         let directory = tempdir().unwrap();
 
@@ -1104,7 +1136,7 @@ enabled = true
             Some("0.83.0".to_string())
         );
         assert_eq!(
-            command_version_from_output("Claude Code v2.1.17\n"),
+            command_version_from_output("Agent CLI v2.1.17\n"),
             Some("2.1.17".to_string())
         );
         assert_eq!(command_version_from_output("unknown"), None);
@@ -1124,8 +1156,6 @@ enabled = true
     #[test]
     fn omits_configuration_when_the_agent_command_is_unavailable() {
         let directory = tempdir().unwrap();
-        write(directory.path().join(".claude.json"), "{}");
-
         let snapshot = scan_user_items_with_installation(directory.path(), |_| false);
 
         assert!(snapshot.clients.is_empty());
@@ -1136,10 +1166,10 @@ enabled = true
         let directory = tempdir().unwrap();
         let bin = directory.path().join("bin");
         fs::create_dir_all(&bin).unwrap();
-        fs::write(bin.join("claude.cmd"), "").unwrap();
+        fs::write(bin.join("codex.cmd"), "").unwrap();
 
         assert!(
-            command_path_in("claude", &[bin], &[".exe".to_string(), ".cmd".to_string()]).is_some()
+            command_path_in("codex", &[bin], &[".exe".to_string(), ".cmd".to_string()]).is_some()
         );
         assert!(command_path_in("codex", &[], &[".exe".to_string(), ".cmd".to_string()]).is_none());
     }
