@@ -82,7 +82,7 @@ watch(
 <template>
   <Modal
     :visible="visible"
-    :title="extension ? `安装${extension.name}` : '安装扩展'"
+    :title="extension ? `安装${extension.repository}` : '安装扩展'"
     size="large"
     :blocked="installing"
     :show-cancel="false"

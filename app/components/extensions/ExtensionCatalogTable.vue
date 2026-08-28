@@ -28,10 +28,9 @@ async function copyRepositoryUrl(repository: string) {
 }
 
 const columns = [
-  { key: "name", title: "名称", width: 180, ellipsis: true },
+  { key: "repository", title: "仓库", width: 180, ellipsis: true },
   { key: "version", title: "版本", width: 112, ellipsis: true },
-  { key: "repository", title: "链接", width: 240, ellipsis: true },
-  { key: "summary", title: "摘要", minWidth: 260, ellipsis: true },
+  { key: "source", title: "参考来源", minWidth: 240, ellipsis: true },
   {
     key: "actions",
     title: "操作",
@@ -53,13 +52,10 @@ const columns = [
     layout="fixed"
     row-key="repository"
   >
-    <template #cell-name="{ row }">
-      <span :title="row.name">{{ row.name }}</span>
-    </template>
-    <template #cell-summary="{ row }">
-      <span :title="row.summary">{{ row.summary }}</span>
-    </template>
     <template #cell-repository="{ row }">
+      <span :title="row.repository">{{ row.repository }}</span>
+    </template>
+    <template #cell-source="{ row }">
       <div class="extension-catalog-source">
         <a
           :href="repositoryUrl(row.repository)"

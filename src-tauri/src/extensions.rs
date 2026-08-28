@@ -14,9 +14,11 @@ use crate::agents::AgentClient;
 
 const ORGANIZATION: &str = "agents";
 const API_BASE_URL: &str = "https://git.kimo.ink/api/v1";
-const MANIFEST_PATH: &str = ".prelay.json";
 const README_PATH: &str = "README.md";
 const RULES_PATH: &str = "AGENTS.md";
+const CODEX_PLUGIN_PATH: &str = ".codex-plugin/plugin.json";
+const OPEN_CODE_PLUGIN_ROOT: &str = ".opencode/plugins/";
+const MCP_SERVER_PATH: &str = "server.json";
 
 #[derive(Debug, Clone, Copy, Deserialize, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "lowercase")]
@@ -32,9 +34,7 @@ pub enum ExtensionKind {
 pub struct ExtensionPackage {
     pub repository: String,
     pub commit_sha: String,
-    pub name: String,
     pub version: String,
-    pub summary: String,
     pub kind: ExtensionKind,
 }
 
@@ -58,23 +58,19 @@ pub struct ExtensionInstallResult {
 }
 
 #[derive(Debug, Deserialize)]
-struct Manifest {
-    schema: u32,
-    version: String,
-    name: String,
-    summary: String,
-    kind: ExtensionKind,
-}
-
-#[derive(Debug, Deserialize)]
 struct GiteaRepository {
     name: String,
-    default_branch: String,
 }
 
 #[derive(Debug, Deserialize)]
 struct GiteaCommit {
     sha: String,
+}
+
+#[derive(Debug, Deserialize)]
+struct GiteaTag {
+    name: String,
+    commit: GiteaCommit,
 }
 
 #[derive(Debug, Deserialize)]
@@ -113,7 +109,9 @@ pub async fn install_extension(
 ) -> Result<ExtensionInstallResult, String> {
     let client = ExtensionCatalogClient::new(Client::new());
     let package = client.resolve_package(&request.package).await?;
-    let paths = client.package_paths(&package).await?;
+    let paths = client
+        .package_paths(&package.repository, &package.commit_sha)
+        .await?;
     validate_install(&package, &paths)?;
 
     match package.kind {
@@ -146,7 +144,7 @@ pub async fn install_extension(
     }
 
     Ok(ExtensionInstallResult {
-        message: format!("已安装{}。", package.name),
+        message: format!("已安装{}。", package.repository),
     })
 }
 
@@ -174,18 +172,17 @@ impl ExtensionCatalogClient {
                 if !valid_repository_name(&repository.name) {
                     continue;
                 }
-                let commit = match self
-                    .resolve_commit(&repository.name, &repository.default_branch)
-                    .await
+                let tag = match self.latest_release_tag(&repository.name).await {
+                    Ok(tag) => tag,
+                    Err(_) => continue,
+                };
+                let paths = match self.package_paths(&repository.name, &tag.commit.sha).await {
+                    Ok(paths) => paths,
+                    Err(_) => continue,
+                };
+                if let Some(package) =
+                    package_from_paths(repository.name, tag.commit.sha, tag.name, &paths)
                 {
-                    Ok(commit) => commit,
-                    Err(_) => continue,
-                };
-                let manifest = match self.read_manifest(&repository.name, &commit).await {
-                    Ok(manifest) => manifest,
-                    Err(_) => continue,
-                };
-                if let Some(package) = package_from_manifest(repository.name, commit, manifest) {
                     packages.push(package);
                 }
             }
@@ -194,7 +191,7 @@ impl ExtensionCatalogClient {
             }
             page += 1;
         }
-        packages.sort_by(|left, right| left.name.cmp(&right.name));
+        packages.sort_by(|left, right| left.repository.cmp(&right.repository));
         Ok(ExtensionCatalogSnapshot { packages })
     }
 
@@ -205,31 +202,47 @@ impl ExtensionCatalogClient {
         if !valid_repository_name(&package.repository) || !valid_commit_sha(&package.commit_sha) {
             return Err("扩展标识无效。".to_string());
         }
-        let manifest = self
-            .read_manifest(&package.repository, &package.commit_sha)
+        if !valid_release_tag(&package.version) {
+            return Err("扩展版本无效。".to_string());
+        }
+        let tag = self.tag(&package.repository, &package.version).await?;
+        if tag.commit.sha != package.commit_sha {
+            return Err("扩展版本与提交不匹配。".to_string());
+        }
+        let paths = self
+            .package_paths(&package.repository, &package.commit_sha)
             .await?;
-        package_from_manifest(
+        package_from_paths(
             package.repository.clone(),
             package.commit_sha.clone(),
-            manifest,
+            package.version.clone(),
+            &paths,
         )
-        .ok_or_else(|| "扩展清单无效。".to_string())
+        .ok_or_else(|| "扩展仓库不符合扩展规范。".to_string())
     }
 
-    async fn resolve_commit(&self, repository: &str, branch: &str) -> Result<String, String> {
-        let commit: GiteaCommit = self
-            .get_json(&extension_commit_url(repository, branch), &[])
+    async fn latest_release_tag(&self, repository: &str) -> Result<GiteaTag, String> {
+        let tags: Vec<GiteaTag> = self
+            .get_json(
+                &extension_tags_url(repository),
+                &[("limit", "50"), ("page", "1")],
+            )
             .await?;
-        valid_commit_sha(&commit.sha)
-            .then_some(commit.sha)
-            .ok_or_else(|| "扩展仓库返回了无效提交。".to_string())
+        tags.into_iter()
+            .find(|tag| valid_release_tag(&tag.name) && valid_commit_sha(&tag.commit.sha))
+            .ok_or_else(|| "扩展仓库没有可用的发布 tag。".to_string())
     }
 
-    async fn read_manifest(&self, repository: &str, commit_sha: &str) -> Result<Manifest, String> {
-        let content = self
-            .read_file(repository, commit_sha, MANIFEST_PATH)
+    async fn tag(&self, repository: &str, version: &str) -> Result<GiteaTag, String> {
+        let tags: Vec<GiteaTag> = self
+            .get_json(
+                &extension_tags_url(repository),
+                &[("limit", "50"), ("page", "1")],
+            )
             .await?;
-        serde_json::from_str(&content).map_err(|error| format!("扩展清单格式无效：{error}"))
+        tags.into_iter()
+            .find(|tag| tag.name == version && valid_commit_sha(&tag.commit.sha))
+            .ok_or_else(|| "扩展版本不存在。".to_string())
     }
 
     async fn read_readme(&self, package: &ExtensionPackage) -> Result<String, String> {
@@ -238,12 +251,16 @@ impl ExtensionCatalogClient {
             .await
     }
 
-    async fn package_paths(&self, package: &ExtensionPackage) -> Result<Vec<String>, String> {
+    async fn package_paths(
+        &self,
+        repository: &str,
+        commit_sha: &str,
+    ) -> Result<Vec<String>, String> {
         let tree: GiteaTree = self
             .get_json(
                 &format!(
                     "{API_BASE_URL}/repos/{ORGANIZATION}/{}/git/trees/{}",
-                    package.repository, package.commit_sha
+                    repository, commit_sha
                 ),
                 &[("recursive", "true")],
             )
@@ -300,29 +317,50 @@ impl ExtensionCatalogClient {
     }
 }
 
-fn extension_commit_url(repository: &str, branch: &str) -> String {
-    format!("{API_BASE_URL}/repos/{ORGANIZATION}/{repository}/git/commits/{branch}")
+fn extension_tags_url(repository: &str) -> String {
+    format!("{API_BASE_URL}/repos/{ORGANIZATION}/{repository}/tags")
 }
 
-fn package_from_manifest(
+fn package_from_paths(
     repository: String,
     commit_sha: String,
-    manifest: Manifest,
+    version: String,
+    paths: &[String],
 ) -> Option<ExtensionPackage> {
-    (manifest.schema == 1
-        && valid_repository_name(&repository)
+    (valid_repository_name(&repository)
         && valid_commit_sha(&commit_sha)
-        && !manifest.version.trim().is_empty()
-        && !manifest.name.trim().is_empty()
-        && !manifest.summary.trim().is_empty())
+        && valid_release_tag(&version)
+        && paths.iter().any(|path| path == README_PATH))
     .then_some(ExtensionPackage {
         repository,
         commit_sha,
-        name: manifest.name,
-        version: manifest.version,
-        summary: manifest.summary,
-        kind: manifest.kind,
+        version,
+        kind: extension_kind(paths)?,
     })
+}
+
+fn extension_kind(paths: &[String]) -> Option<ExtensionKind> {
+    if paths.iter().any(|path| path == CODEX_PLUGIN_PATH)
+        || paths.iter().any(|path| {
+            path.starts_with(OPEN_CODE_PLUGIN_ROOT)
+                && matches!(path.rsplit('.').next(), Some("js" | "ts"))
+        })
+    {
+        return Some(ExtensionKind::Plugin);
+    }
+    if paths.iter().any(|path| path == MCP_SERVER_PATH) {
+        return Some(ExtensionKind::Mcp);
+    }
+    if paths
+        .iter()
+        .any(|path| path.starts_with("skills/") && path.ends_with("/SKILL.md"))
+    {
+        return Some(ExtensionKind::Skill);
+    }
+    paths
+        .iter()
+        .any(|path| path == RULES_PATH)
+        .then_some(ExtensionKind::Rule)
 }
 
 fn valid_repository_name(name: &str) -> bool {
@@ -335,6 +373,22 @@ fn valid_repository_name(name: &str) -> bool {
 
 fn valid_commit_sha(sha: &str) -> bool {
     sha.len() == 40 && sha.bytes().all(|character| character.is_ascii_hexdigit())
+}
+
+fn valid_release_tag(tag: &str) -> bool {
+    let Some(version) = tag.strip_prefix('v') else {
+        return false;
+    };
+    let parts: Vec<_> = version
+        .split('-')
+        .next()
+        .unwrap_or_default()
+        .split('.')
+        .collect();
+    parts.len() == 3
+        && parts.iter().all(|part| {
+            !part.is_empty() && part.bytes().all(|character| character.is_ascii_digit())
+        })
 }
 
 fn validate_install(package: &ExtensionPackage, paths: &[String]) -> Result<(), String> {
@@ -414,46 +468,60 @@ fn atomic_write(path: &Path, contents: &[u8]) -> Result<(), String> {
 #[cfg(test)]
 mod tests {
     use super::{
-        extension_commit_url, merge_managed_rule, package_from_manifest, rule_targets,
-        skill_target_roots, ExtensionKind, Manifest,
+        extension_tags_url, merge_managed_rule, package_from_paths, rule_targets,
+        skill_target_roots, ExtensionKind,
     };
     use crate::agents::AgentClient;
 
     #[test]
-    fn resolves_default_branch_through_gitea_git_commit_endpoint() {
+    fn resolves_release_tags_through_gitea_tags_endpoint() {
         assert_eq!(
-            extension_commit_url("development-rules", "master"),
-            "https://git.kimo.ink/api/v1/repos/agents/development-rules/git/commits/master"
+            extension_tags_url("development-rules"),
+            "https://git.kimo.ink/api/v1/repos/agents/development-rules/tags"
         );
     }
 
     #[test]
-    fn catalog_ignores_repositories_with_invalid_manifests() {
-        let valid = package_from_manifest(
+    fn catalog_infers_skill_packages_from_standard_paths() {
+        let package = package_from_paths(
             "engineering-review".to_string(),
             "a".repeat(40),
-            Manifest {
-                schema: 1,
-                version: "0.1.0".to_string(),
-                name: "工程评审".to_string(),
-                summary: "评审工程质量".to_string(),
-                kind: ExtensionKind::Skill,
-            },
-        );
-        let invalid = package_from_manifest(
-            "missing-manifest".to_string(),
-            "b".repeat(40),
-            Manifest {
-                schema: 2,
-                version: "0.1.0".to_string(),
-                name: "无效".to_string(),
-                summary: "无效".to_string(),
-                kind: ExtensionKind::Skill,
-            },
+            "v0.1.0".to_string(),
+            &[
+                "README.md".to_string(),
+                "skills/review-engineering/SKILL.md".to_string(),
+            ],
         );
 
-        assert_eq!(valid.unwrap().kind, ExtensionKind::Skill);
-        assert!(invalid.is_none());
+        assert_eq!(package.unwrap().kind, ExtensionKind::Skill);
+    }
+
+    #[test]
+    fn catalog_prefers_plugins_over_the_skills_they_contain() {
+        let package = package_from_paths(
+            "superpowers".to_string(),
+            "b".repeat(40),
+            "v6.3.0-prelay.1".to_string(),
+            &[
+                "README.md".to_string(),
+                ".codex-plugin/plugin.json".to_string(),
+                "skills/brainstorming/SKILL.md".to_string(),
+            ],
+        );
+
+        assert_eq!(package.unwrap().kind, ExtensionKind::Plugin);
+    }
+
+    #[test]
+    fn catalog_ignores_repositories_without_a_standard_extension_entry() {
+        let package = package_from_paths(
+            "ordinary-project".to_string(),
+            "c".repeat(40),
+            "v0.1.0".to_string(),
+            &["README.md".to_string(), "src/main.rs".to_string()],
+        );
+
+        assert!(package.is_none());
     }
 
     #[test]

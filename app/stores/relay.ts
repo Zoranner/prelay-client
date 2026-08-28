@@ -176,9 +176,7 @@ export type ExtensionKind = "rule" | "plugin" | "mcp" | "skill";
 export interface ExtensionPackage {
   repository: string;
   commitSha: string;
-  name: string;
   version: string;
-  summary: string;
   kind: ExtensionKind;
 }
 
