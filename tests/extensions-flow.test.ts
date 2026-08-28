@@ -8,11 +8,17 @@ test("扩展表格在独立链接列显示仓库地址", () => {
   const catalogTable = source("components/extensions/ExtensionCatalogTable.vue");
 
   expect(catalogTable).toContain("function repositoryUrl");
+  expect(catalogTable).toContain("function copyRepositoryUrl");
   expect(catalogTable).toContain('key: "repository", title: "链接"');
   expect(catalogTable).toContain("#cell-repository");
   expect(catalogTable).toContain("repositoryUrl(row.repository)");
   expect(catalogTable).toContain('target="_blank"');
+  expect(catalogTable).toContain('icon="ph:copy"');
+  expect(catalogTable).toContain("copyRepositoryUrl(row.repository)");
   expect(catalogTable).not.toContain('icon="ph:arrow-square-out"');
+  expect(catalogTable.indexOf('key: "repository", title: "链接"')).toBeLessThan(
+    catalogTable.indexOf('key: "summary", title: "摘要"'),
+  );
 });
 
 test("扩展库沿用智能体工作区的分类表格与单层操作表面", () => {

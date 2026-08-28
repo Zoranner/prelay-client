@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Button, Table } from "@stellar/ui";
+import { Button, Table, useNotification } from "@stellar/ui";
 import type { ExtensionPackage } from "~/stores/relay";
 
 type ExtensionRow = ExtensionPackage & Record<string, unknown>;
@@ -12,16 +12,26 @@ const emit = defineEmits<{
   detail: [item: ExtensionPackage];
   install: [item: ExtensionPackage];
 }>();
+const notifications = useNotification();
 
 function repositoryUrl(repository: string) {
   return `https://git.kimo.ink/agents/${encodeURIComponent(repository)}`;
 }
 
+async function copyRepositoryUrl(repository: string) {
+  try {
+    await navigator.clipboard.writeText(repositoryUrl(repository));
+    notifications.success("已复制仓库链接");
+  } catch {
+    notifications.danger("请手动复制。", { title: "无法访问剪贴板" });
+  }
+}
+
 const columns = [
   { key: "name", title: "名称", width: 180, ellipsis: true },
   { key: "version", title: "版本", width: 112, ellipsis: true },
-  { key: "summary", title: "摘要", minWidth: 260, ellipsis: true },
   { key: "repository", title: "链接", width: 240, ellipsis: true },
+  { key: "summary", title: "摘要", minWidth: 260, ellipsis: true },
   {
     key: "actions",
     title: "操作",
@@ -50,16 +60,27 @@ const columns = [
       <span :title="row.summary">{{ row.summary }}</span>
     </template>
     <template #cell-repository="{ row }">
-      <a
-        :href="repositoryUrl(row.repository)"
-        target="_blank"
-        rel="noopener noreferrer"
-        class="extension-catalog-link"
-        :title="repositoryUrl(row.repository)"
-        @click.stop
-      >
-        {{ repositoryUrl(row.repository).replace("https://", "") }}
-      </a>
+      <div class="extension-catalog-source">
+        <a
+          :href="repositoryUrl(row.repository)"
+          target="_blank"
+          rel="noopener noreferrer"
+          class="extension-catalog-link"
+          :title="repositoryUrl(row.repository)"
+          @click.stop
+        >
+          {{ repositoryUrl(row.repository).replace("https://", "") }}
+        </a>
+        <Button
+          square
+          size="small"
+          variant="ghost"
+          icon="ph:copy"
+          aria-label="复制仓库链接"
+          title="复制仓库链接"
+          @click.stop="copyRepositoryUrl(row.repository)"
+        />
+      </div>
     </template>
     <template #cell-actions="{ row }">
       <div class="extension-catalog-actions">
@@ -110,7 +131,8 @@ const columns = [
 }
 
 .extension-catalog-link {
-  display: block;
+  min-width: 0;
+  flex: 1;
   overflow: hidden;
   color: var(--color-primary);
   text-overflow: ellipsis;
@@ -119,5 +141,13 @@ const columns = [
 
 .extension-catalog-link:hover {
   color: var(--color-primary);
+}
+
+.extension-catalog-source {
+  display: flex;
+  width: 100%;
+  min-width: 0;
+  align-items: center;
+  gap: var(--spacing-xs);
 }
 </style>
