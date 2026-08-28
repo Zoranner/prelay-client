@@ -1,70 +1,13 @@
-use std::fmt;
-
 use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine as _};
-use prelay_protocol::{CreateIdentityRequest, CreateIdentityResponse};
-use rand::RngCore;
-use reqwest::{header::AUTHORIZATION, Method, StatusCode};
-use serde::{de::DeserializeOwned, Deserialize, Serialize};
+use reqwest::{header::AUTHORIZATION, Method};
+use serde::{de::DeserializeOwned, Serialize};
 
-use crate::identity::{
-    credentials::{CredentialRecord, CredentialStore},
-    windows::WindowsIdentity,
+use crate::identity::credentials::{CredentialRecord, CredentialStore};
+
+use super::{
+    error::{credential_store_error, network_error, response_error},
+    normalize_relay_url, ApiClient, ClientError, PreparedRequest,
 };
-
-#[derive(Clone, Debug, Serialize)]
-pub struct ClientError {
-    pub code: String,
-    pub message: String,
-}
-
-impl ClientError {
-    pub const MISSING_DEVICE_CREDENTIAL: &'static str = "missing_device_credential";
-
-    pub fn new(code: impl Into<String>, message: impl Into<String>) -> Self {
-        Self {
-            code: code.into(),
-            message: message.into(),
-        }
-    }
-
-    pub fn code(&self) -> &str {
-        &self.code
-    }
-}
-
-impl fmt::Display for ClientError {
-    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(formatter, "{}: {}", self.code, self.message)
-    }
-}
-
-impl std::error::Error for ClientError {}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct PreparedRequest {
-    url: String,
-    authorization: String,
-}
-
-#[derive(Default)]
-pub struct RegistrationGate(tokio::sync::Mutex<()>);
-
-impl PreparedRequest {
-    pub fn url(&self) -> &str {
-        &self.url
-    }
-
-    pub fn authorization(&self) -> &str {
-        &self.authorization
-    }
-}
-
-pub struct ApiClient<'a> {
-    base_url: String,
-    credential_store: &'a dyn CredentialStore,
-    http: reqwest::Client,
-    display_name: Option<String>,
-}
 
 impl<'a> ApiClient<'a> {
     pub fn new(
@@ -111,51 +54,9 @@ impl<'a> ApiClient<'a> {
             authorization: format!("Bearer {credential}"),
         })
     }
+}
 
-    pub async fn ensure_registered(&self, identity: &WindowsIdentity) -> Result<(), ClientError> {
-        let record = match self
-            .credential_store
-            .load()
-            .map_err(credential_store_error)?
-        {
-            Some(record) => record,
-            None => self
-                .credential_store
-                .save_initial(&generate_device_credential())
-                .map_err(credential_store_error)?,
-        };
-
-        if let Some(pending) = record.pending {
-            match self.register_identity(identity, pending).await {
-                Ok(()) => {
-                    self.credential_store
-                        .confirm_pending()
-                        .map_err(credential_store_error)?;
-                    return Ok(());
-                }
-                Err(error) if error.code() == "identity_already_registered" => {
-                    self.register_identity(identity, record.current).await?;
-                    self.credential_store
-                        .discard_pending()
-                        .map_err(credential_store_error)?;
-                    return Ok(());
-                }
-                Err(error) => return Err(error),
-            }
-        }
-
-        self.register_identity(identity, record.current).await
-    }
-
-    pub async fn ensure_registered_once(
-        &self,
-        identity: &WindowsIdentity,
-        gate: &RegistrationGate,
-    ) -> Result<(), ClientError> {
-        let _guard = gate.0.lock().await;
-        self.ensure_registered(identity).await
-    }
-
+impl<'a> ApiClient<'a> {
     pub async fn get<T: DeserializeOwned>(&self, path: &str) -> Result<T, ClientError> {
         self.send_authenticated_json::<T, ()>(Method::GET, path, None)
             .await
@@ -213,27 +114,6 @@ impl<'a> ApiClient<'a> {
                     "device credential is unavailable; identity cannot be restored automatically",
                 )
             })
-    }
-
-    async fn register_identity(
-        &self,
-        identity: &WindowsIdentity,
-        credential: String,
-    ) -> Result<(), ClientError> {
-        let _: CreateIdentityResponse = self
-            .send_json(
-                Method::POST,
-                "/api/identities",
-                Some(&CreateIdentityRequest {
-                    machine_id: identity.machine_id.clone(),
-                    account_sid: identity.account_sid.clone(),
-                    credential,
-                    display_name: self.display_name.clone(),
-                }),
-                None,
-            )
-            .await?;
-        Ok(())
     }
 
     async fn send_authenticated_json<T: DeserializeOwned, B: Serialize + ?Sized>(
@@ -366,7 +246,7 @@ impl<'a> ApiClient<'a> {
         }
     }
 
-    async fn send_json<T: DeserializeOwned, B: Serialize + ?Sized>(
+    pub(crate) async fn send_json<T: DeserializeOwned, B: Serialize + ?Sized>(
         &self,
         method: Method,
         path: &str,
@@ -406,162 +286,5 @@ impl<'a> ApiClient<'a> {
             ));
         }
         Ok(format!("{}{}", self.base_url, path))
-    }
-}
-
-impl CredentialRecord {
-    fn preferred(&self) -> &str {
-        self.pending.as_deref().unwrap_or(&self.current)
-    }
-}
-
-pub fn generate_device_credential() -> String {
-    let mut bytes = [0_u8; 32];
-    rand::rngs::OsRng.fill_bytes(&mut bytes);
-    URL_SAFE_NO_PAD.encode(bytes)
-}
-
-pub fn normalize_relay_url(value: &str) -> Result<String, ClientError> {
-    let value = value.trim().trim_end_matches('/');
-    if !(value.starts_with("https://") || value.starts_with("http://")) {
-        return Err(ClientError::new(
-            "invalid_relay_url",
-            "PROVIDER_RELAY_URL must be an HTTP or HTTPS URL",
-        ));
-    }
-    Ok(value.to_owned())
-}
-
-fn credential_store_error(error: String) -> ClientError {
-    ClientError::new("credential_store_error", error)
-}
-
-fn network_error(error: reqwest::Error) -> ClientError {
-    let diagnostic = network_error_diagnostic(error);
-    eprintln!("relay management request failed: {}", diagnostic);
-    ClientError::new(
-        "network_error",
-        format!("unable to reach the relay management API: {diagnostic}"),
-    )
-}
-
-fn network_error_diagnostic(error: reqwest::Error) -> String {
-    format!("{:?}", error.without_url())
-}
-
-#[cfg(test)]
-mod tests {
-    use super::{network_error, network_error_diagnostic};
-    use std::net::TcpListener;
-
-    #[test]
-    fn network_error_logs_a_url_redacted_reqwest_diagnostic_and_keeps_a_stable_message() {
-        let listener = TcpListener::bind("127.0.0.1:0").expect("reserve unavailable relay port");
-        let address = listener
-            .local_addr()
-            .expect("read unavailable relay address");
-        drop(listener);
-        let error = tauri::async_runtime::block_on(async move {
-            reqwest::Client::builder()
-                .no_proxy()
-                .build()
-                .expect("build HTTP client")
-                .get(format!(
-                    "http://diagnostic-user:diagnostic-secret@{address}"
-                ))
-                .send()
-                .await
-                .expect_err("unavailable relay must fail the request")
-        });
-        let diagnostic = network_error_diagnostic(error);
-
-        assert!(diagnostic.contains("kind: Request"));
-        assert!(diagnostic.contains("source:"));
-        assert!(!diagnostic.contains("diagnostic-user"));
-        assert!(!diagnostic.contains("diagnostic-secret"));
-
-        let listener = TcpListener::bind("127.0.0.1:0").expect("reserve unavailable relay port");
-        let address = listener
-            .local_addr()
-            .expect("read unavailable relay address");
-        drop(listener);
-        let error = tauri::async_runtime::block_on(async move {
-            reqwest::Client::builder()
-                .no_proxy()
-                .build()
-                .expect("build HTTP client")
-                .get(format!("http://{address}"))
-                .send()
-                .await
-                .expect_err("unavailable relay must fail the request")
-        });
-        let client_error = network_error(error);
-
-        assert_eq!(client_error.code(), "network_error");
-        assert!(client_error
-            .message
-            .starts_with("unable to reach the relay management API: reqwest::Error"));
-        assert!(!client_error.message.contains("diagnostic-user"));
-        assert!(!client_error.message.contains("diagnostic-secret"));
-    }
-}
-
-async fn response_error(response: reqwest::Response) -> ClientError {
-    let status = response.status();
-    let (server_code, server_message) = if status.is_client_error() {
-        response
-            .json::<ServerErrorEnvelope>()
-            .await
-            .ok()
-            .map(|body| body.error.into_parts())
-            .unwrap_or_default()
-    } else {
-        (None, None)
-    };
-    let code = server_code.unwrap_or_else(|| status_code(status).to_owned());
-    let message = server_message.unwrap_or_else(|| {
-        if code == "identity_already_registered" {
-            "this Windows identity is already registered and cannot be restored automatically"
-                .into()
-        } else {
-            let reason = status.canonical_reason().unwrap_or("Unknown Status");
-            format!("management API returned HTTP {} {reason}", status.as_u16())
-        }
-    });
-    ClientError::new(code, message)
-}
-
-fn status_code(status: StatusCode) -> &'static str {
-    match status {
-        StatusCode::UNAUTHORIZED => "invalid_credential",
-        StatusCode::NOT_FOUND => "not_found",
-        StatusCode::BAD_REQUEST | StatusCode::UNPROCESSABLE_ENTITY => "validation_failed",
-        _ => "internal",
-    }
-}
-
-#[derive(Deserialize)]
-struct ServerErrorEnvelope {
-    error: ServerErrorBody,
-}
-
-#[derive(Deserialize)]
-#[serde(untagged)]
-enum ServerErrorBody {
-    Structured {
-        code: Option<String>,
-        message: Option<String>,
-    },
-    Message(String),
-}
-
-impl ServerErrorBody {
-    fn into_parts(self) -> (Option<String>, Option<String>) {
-        match self {
-            Self::Structured { code, message } => {
-                (code, message.filter(|message| !message.trim().is_empty()))
-            }
-            Self::Message(message) => (None, (!message.trim().is_empty()).then_some(message)),
-        }
     }
 }
