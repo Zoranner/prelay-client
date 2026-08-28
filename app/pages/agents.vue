@@ -157,11 +157,7 @@ const sectionItems = computed(() =>
     ? activeItems.value.filter((item) => item.kind === activeKind.value)
     : [],
 );
-const extensionPackages = computed(() =>
-  extensionCatalog.catalog.value.packages.filter(
-    (item) => item.kind === activeExtensionSection.value,
-  ),
-);
+const extensionPackages = extensionCatalog.packages(activeExtensionSection.value);
 const pending = computed(() => agentsPending.value || endpointsPending.value);
 const settingsDirty = computed(
   () => JSON.stringify(settingsDraft) !== JSON.stringify(agentConfiguration),
@@ -282,7 +278,7 @@ function openCodeConnection() {
 
 function selectExtensionCatalog() {
   activeWorkspace.value = "extensions";
-  void extensionCatalog.load(true);
+  void extensionCatalog.load(activeExtensionSection.value);
 }
 
 function openExtensionDetails(extension: ExtensionPackage) {
@@ -588,7 +584,19 @@ watch([clientStatusesLoaded, activeWorkspace], refreshActiveClient, {
   immediate: true,
 });
 
+watch(activeExtensionSection, (kind) => {
+  if (activeWorkspace.value === "extensions") void extensionCatalog.load(kind);
+});
 
+watch(
+  () => bootstrap.value?.relay_url,
+  () => {
+    extensionCatalog.invalidate();
+    if (activeWorkspace.value === "extensions") {
+      void extensionCatalog.load(activeExtensionSection.value);
+    }
+  },
+);
 
 watch(
   () => rulesDraft.codexCli,
@@ -697,7 +705,7 @@ onBeforeUnmount(() => {
             <div class="item-results">
               <ExtensionCatalogTable
                 :packages="extensionPackages"
-                :pending="extensionCatalog.loading.value"
+                :pending="extensionCatalog.loading.value[activeExtensionSection]"
                 @detail="openExtensionDetails"
                 @install="openExtensionInstall"
               />

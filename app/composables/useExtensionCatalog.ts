@@ -4,43 +4,60 @@ function emptyCatalog(): ExtensionCatalogSnapshot {
   return { packages: [] };
 }
 
-let loadPromise: Promise<void> | undefined;
+type CatalogState = Record<ExtensionPackage["kind"], ExtensionCatalogSnapshot>;
+type LoadingState = Record<ExtensionPackage["kind"], boolean>;
+type LoadedState = Record<ExtensionPackage["kind"], boolean>;
+
+function emptyCatalogs(): CatalogState {
+  return { rule: emptyCatalog(), skill: emptyCatalog(), plugin: emptyCatalog(), mcp: emptyCatalog() };
+}
+
+const loadPromises = new Map<ExtensionPackage["kind"], Promise<void>>();
+let generation = 0;
 
 export function useExtensionCatalog() {
   const { invokeLocalCommand } = useLocalCommand();
-  const catalog = useState<ExtensionCatalogSnapshot>(
-    "extension-catalog",
-    emptyCatalog,
-  );
-  const loaded = useState("extension-catalog-loaded", () => false);
-  const loading = useState("extension-catalog-loading", () => false);
+  const catalogs = useState<CatalogState>("extension-catalog", emptyCatalogs);
+  const loaded = useState<LoadedState>("extension-catalog-loaded", () => ({ rule: false, skill: false, plugin: false, mcp: false }));
+  const loading = useState<LoadingState>("extension-catalog-loading", () => ({ rule: false, skill: false, plugin: false, mcp: false }));
 
-  async function load(force = false) {
-    if (loaded.value && !force) return;
-    if (loadPromise) return loadPromise;
+  async function load(kind: ExtensionPackage["kind"], force = false) {
+    if (loaded.value[kind] && !force) return;
+    if (loadPromises.has(kind)) return loadPromises.get(kind);
 
-    loading.value = true;
-    loadPromise = (async () => {
+    loading.value[kind] = true;
+    const requestGeneration = generation;
+    const request = (async () => {
       try {
-        catalog.value = await invokeLocalCommand<ExtensionCatalogSnapshot>(
+        const snapshot = await invokeLocalCommand<ExtensionCatalogSnapshot>(
           "extensions_list",
-          undefined,
+          { kind },
           { notify: false, trackPending: false },
         );
-        loaded.value = true;
+        if (requestGeneration === generation) {
+          catalogs.value[kind] = snapshot;
+          loaded.value[kind] = true;
+        }
       } finally {
-        loading.value = false;
-        loadPromise = undefined;
+        if (requestGeneration === generation) loading.value[kind] = false;
+        loadPromises.delete(kind);
       }
     })();
-    return loadPromise;
+    loadPromises.set(kind, request);
+    return request;
   }
 
-  function packagesByKind(kind: ExtensionPackage["kind"]) {
-    return computed(() =>
-      catalog.value.packages.filter((item) => item.kind === kind),
-    );
+  function packages(kind: ExtensionPackage["kind"]) {
+    return computed(() => catalogs.value[kind].packages);
   }
 
-  return { catalog, loaded, loading, load, packagesByKind };
+  function invalidate() {
+    generation += 1;
+    loadPromises.clear();
+    catalogs.value = emptyCatalogs();
+    loaded.value = { rule: false, skill: false, plugin: false, mcp: false };
+    loading.value = { rule: false, skill: false, plugin: false, mcp: false };
+  }
+
+  return { catalogs, loaded, loading, load, packages, invalidate };
 }

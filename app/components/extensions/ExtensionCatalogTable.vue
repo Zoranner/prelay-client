@@ -15,7 +15,7 @@ const emit = defineEmits<{
 const notifications = useNotification();
 
 function repositoryUrl(repository: string) {
-  return `https://git.kimo.ink/agents/${encodeURIComponent(repository)}`;
+  return repository;
 }
 
 async function copyRepositoryUrl(repository: string) {

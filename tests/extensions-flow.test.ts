@@ -21,6 +21,8 @@ test("扩展表格显示仓库、版本和可复制的参考来源", () => {
   expect(catalogTable).not.toContain('key: "summary"');
   expect(catalogTable).not.toContain("row.summary");
   expect(catalogTable).not.toContain("row.name");
+  expect(catalogTable).toContain("return repository;");
+  expect(catalogTable).not.toContain("https://git.kimo.ink/agents/");
 });
 
 test("扩展库沿用智能体工作区的分类表格与单层操作表面", () => {
@@ -40,8 +42,10 @@ test("扩展库沿用智能体工作区的分类表格与单层操作表面", ()
   expect(page).toContain(':active="activeWorkspace === client.client"');
   expect(page).toContain(':active="activeWorkspace === \'extensions\'"');
   expect(page).toMatch(
-    /function selectExtensionCatalog\(\) \{\s+activeWorkspace\.value = "extensions";\s+void extensionCatalog\.load\(true\);/,
+    /function selectExtensionCatalog\(\) \{\s+activeWorkspace\.value = "extensions";\s+void extensionCatalog\.load\(activeExtensionSection\.value\);/,
   );
+  expect(page).toContain("watch(activeExtensionSection");
+  expect(page).toContain("extensionCatalog.loading.value[activeExtensionSection]");
   expect(page).not.toContain("showExtensionCatalog");
   expect(page).not.toContain("<small>agents</small>");
   expect(detailDrawer).toContain("MarkdownViewer");

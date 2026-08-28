@@ -180,6 +180,7 @@ export interface AgentClientStatus {
 export type ExtensionKind = "rule" | "plugin" | "mcp" | "skill";
 
 export interface ExtensionPackage {
+  name: string;
   repository: string;
   commitSha: string;
   version: string;
