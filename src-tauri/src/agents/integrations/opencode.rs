@@ -126,18 +126,18 @@ fn plugin_items(config: &Value, path: &Path) -> Vec<AgentItem> {
 
 fn local_plugin_items(root: &Path) -> Vec<AgentItem> {
     let mut items = Vec::new();
-    visit_plugin_directory(root, &mut items);
+    visit_plugin_directory(root, root, &mut items);
     items
 }
 
-fn visit_plugin_directory(path: &Path, items: &mut Vec<AgentItem>) {
+fn visit_plugin_directory(root: &Path, path: &Path, items: &mut Vec<AgentItem>) {
     let Ok(entries) = fs::read_dir(path) else {
         return;
     };
     for entry in entries.flatten() {
         let path = entry.path();
         if path.is_dir() {
-            visit_plugin_directory(&path, items);
+            visit_plugin_directory(root, &path, items);
             continue;
         }
         if !matches!(
@@ -146,17 +146,31 @@ fn visit_plugin_directory(path: &Path, items: &mut Vec<AgentItem>) {
         ) {
             continue;
         }
-        let Some(name) = path.file_stem().and_then(|name| name.to_str()) else {
+        let Some(name) = local_plugin_name(root, &path) else {
             continue;
         };
         items.push(AgentItem {
             kind: AgentItemKind::Plugin,
-            name: name.to_string(),
+            name,
             version: None,
             source_path: path.display().to_string(),
             status: AgentItemStatus::Enabled,
             error_message: None,
         });
+    }
+}
+
+fn local_plugin_name(root: &Path, path: &Path) -> Option<String> {
+    let relative_path = path.strip_prefix(root).ok()?;
+    let mut components = relative_path.components();
+    let first = components.next()?.as_os_str().to_str()?;
+
+    if components.next().is_some() {
+        Some(first.to_string())
+    } else {
+        path.file_stem()
+            .and_then(|name| name.to_str())
+            .map(ToString::to_string)
     }
 }
 

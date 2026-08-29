@@ -145,6 +145,31 @@ fn scans_only_opencode_jsonc() {
 }
 
 #[test]
+fn names_a_local_opencode_plugin_after_its_plugin_directory() {
+    let directory = tempdir().unwrap();
+    write(
+        directory
+            .path()
+            .join(".config")
+            .join("opencode")
+            .join("plugins")
+            .join("caveman")
+            .join("plugin.js"),
+        "export default {};",
+    );
+
+    let snapshot = scan_user_items_with_installation(directory.path(), |client| {
+        client == AgentClient::OpenCode
+    });
+
+    assert!(snapshot.clients[0].items.iter().any(|item| {
+        item.kind == AgentItemKind::Plugin
+            && item.name == "caveman"
+            && item.source_path.ends_with("plugins\\caveman\\plugin.js")
+    }));
+}
+
+#[test]
 fn keeps_chatgpt_desktop_and_codex_cli_as_separate_clients() {
     let directory = tempdir().unwrap();
 
