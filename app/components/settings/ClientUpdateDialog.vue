@@ -48,7 +48,12 @@ onBeforeUnmount(() => exitRegistration?.unregister());
     "
   >
     <p class="client-update-dialog__copy">
-      Prelay {{ version }} 已下载。开始安装后，当前应用将退出。
+      Prelay {{ version }} 已下载。安装仅更新本管理客户端。
+    </p>
+    <p class="client-update-dialog__notice">
+      不会关闭已运行的 Codex CLI、ChatGPT 或 Claude
+      Code，也不会影响正在进行的对话和调用。安装时 Prelay
+      将短暂退出，完成后可重新打开。
     </p>
 
     <template #footer>
@@ -69,6 +74,13 @@ onBeforeUnmount(() => exitRegistration?.unregister());
 <style scoped>
 .client-update-dialog__copy {
   margin: 0;
+  color: var(--st-text-secondary);
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.client-update-dialog__notice {
+  margin: var(--spacing-sm) 0 0;
   color: var(--st-text-secondary);
   font-size: 14px;
   line-height: 1.6;

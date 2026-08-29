@@ -126,6 +126,24 @@ test("客户端更新在检查、下载和待安装之间保持明确状态", ()
   expect(update).toContain('state.value = "downloading"');
   expect(update).toContain('state.value = "ready"');
   expect(dialog).toContain("稍后安装");
+  expect(dialog).toContain("安装仅更新本管理客户端");
+  expect(dialog).toMatch(
+    /不会关闭已运行的 Codex CLI、ChatGPT 或 Claude\s+Code/,
+  );
+  expect(dialog).toContain("不会影响正在进行的对话和调用");
+});
+
+test("桌面客户端启动后自动下载可用更新并提示安装", () => {
+  const update = readFileSync(
+    new URL("../app/composables/useClientUpdate.ts", import.meta.url),
+    "utf8",
+  );
+
+  expect(appSource()).toContain("clientUpdate.checkAndDownload()");
+  expect(update).toContain("async function checkAndDownload()");
+  expect(update).toContain("await check()");
+  expect(update).toContain('if (state.value === "available") await download()');
+  expect(update).toContain("checkAndDownload,");
 });
 
 test("桌面和网页标题栏复用 Prelay 图标资产", () => {

@@ -67,6 +67,11 @@ export function useClientUpdate() {
     }
   }
 
+  async function checkAndDownload() {
+    await check();
+    if (state.value === "available") await download();
+  }
+
   function openInstallDialog() {
     if (state.value === "ready") visible.value = true;
   }
@@ -89,6 +94,7 @@ export function useClientUpdate() {
 
   return {
     check,
+    checkAndDownload,
     download,
     installing,
     install,
