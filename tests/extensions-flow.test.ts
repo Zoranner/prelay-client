@@ -53,6 +53,9 @@ test("扩展库沿用智能体工作区的分类表格与单层操作表面", ()
     /function selectExtensionCatalog\(\) \{\s+activeWorkspace\.value = "extensions";\s+void extensionCatalog\.load\(activeExtensionSection\.value\);/,
   );
   expect(page).toContain("watch(activeExtensionSection");
+  expect(page).toMatch(
+    /watch\(activeExtensionSection, \(kind\) => \{\s+if \(activeWorkspace\.value === "extensions"\) void extensionCatalog\.load\(kind, true\);/,
+  );
   expect(page).toContain(
     "extensionCatalog.catalogs.value[activeExtensionSection.value].packages",
   );

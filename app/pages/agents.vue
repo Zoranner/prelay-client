@@ -325,7 +325,8 @@ watch([clientStatusesLoaded, activeWorkspace], refreshActiveClient, {
 });
 
 watch(activeExtensionSection, (kind) => {
-  if (activeWorkspace.value === "extensions") void extensionCatalog.load(kind);
+  if (activeWorkspace.value === "extensions")
+    void extensionCatalog.load(kind, true);
 });
 
 watch(
