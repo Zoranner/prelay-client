@@ -19,8 +19,9 @@ pub use model::{
 
 pub(crate) use discovery::{chatgpt_desktop_version, command_client_version, command_path};
 pub(crate) use items::{
-    deduplicate, error_item, opencode_configuration_path, remove_codex_config_item,
-    remove_codex_plugin, remove_skill_directory, scan_codex, scan_skills, write_json,
+    deduplicate, error_item, opencode_configuration_path, register_codex_plugin,
+    remove_codex_config_item, remove_codex_plugin, remove_skill_directory, scan_codex, scan_skills,
+    upsert_codex_mcp_server, write_json,
 };
 
 #[cfg(test)]

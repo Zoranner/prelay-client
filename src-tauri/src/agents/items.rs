@@ -6,7 +6,8 @@ use std::{
 };
 
 use atomic_write_file::AtomicWriteFile;
-use toml_edit::DocumentMut;
+use prelay_protocol::{ExtensionMcpManifest, ExtensionMcpTransport};
+use toml_edit::{value, Array, DocumentMut, Item, Table};
 
 use super::{
     discovery::agent_client_is_installed,
@@ -252,6 +253,95 @@ pub(crate) fn remove_codex_config_item(
         return Err("未找到要卸载的配置项。".to_string());
     }
     write_text(&config_path, document.to_string().as_bytes())
+}
+
+pub(crate) fn upsert_codex_mcp_server(
+    home: &Path,
+    manifest: &ExtensionMcpManifest,
+) -> Result<(), String> {
+    let config_path = home.join(".codex").join("config.toml");
+    let contents = fs::read_to_string(&config_path).unwrap_or_default();
+    let mut document = contents
+        .parse::<DocumentMut>()
+        .map_err(|error| format!("Codex 配置不是有效的 TOML：{error}"))?;
+    let mut server = Table::new();
+    match &manifest.transport {
+        ExtensionMcpTransport::Stdio {
+            command,
+            cwd,
+            environment,
+            enabled,
+            timeout_ms,
+        } => {
+            server["command"] = value(&command[0]);
+            if command.len() > 1 {
+                server["args"] = value(toml_array(&command[1..]));
+            }
+            if let Some(cwd) = cwd {
+                server["cwd"] = value(cwd);
+            }
+            if !environment.is_empty() {
+                server["env"] = Item::Table(toml_table(environment));
+            }
+            server["enabled"] = value(*enabled);
+            if let Some(timeout_ms) = timeout_ms {
+                server["startup_timeout_sec"] = value(timeout_seconds(*timeout_ms));
+            }
+        }
+        ExtensionMcpTransport::Http {
+            url,
+            headers,
+            enabled,
+            timeout_ms,
+        } => {
+            server["url"] = value(url);
+            if !headers.is_empty() {
+                server["http_headers"] = Item::Table(toml_table(headers));
+            }
+            server["enabled"] = value(*enabled);
+            if let Some(timeout_ms) = timeout_ms {
+                server["startup_timeout_sec"] = value(timeout_seconds(*timeout_ms));
+            }
+        }
+    }
+    if document["mcp_servers"].is_none() {
+        document["mcp_servers"] = Item::Table(Table::new());
+    }
+    document["mcp_servers"][&manifest.name] = Item::Table(server);
+    write_text(&config_path, document.to_string().as_bytes())
+}
+
+pub(crate) fn register_codex_plugin(home: &Path, plugin_id: &str) -> Result<(), String> {
+    let config_path = home.join(".codex").join("config.toml");
+    let contents = fs::read_to_string(&config_path).unwrap_or_default();
+    let mut document = contents
+        .parse::<DocumentMut>()
+        .map_err(|error| format!("Codex 配置不是有效的 TOML：{error}"))?;
+    if document["plugins"].is_none() {
+        document["plugins"] = Item::Table(Table::new());
+    }
+    document["plugins"][plugin_id]["enabled"] = value(true);
+    write_text(&config_path, document.to_string().as_bytes())
+}
+
+fn toml_array(values: &[String]) -> Array {
+    let mut array = Array::new();
+    for value in values {
+        array.push(value.as_str());
+    }
+    array
+}
+
+fn timeout_seconds(timeout_ms: u64) -> i64 {
+    timeout_ms.div_ceil(1_000).min(i64::MAX as u64) as i64
+}
+
+fn toml_table(values: &std::collections::BTreeMap<String, String>) -> Table {
+    let mut table = Table::new();
+    for (name, entry) in values {
+        table[name] = value(entry);
+    }
+    table
 }
 
 pub(crate) fn remove_codex_plugin(home: &Path, name: &str) -> Result<(), String> {

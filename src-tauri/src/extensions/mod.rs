@@ -13,6 +13,11 @@ use crate::{
 
 pub use prelay_protocol::ExtensionKind;
 
+mod mcp;
+mod plugins;
+mod rules;
+mod skills;
+
 const RULES_PATH: &str = "AGENTS.md";
 const SKILLS_PREFIX: &str = "skills/";
 
@@ -104,25 +109,19 @@ pub async fn install_extension(
         ExtensionKind::Rule => {
             let rules = bundle.files.first().expect("validated rule bundle");
             for target in agent_rule_targets(&request.clients, home) {
-                let current = fs::read_to_string(&target).unwrap_or_default();
-                atomic_write(
-                    &target,
-                    merge_managed_rule(&current, &bundle.name, &rules.content).as_bytes(),
-                )?;
+                rules::install_rule(&target, rules)?;
             }
         }
         ExtensionKind::Skill => {
-            for source in bundle.files {
-                let relative = source
-                    .path
-                    .strip_prefix(SKILLS_PREFIX)
-                    .expect("validated skill path");
-                for target_root in agent_skill_target_roots(&request.clients, home) {
-                    atomic_write(&target_root.join(relative), source.content.as_bytes())?;
-                }
+            for target_root in agent_skill_target_roots(&request.clients, home) {
+                skills::install_skill_files(&target_root, &bundle.name, &bundle.files)?;
             }
         }
-        ExtensionKind::Plugin | ExtensionKind::Mcp => unreachable!("validated install bundle"),
+        ExtensionKind::Plugin => plugins::install_plugin(home, &bundle, &request.clients)?,
+        ExtensionKind::Mcp => {
+            let manifest = mcp::read_manifest(&bundle.files)?;
+            mcp::install_mcp(home, &request.clients, &manifest)?;
+        }
     }
     Ok(ExtensionInstallResult {
         message: format!("已安装{}。", bundle.name),
@@ -140,10 +139,10 @@ fn validate_bundle(bundle: &ExtensionInstallBundle) -> Result<(), ClientError> {
         {
             Ok(())
         }
-        ExtensionKind::Plugin | ExtensionKind::Mcp => Err(ClientError::new(
-            "extension_install_unsupported",
-            "插件和 MCP 当前仅支持查看详情。",
-        )),
+        ExtensionKind::Plugin if plugins::valid_plugin_bundle(bundle) => Ok(()),
+        ExtensionKind::Mcp if bundle.files.len() == 1 && bundle.files[0].path == "server.json" => {
+            Ok(())
+        }
         _ => Err(ClientError::new(
             "invalid_response",
             "extension install bundle is invalid",
@@ -157,24 +156,6 @@ fn safe_skill_path(path: &str) -> bool {
         && path
             .split('/')
             .all(|part| !part.is_empty() && !matches!(part, "." | ".."))
-}
-
-fn merge_managed_rule(existing: &str, package: &str, contents: &str) -> String {
-    let start = format!("<!-- prelay-extension:{package}:start -->");
-    let end = format!("<!-- prelay-extension:{package}:end -->");
-    let block = format!("{start}\n{contents}\n{end}");
-    let mut merged = existing.to_string();
-    if let Some(start_index) = merged.find(&start) {
-        if let Some(end_offset) = merged[start_index..].find(&end) {
-            merged.replace_range(start_index..start_index + end_offset + end.len(), &block);
-            return merged;
-        }
-    }
-    if !merged.trim().is_empty() {
-        merged.push_str("\n\n");
-    }
-    merged.push_str(&block);
-    merged
 }
 
 fn atomic_write(path: &Path, contents: &[u8]) -> Result<(), ClientError> {

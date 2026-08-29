@@ -10,7 +10,7 @@
 
 有效 manifest 必须含有 `schema`、`version`、`name`、`summary` 与 `kind`。首期接受 `rule`、`skill`、`plugin`、`mcp` 四类；没有 manifest、JSON 无效、schema 不为 `1`、字段不完整或 kind 未知的仓库不出现在目录中。
 
-当前组织实际包含规则和 Skill 包，因此首期只执行这两类安装。插件和 MCP 包可以被发现、展示和预览，但安装操作返回明确的“暂不支持”错误，直到对应官方配置合并策略实现。
+规则、Skill、插件和 MCP 都由原生层安装。规则完整替换各智能体的 `AGENTS.md`；Skill 先清理同包旧目录再完整写入；插件和 MCP 分别转换为 Codex/ChatGPT 与 OpenCode 的本地文件、缓存和配置格式。
 
 ## 交互
 
