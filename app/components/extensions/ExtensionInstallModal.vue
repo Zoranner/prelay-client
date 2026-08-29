@@ -82,7 +82,7 @@ watch(
 <template>
   <Modal
     :visible="visible"
-    :title="extension ? `安装${extension.repository}` : '安装扩展'"
+    :title="extension ? `安装 ${extension.name}` : '安装扩展'"
     size="large"
     :blocked="installing"
     :show-cancel="false"
@@ -93,8 +93,8 @@ watch(
       <Select
         :model-value="selectedClients"
         :options="clientOptions"
-        label="安装到"
-        placeholder="选择客户端"
+        label="安装到智能体"
+        placeholder="选择智能体"
         multiple
         @update:model-value="selectClients"
       />
