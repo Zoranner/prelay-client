@@ -54,11 +54,16 @@ pub fn run() {
             crate::preferences::autostart::apply_default_when_preferences_are_missing(
                 app.handle(),
                 &state.desktop_preferences,
-            )
-            .map_err(std::io::Error::other)?;
-            let start_silently =
-                crate::preferences::autostart::should_start_silently(&state.desktop_preferences)
-                    .map_err(std::io::Error::other)?;
+            );
+            let start_silently = match crate::preferences::autostart::should_start_silently(
+                &state.desktop_preferences,
+            ) {
+                Ok(start_silently) => start_silently,
+                Err(error) => {
+                    eprintln!("failed to read Prelay desktop preferences: {error}");
+                    false
+                }
+            };
             app.manage(state);
             crate::preferences::tray::install(app.handle())?;
             if !start_silently {

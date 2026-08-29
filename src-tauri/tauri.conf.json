@@ -1,8 +1,8 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "Prelay",
-  "version": "0.1.3",
-  "identifier": "kim.rd.prelay",
+  "version": "0.1.4",
+  "identifier": "ink.zoran.prelay",
   "build": {
     "beforeDevCommand": "bun run dev",
     "devUrl": "http://localhost:18081",
@@ -32,6 +32,7 @@
   "bundle": {
     "active": true,
     "targets": "all",
+    "publisher": "Zoranner",
     "icon": ["icons/icon.ico", "icons/icon.png"]
   }
 }

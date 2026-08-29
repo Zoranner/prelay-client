@@ -24,10 +24,12 @@ pub(crate) use items::{
     write_json,
 };
 
+#[cfg(all(test, windows))]
+pub(crate) use discovery::newest_chatgpt_desktop_version;
+
 #[cfg(test)]
 pub(crate) use discovery::{
     agent_client_statuses_with, command_path_in, command_version_from_output,
-    newest_chatgpt_desktop_version,
 };
 #[cfg(test)]
 pub(crate) use items::{scan_user_items_with_installation, uninstall_user_item_with_installation};

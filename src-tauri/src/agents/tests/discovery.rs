@@ -1,15 +1,17 @@
-use std::fs;
 #[cfg(windows)]
 use std::time::{Duration, Instant};
+use std::{fs, path::Path};
 
 use tempfile::tempdir;
 
 #[cfg(windows)]
 use super::super::command_client_version;
+#[cfg(windows)]
+use super::super::newest_chatgpt_desktop_version;
 use super::super::{
     agent_client_statuses_with, command_path_in, command_version_from_output,
-    newest_chatgpt_desktop_version, scan_user_items_with_installation, AgentClient,
-    AgentClientVersion, AgentItemKind, AgentItemStatus,
+    scan_user_items_with_installation, AgentClient, AgentClientVersion, AgentItemKind,
+    AgentItemStatus,
 };
 use super::write;
 
@@ -165,11 +167,12 @@ fn names_a_local_opencode_plugin_after_its_plugin_directory() {
     let snapshot = scan_user_items_with_installation(directory.path(), |client| {
         client == AgentClient::OpenCode
     });
+    let plugin_path = Path::new("plugins").join("caveman").join("plugin.js");
 
     assert!(snapshot.clients[0].items.iter().any(|item| {
         item.kind == AgentItemKind::Plugin
             && item.name == "caveman"
-            && item.source_path.ends_with("plugins\\caveman\\plugin.js")
+            && Path::new(&item.source_path).ends_with(&plugin_path)
     }));
 }
 
@@ -234,6 +237,7 @@ fn reads_a_version_from_a_command_that_finishes_within_five_seconds() {
     assert!(started_at.elapsed() >= Duration::from_millis(2_800));
 }
 
+#[cfg(windows)]
 #[test]
 fn uses_the_newest_chatgpt_desktop_package_version() {
     let version = newest_chatgpt_desktop_version([

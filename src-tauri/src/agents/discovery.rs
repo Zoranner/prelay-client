@@ -129,6 +129,7 @@ fn string_from_wide(value: &[u16]) -> Option<String> {
     String::from_utf16(&value[..end]).ok()
 }
 
+#[cfg(windows)]
 pub(crate) fn newest_chatgpt_desktop_version<'a>(
     package_names: impl IntoIterator<Item = &'a str>,
 ) -> Option<String> {
