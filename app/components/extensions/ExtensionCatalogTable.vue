@@ -30,7 +30,7 @@ async function copyRepositoryUrl(repository: string) {
 const columns = [
   { key: "name", title: "名称", width: 180, ellipsis: true },
   { key: "version", title: "版本", width: 112, ellipsis: true },
-  { key: "source", title: "参考来源", minWidth: 240, ellipsis: true },
+  { key: "source", title: "仓库地址", minWidth: 240, ellipsis: true },
   {
     key: "actions",
     title: "操作",

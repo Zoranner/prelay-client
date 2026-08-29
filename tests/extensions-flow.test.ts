@@ -4,7 +4,7 @@ import { readFileSync } from "node:fs";
 const source = (path: string) =>
   readFileSync(new URL(`../app/${path}`, import.meta.url), "utf8");
 
-test("扩展表格显示名称、版本和可复制的参考来源", () => {
+test("扩展表格显示名称、版本和可复制的仓库地址", () => {
   const catalogTable = source(
     "components/extensions/ExtensionCatalogTable.vue",
   );
@@ -12,7 +12,7 @@ test("扩展表格显示名称、版本和可复制的参考来源", () => {
   expect(catalogTable).toContain("function repositoryUrl");
   expect(catalogTable).toContain("function copyRepositoryUrl");
   expect(catalogTable).toContain('key: "name", title: "名称"');
-  expect(catalogTable).toContain('key: "source", title: "参考来源"');
+  expect(catalogTable).toContain('key: "source", title: "仓库地址"');
   expect(catalogTable).toContain("#cell-name");
   expect(catalogTable).toContain("#cell-source");
   expect(catalogTable).toContain("row.name");
@@ -54,7 +54,7 @@ test("扩展库沿用智能体工作区的分类表格与单层操作表面", ()
   );
   expect(page).toContain("watch(activeExtensionSection");
   expect(page).toMatch(
-    /watch\(activeExtensionSection, \(kind\) => \{\s+if \(activeWorkspace\.value === "extensions"\) void extensionCatalog\.load\(kind, true\);/,
+    /watch\(activeExtensionSection, \(kind\) => \{\s+if \(activeWorkspace\.value === "extensions"\)\s+void extensionCatalog\.load\(kind, true\);/,
   );
   expect(page).toContain(
     "extensionCatalog.catalogs.value[activeExtensionSection.value].packages",
