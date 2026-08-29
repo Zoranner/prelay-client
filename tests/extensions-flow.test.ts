@@ -4,17 +4,18 @@ import { readFileSync } from "node:fs";
 const source = (path: string) =>
   readFileSync(new URL(`../app/${path}`, import.meta.url), "utf8");
 
-test("扩展表格显示仓库、版本和可复制的参考来源", () => {
+test("扩展表格显示名称、版本和可复制的参考来源", () => {
   const catalogTable = source(
     "components/extensions/ExtensionCatalogTable.vue",
   );
 
   expect(catalogTable).toContain("function repositoryUrl");
   expect(catalogTable).toContain("function copyRepositoryUrl");
-  expect(catalogTable).toContain('key: "repository", title: "仓库"');
+  expect(catalogTable).toContain('key: "name", title: "名称"');
   expect(catalogTable).toContain('key: "source", title: "参考来源"');
-  expect(catalogTable).toContain("#cell-repository");
+  expect(catalogTable).toContain("#cell-name");
   expect(catalogTable).toContain("#cell-source");
+  expect(catalogTable).toContain("row.name");
   expect(catalogTable).toContain("repositoryUrl(row.repository)");
   expect(catalogTable).toContain('target="_blank"');
   expect(catalogTable).toContain('icon="ph:copy"');
@@ -22,7 +23,6 @@ test("扩展表格显示仓库、版本和可复制的参考来源", () => {
   expect(catalogTable).not.toContain('icon="ph:arrow-square-out"');
   expect(catalogTable).not.toContain('key: "summary"');
   expect(catalogTable).not.toContain("row.summary");
-  expect(catalogTable).not.toContain("row.name");
   expect(catalogTable).toContain("return repository;");
   expect(catalogTable).not.toContain("https://git.kimo.ink/agents/");
 });
@@ -53,6 +53,12 @@ test("扩展库沿用智能体工作区的分类表格与单层操作表面", ()
     /function selectExtensionCatalog\(\) \{\s+activeWorkspace\.value = "extensions";\s+void extensionCatalog\.load\(activeExtensionSection\.value\);/,
   );
   expect(page).toContain("watch(activeExtensionSection");
+  expect(page).toContain(
+    "extensionCatalog.catalogs.value[activeExtensionSection.value].packages",
+  );
+  expect(page).not.toContain(
+    "extensionCatalog.packages(activeExtensionSection.value)",
+  );
   expect(page).toContain(
     "extensionCatalog.loading.value[activeExtensionSection]",
   );

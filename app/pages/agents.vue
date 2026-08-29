@@ -145,8 +145,8 @@ const sectionItems = computed(() =>
     ? activeItems.value.filter((item) => item.kind === activeKind.value)
     : [],
 );
-const extensionPackages = extensionCatalog.packages(
-  activeExtensionSection.value,
+const extensionPackages = computed(
+  () => extensionCatalog.catalogs.value[activeExtensionSection.value].packages,
 );
 const pending = computed(() => agentsPending.value || endpointsPending.value);
 const activeClientDetected = computed(() =>
