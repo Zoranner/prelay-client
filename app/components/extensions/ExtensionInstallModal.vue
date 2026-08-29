@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { Button, Modal, Select } from "@stellar/ui";
 import type { AgentClient, ExtensionPackage } from "~/stores/relay";
+import { synchronizeExtensionInstallSelection } from "~/utils/extensionInstallSelection";
 
 const visible = defineModel<boolean>("visible", { default: false });
 const props = defineProps<{
@@ -32,28 +33,13 @@ const clientOptions = computed(() => [
 ]);
 
 function selectClients(values: AgentClient[]) {
-  const next = new Set(values);
-  const previous = new Set(selectedClients.value);
-  const codexChanged = next.has("codexCli") !== previous.has("codexCli");
-  const chatgptChanged = next.has("chatgpt") !== previous.has("chatgpt");
-  const nextClients: AgentClient[] = values.filter(
-    (client) => client !== "codexCli" && client !== "chatgpt",
-  );
-
-  if (codexChanged || chatgptChanged) {
-    const selectCodexHost = codexChanged
-      ? next.has("codexCli")
-      : next.has("chatgpt");
-    if (selectCodexHost) {
-      if (detected.value.has("codexCli")) nextClients.push("codexCli");
-      if (detected.value.has("chatgpt")) nextClients.push("chatgpt");
-    }
-  } else {
-    if (next.has("codexCli")) nextClients.push("codexCli");
-    if (next.has("chatgpt")) nextClients.push("chatgpt");
-  }
-
-  selectedClients.value = nextClients;
+  if (!props.extension) return;
+  selectedClients.value = synchronizeExtensionInstallSelection({
+    detected: props.detectedClients,
+    kind: props.extension.kind,
+    next: values,
+    previous: selectedClients.value,
+  });
 }
 
 async function install() {
