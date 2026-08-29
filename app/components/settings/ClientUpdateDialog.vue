@@ -51,8 +51,8 @@ onBeforeUnmount(() => exitRegistration?.unregister());
       Prelay {{ version }} 已下载。安装仅更新本管理客户端。
     </p>
     <p class="client-update-dialog__notice">
-      不会关闭已运行的 Codex CLI、ChatGPT 或 Claude
-      Code，也不会影响正在进行的对话和调用。安装时 Prelay
+      不会关闭已运行的 Codex CLI 或
+      ChatGPT，也不会影响正在进行的对话和调用。安装时 Prelay
       将短暂退出，完成后可重新打开。
     </p>
 

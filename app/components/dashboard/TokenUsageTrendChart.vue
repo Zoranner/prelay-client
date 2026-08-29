@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import * as echarts from "echarts";
 import { Card } from "@stellar/ui";
+import type * as ECharts from "echarts";
 
 import type { StatsRange, TokenUsageTimelinePoint } from "~/stores/relay";
 import { parseTimelineBucket } from "~/utils/stats";
@@ -11,8 +11,10 @@ const props = defineProps<{
 }>();
 
 const chartElement = ref<HTMLElement | null>(null);
-let chart: echarts.ECharts | undefined;
+let chart: ECharts.ECharts | undefined;
 let resizeObserver: ResizeObserver | undefined;
+let echarts: typeof import("echarts") | undefined;
+let disposed = false;
 
 function formatBucket(bucket: string) {
   const date = parseTimelineBucket(bucket);
@@ -168,8 +170,10 @@ function renderChart() {
   });
 }
 
-onMounted(() => {
+onMounted(async () => {
   if (!chartElement.value) return;
+  echarts = await import("echarts");
+  if (disposed || !chartElement.value || !echarts) return;
   chart = echarts.init(chartElement.value);
   renderChart();
   window.addEventListener("prelay:theme-changed", renderChart);
@@ -180,6 +184,7 @@ onMounted(() => {
 watch([categories, cacheHitRates, () => props.range], renderChart);
 
 onBeforeUnmount(() => {
+  disposed = true;
   window.removeEventListener("prelay:theme-changed", renderChart);
   resizeObserver?.disconnect();
   chart?.dispose();
