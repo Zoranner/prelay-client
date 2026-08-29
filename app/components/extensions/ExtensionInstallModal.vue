@@ -1,11 +1,11 @@
 <script setup lang="ts">
 import { Button, Modal, Select } from "@stellar/ui";
-import type { AgentClient, ExtensionPackage } from "~/stores/relay";
+import type { AgentClient, ExtensionCatalogPackage } from "~/stores/relay";
 import { synchronizeExtensionInstallSelection } from "~/utils/extensionInstallSelection";
 
 const visible = defineModel<boolean>("visible", { default: false });
 const props = defineProps<{
-  extension: ExtensionPackage | null;
+  extension: ExtensionCatalogPackage | null;
   detectedClients: AgentClient[];
 }>();
 const emit = defineEmits<{ installed: [] }>();

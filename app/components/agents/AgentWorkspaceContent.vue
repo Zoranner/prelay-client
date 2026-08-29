@@ -4,8 +4,8 @@ import type {
   AgentClient,
   AgentItem,
   AgentItemKind,
-  ExtensionKind,
-  ExtensionPackage,
+  ExtensionCatalogKind,
+  ExtensionCatalogPackage,
 } from "~/stores/relay";
 import AgentItemList from "~/components/agents/AgentItemList.vue";
 import AgentRulesEditor from "~/components/agents/AgentRulesEditor.vue";
@@ -20,14 +20,14 @@ type SectionOption<T extends string> = {
 
 defineProps<{
   activeClient: AgentClient;
-  activeExtensionSection: ExtensionKind;
+  activeExtensionSection: ExtensionCatalogKind;
   activeSection: AgentSection;
   clientContentLoading: boolean;
   clientInstalled: boolean;
   clientStatusesLoaded: boolean;
   extensionLoading: boolean;
-  extensionPackages: ExtensionPackage[];
-  extensionSectionOptions: SectionOption<ExtensionKind>[];
+  extensionPackages: ExtensionCatalogPackage[];
+  extensionSectionOptions: SectionOption<ExtensionCatalogKind>[];
   itemPending: boolean;
   rules: string;
   sectionItems: AgentItem[];
@@ -36,11 +36,11 @@ defineProps<{
 }>();
 
 const emit = defineEmits<{
-  detail: [extension: ExtensionPackage];
-  install: [extension: ExtensionPackage];
+  detail: [extension: ExtensionCatalogPackage];
+  install: [extension: ExtensionCatalogPackage];
   openSettings: [];
   uninstall: [item: AgentItem];
-  "update:activeExtensionSection": [section: ExtensionKind];
+  "update:activeExtensionSection": [section: ExtensionCatalogKind];
   "update:activeSection": [section: AgentSection];
   "update:rules": [rules: string];
 }>();
@@ -52,7 +52,7 @@ function updateActiveSection(value: string | number | boolean | null) {
 
 function updateExtensionSection(value: string | number | boolean | null) {
   if (typeof value === "string") {
-    emit("update:activeExtensionSection", value as ExtensionKind);
+    emit("update:activeExtensionSection", value as ExtensionCatalogKind);
   }
 }
 </script>

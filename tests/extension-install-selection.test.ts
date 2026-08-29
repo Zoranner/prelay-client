@@ -5,8 +5,8 @@ import {
   synchronizeExtensionInstallSelection,
 } from "../app/utils/extensionInstallSelection";
 
-test("规则、插件和 MCP 只联动 Codex CLI 与 ChatGPT", () => {
-  for (const kind of ["rule", "plugin", "mcp"] as const) {
+test("规则和插件只联动 Codex CLI 与 ChatGPT", () => {
+  for (const kind of ["rule", "plugin"] as const) {
     expect(linkedAgentsForExtension(kind)).toEqual(["codexCli", "chatgpt"]);
   }
 });

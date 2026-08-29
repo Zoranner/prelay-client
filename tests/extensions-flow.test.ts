@@ -37,6 +37,7 @@ test("扩展库沿用智能体工作区的分类表格与单层操作表面", ()
   const installModal = source(
     "components/extensions/ExtensionInstallModal.vue",
   );
+  const catalog = source("composables/useExtensionCatalog.ts");
 
   expect(sidebar).toContain("扩展库");
   expect(workspace).toContain("<ExtensionCatalogTable");
@@ -44,8 +45,14 @@ test("扩展库沿用智能体工作区的分类表格与单层操作表面", ()
   expect(page).toContain("<ExtensionInstallModal");
   expect(page).toContain('value: "rule"');
   expect(page).toContain('value: "plugin"');
-  expect(page).toContain('value: "mcp"');
   expect(page).toContain('value: "skill"');
+  expect(catalog).not.toContain("mcp:");
+  expect(source("stores/relay.ts")).toContain(
+    'export type ExtensionCatalogPackage = Omit<ExtensionPackage, "kind"> & {',
+  );
+  expect(source("stores/relay.ts")).toContain(
+    "packages: ExtensionCatalogPackage[];",
+  );
   expect(page).toContain('type AgentWorkspace = AgentClient | "extensions";');
   expect(sidebar).toContain(':active="activeWorkspace === client.client"');
   expect(sidebar).toContain(":active=\"activeWorkspace === 'extensions'\"");

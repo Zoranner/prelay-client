@@ -5,8 +5,8 @@ import type {
   AgentItem,
   AgentItemKind,
   BootstrapState,
-  ExtensionKind,
-  ExtensionPackage,
+  ExtensionCatalogKind,
+  ExtensionCatalogPackage,
   RelayEndpoint,
 } from "~/stores/relay";
 import { useRelayStore } from "~/stores/relay";
@@ -47,8 +47,8 @@ const activeClient = computed<AgentClient>(() =>
     : activeWorkspace.value,
 );
 const activeSection = ref<AgentSection>("rules");
-const activeExtensionSection = ref<ExtensionKind>("rule");
-const selectedExtension = ref<ExtensionPackage | null>(null);
+const activeExtensionSection = ref<ExtensionCatalogKind>("rule");
+const selectedExtension = ref<ExtensionCatalogPackage | null>(null);
 const showExtensionDetails = ref(false);
 const showExtensionInstall = ref(false);
 let settingsExitRegistration:
@@ -125,13 +125,12 @@ const availableSectionOptions = computed(() => {
   );
 });
 const extensionSectionOptions: Array<{
-  value: ExtensionKind;
+  value: ExtensionCatalogKind;
   label: string;
   icon: string;
 }> = [
   { value: "rule", label: "规则", icon: "ph:notebook" },
   { value: "plugin", label: "插件", icon: "ph:puzzle-piece" },
-  { value: "mcp", label: "MCP", icon: "ph:terminal-window" },
   { value: "skill", label: "Skill", icon: "ph:book-open-text" },
 ];
 const activeItems = computed(
@@ -188,12 +187,12 @@ function selectExtensionCatalog() {
   void extensionCatalog.load(activeExtensionSection.value);
 }
 
-function openExtensionDetails(extension: ExtensionPackage) {
+function openExtensionDetails(extension: ExtensionCatalogPackage) {
   selectedExtension.value = extension;
   showExtensionDetails.value = true;
 }
 
-function openExtensionInstall(extension: ExtensionPackage) {
+function openExtensionInstall(extension: ExtensionCatalogPackage) {
   selectedExtension.value = extension;
   showExtensionInstall.value = true;
 }

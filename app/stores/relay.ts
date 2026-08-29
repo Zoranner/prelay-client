@@ -175,6 +175,7 @@ export interface AgentClientStatus {
 }
 
 export type ExtensionKind = "rule" | "plugin" | "mcp" | "skill";
+export type ExtensionCatalogKind = Exclude<ExtensionKind, "mcp">;
 
 export interface ExtensionPackage {
   name: string;
@@ -184,8 +185,12 @@ export interface ExtensionPackage {
   kind: ExtensionKind;
 }
 
+export type ExtensionCatalogPackage = Omit<ExtensionPackage, "kind"> & {
+  kind: ExtensionCatalogKind;
+};
+
 export interface ExtensionCatalogSnapshot {
-  packages: ExtensionPackage[];
+  packages: ExtensionCatalogPackage[];
 }
 
 export type CodexSettings = Partial<{

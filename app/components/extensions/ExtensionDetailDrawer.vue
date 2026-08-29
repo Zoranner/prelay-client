@@ -1,10 +1,10 @@
 <script setup lang="ts">
 import { Button, Drawer, Loading, MarkdownViewer } from "@stellar/ui";
-import type { ExtensionPackage } from "~/stores/relay";
+import type { ExtensionCatalogPackage } from "~/stores/relay";
 
 const visible = defineModel<boolean>("visible", { default: false });
 const props = defineProps<{
-  extension: ExtensionPackage | null;
+  extension: ExtensionCatalogPackage | null;
 }>();
 const { invokeLocalCommand } = useLocalCommand();
 const readme = ref("");

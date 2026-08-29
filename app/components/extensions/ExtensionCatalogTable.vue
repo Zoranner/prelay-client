@@ -1,16 +1,16 @@
 <script setup lang="ts">
 import { Button, Table, useNotification } from "@stellar/ui";
-import type { ExtensionPackage } from "~/stores/relay";
+import type { ExtensionCatalogPackage } from "~/stores/relay";
 
-type ExtensionRow = ExtensionPackage & Record<string, unknown>;
+type ExtensionRow = ExtensionCatalogPackage & Record<string, unknown>;
 
 defineProps<{
-  packages: ExtensionPackage[];
+  packages: ExtensionCatalogPackage[];
   pending?: boolean;
 }>();
 const emit = defineEmits<{
-  detail: [item: ExtensionPackage];
-  install: [item: ExtensionPackage];
+  detail: [item: ExtensionCatalogPackage];
+  install: [item: ExtensionCatalogPackage];
 }>();
 const notifications = useNotification();
 

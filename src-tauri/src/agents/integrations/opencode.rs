@@ -3,8 +3,7 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use prelay_protocol::{ExtensionMcpManifest, ExtensionMcpTransport};
-use serde_json::{json, Map, Value};
+use serde_json::Value;
 
 use super::{AgentIntegration, AgentItem, AgentItemKind};
 use crate::agents::{
@@ -187,81 +186,4 @@ fn remove_plugin_entry(path: &Path, name: &str) -> Result<(), String> {
         return Err("未找到要卸载的插件登记。".to_string());
     }
     write_json(path, &document)
-}
-
-pub(crate) fn upsert_mcp_server(
-    home: &Path,
-    manifest: &ExtensionMcpManifest,
-) -> Result<(), String> {
-    let path = configuration_path(home);
-    let mut document = if path.is_file() {
-        read_config(&path).map_err(|_| "OpenCode 配置不是有效的 JSONC。".to_string())?
-    } else {
-        json!({})
-    };
-    let server = match &manifest.transport {
-        ExtensionMcpTransport::Stdio {
-            command,
-            cwd,
-            environment,
-            enabled,
-            timeout_ms,
-        } => {
-            let mut server = Map::from_iter([
-                ("type".to_string(), Value::String("local".to_string())),
-                (
-                    "command".to_string(),
-                    Value::Array(command.iter().cloned().map(Value::String).collect()),
-                ),
-                ("enabled".to_string(), Value::Bool(*enabled)),
-            ]);
-            if let Some(cwd) = cwd {
-                server.insert("cwd".to_string(), Value::String(cwd.clone()));
-            }
-            if !environment.is_empty() {
-                server.insert(
-                    "environment".to_string(),
-                    serde_json::to_value(environment)
-                        .map_err(|error| format!("无法序列化 MCP 环境变量：{error}"))?,
-                );
-            }
-            if let Some(timeout_ms) = timeout_ms {
-                server.insert("timeout".to_string(), Value::Number((*timeout_ms).into()));
-            }
-            Value::Object(server)
-        }
-        ExtensionMcpTransport::Http {
-            url,
-            headers,
-            enabled,
-            timeout_ms,
-        } => {
-            let mut server = Map::from_iter([
-                ("type".to_string(), Value::String("remote".to_string())),
-                ("url".to_string(), Value::String(url.clone())),
-                ("enabled".to_string(), Value::Bool(*enabled)),
-            ]);
-            if !headers.is_empty() {
-                server.insert(
-                    "headers".to_string(),
-                    serde_json::to_value(headers)
-                        .map_err(|error| format!("无法序列化 MCP 请求头：{error}"))?,
-                );
-            }
-            if let Some(timeout_ms) = timeout_ms {
-                server.insert("timeout".to_string(), Value::Number((*timeout_ms).into()));
-            }
-            Value::Object(server)
-        }
-    };
-    let config = document
-        .as_object_mut()
-        .ok_or_else(|| "OpenCode 配置必须是对象。".to_string())?;
-    let mcp = config
-        .entry("mcp")
-        .or_insert_with(|| Value::Object(Map::new()))
-        .as_object_mut()
-        .ok_or_else(|| "OpenCode MCP 配置必须是对象。".to_string())?;
-    mcp.insert(manifest.name.clone(), server);
-    write_json(&path, &document)
 }

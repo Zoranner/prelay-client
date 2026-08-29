@@ -1,26 +1,25 @@
 import type {
+  ExtensionCatalogKind,
   ExtensionCatalogSnapshot,
-  ExtensionPackage,
 } from "~/stores/relay";
 
 function emptyCatalog(): ExtensionCatalogSnapshot {
   return { packages: [] };
 }
 
-type CatalogState = Record<ExtensionPackage["kind"], ExtensionCatalogSnapshot>;
-type LoadingState = Record<ExtensionPackage["kind"], boolean>;
-type LoadedState = Record<ExtensionPackage["kind"], boolean>;
+type CatalogState = Record<ExtensionCatalogKind, ExtensionCatalogSnapshot>;
+type LoadingState = Record<ExtensionCatalogKind, boolean>;
+type LoadedState = Record<ExtensionCatalogKind, boolean>;
 
 function emptyCatalogs(): CatalogState {
   return {
     rule: emptyCatalog(),
     skill: emptyCatalog(),
     plugin: emptyCatalog(),
-    mcp: emptyCatalog(),
   };
 }
 
-const loadPromises = new Map<ExtensionPackage["kind"], Promise<void>>();
+const loadPromises = new Map<ExtensionCatalogKind, Promise<void>>();
 let generation = 0;
 
 export function useExtensionCatalog() {
@@ -30,16 +29,14 @@ export function useExtensionCatalog() {
     rule: false,
     skill: false,
     plugin: false,
-    mcp: false,
   }));
   const loading = useState<LoadingState>("extension-catalog-loading", () => ({
     rule: false,
     skill: false,
     plugin: false,
-    mcp: false,
   }));
 
-  async function load(kind: ExtensionPackage["kind"], force = false) {
+  async function load(kind: ExtensionCatalogKind, force = false) {
     if (loaded.value[kind] && !force) return;
     if (loadPromises.has(kind)) return loadPromises.get(kind);
 
@@ -65,7 +62,7 @@ export function useExtensionCatalog() {
     return request;
   }
 
-  function packages(kind: ExtensionPackage["kind"]) {
+  function packages(kind: ExtensionCatalogKind) {
     return computed(() => catalogs.value[kind].packages);
   }
 
@@ -73,8 +70,8 @@ export function useExtensionCatalog() {
     generation += 1;
     loadPromises.clear();
     catalogs.value = emptyCatalogs();
-    loaded.value = { rule: false, skill: false, plugin: false, mcp: false };
-    loading.value = { rule: false, skill: false, plugin: false, mcp: false };
+    loaded.value = { rule: false, skill: false, plugin: false };
+    loading.value = { rule: false, skill: false, plugin: false };
   }
 
   return { catalogs, loaded, loading, load, packages, invalidate };

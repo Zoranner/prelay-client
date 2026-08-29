@@ -1,9 +1,11 @@
-import type { AgentClient, ExtensionKind } from "~/stores/relay";
+import type { AgentClient, ExtensionCatalogKind } from "~/stores/relay";
 
 const codexHostAgents: AgentClient[] = ["codexCli", "chatgpt"];
 const allAgents: AgentClient[] = ["codexCli", "chatgpt", "openCode"];
 
-export function linkedAgentsForExtension(kind: ExtensionKind): AgentClient[] {
+export function linkedAgentsForExtension(
+  kind: ExtensionCatalogKind,
+): AgentClient[] {
   return kind === "skill" ? allAgents : codexHostAgents;
 }
 
@@ -14,7 +16,7 @@ export function synchronizeExtensionInstallSelection({
   previous,
 }: {
   detected: AgentClient[];
-  kind: ExtensionKind;
+  kind: ExtensionCatalogKind;
   next: AgentClient[];
   previous: AgentClient[];
 }): AgentClient[] {

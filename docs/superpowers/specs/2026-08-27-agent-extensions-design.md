@@ -8,13 +8,13 @@
 
 首期只读取组织仓库和 `.prelay.json`，不经 Prelay 服务端或共享协议。组织地址固定，不提供来源配置、多源管理、认证令牌或远程脚本执行。
 
-有效 manifest 必须含有 `schema`、`version`、`name`、`summary` 与 `kind`。首期接受 `rule`、`skill`、`plugin`、`mcp` 四类；没有 manifest、JSON 无效、schema 不为 `1`、字段不完整或 kind 未知的仓库不出现在目录中。
+有效 manifest 必须含有 `schema`、`version`、`name`、`summary` 与 `kind`。扩展服务可发现 `rule`、`skill`、`plugin`、`mcp` 四类；桌面端扩展库只展示前三类，MCP 不在目录中展示或安装。没有 manifest、JSON 无效、schema 不为 `1`、字段不完整或 kind 未知的仓库不出现在目录中。
 
-规则、Skill、插件和 MCP 都由原生层安装。规则完整替换各智能体的 `AGENTS.md`；Skill 先清理同包旧目录再完整写入；插件和 MCP 分别转换为 Codex/ChatGPT 与 OpenCode 的本地文件、缓存和配置格式。
+规则、Skill 和插件由原生层安装。规则完整替换各智能体的 `AGENTS.md`；Skill 先清理同包旧目录再完整写入；插件写入 Codex/ChatGPT 的本地文件、缓存和配置。MCP 保留在智能体本地配置的扫描、设置和卸载链路中，不由扩展库安装。
 
 ## 交互
 
-“扩展库”位于智能体页左侧客户端列表底部，与 Codex CLI、ChatGPT、Claude Code 之间有分隔线。选中它后，右侧保留当前工作区模式：顶部使用 `规则 / 插件 / MCP / Skill` 分段切换，下方是所选类别的表格。
+“扩展库”位于智能体页左侧客户端列表底部，与 Codex CLI、ChatGPT、OpenCode 之间有分隔线。选中它后，右侧保留当前工作区模式：顶部使用 `规则 / 插件 / Skill` 分段切换，下方是所选类别的表格。
 
 表格只显示名称、版本、摘要和操作，不显示安装状态。操作列固定为查看详情和安装两个图标按钮。查看详情打开右侧抽屉，仅渲染 README 以及包的版本和类型。安装打开普通模态框，不从详情抽屉继续打开嵌套表面。
 

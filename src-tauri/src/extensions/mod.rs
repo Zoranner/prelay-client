@@ -13,7 +13,6 @@ use crate::{
 
 pub use prelay_protocol::ExtensionKind;
 
-mod mcp;
 mod plugins;
 mod rules;
 mod skills;
@@ -58,7 +57,12 @@ pub async fn list_extensions(
         ExtensionKind::Rule => "/api/extensions/rules",
         ExtensionKind::Skill => "/api/extensions/skills",
         ExtensionKind::Plugin => "/api/extensions/plugins",
-        ExtensionKind::Mcp => "/api/extensions/mcp",
+        ExtensionKind::Mcp => {
+            return Err(ClientError::new(
+                "extension_kind_unavailable",
+                "MCP 扩展当前未开放。",
+            ));
+        }
     };
     let client = authenticated_api(state).await?;
     let summaries: Vec<ExtensionSummary> = client.get(path).await?;
@@ -96,6 +100,12 @@ pub async fn install_extension(
     state: &NativeState,
     request: &ExtensionInstallRequest,
 ) -> Result<ExtensionInstallResult, ClientError> {
+    if request.package.kind == ExtensionKind::Mcp {
+        return Err(ClientError::new(
+            "extension_kind_unavailable",
+            "MCP 扩展当前未开放安装。",
+        ));
+    }
     let client = authenticated_api(state).await?;
     let bundle: ExtensionInstallBundle = client
         .get(&format!(
@@ -118,10 +128,7 @@ pub async fn install_extension(
             }
         }
         ExtensionKind::Plugin => plugins::install_plugin(home, &bundle, &request.clients)?,
-        ExtensionKind::Mcp => {
-            let manifest = mcp::read_manifest(&bundle.files)?;
-            mcp::install_mcp(home, &request.clients, &manifest)?;
-        }
+        ExtensionKind::Mcp => unreachable!("MCP installation is disabled"),
     }
     Ok(ExtensionInstallResult {
         message: format!("已安装{}。", bundle.name),
@@ -140,9 +147,6 @@ fn validate_bundle(bundle: &ExtensionInstallBundle) -> Result<(), ClientError> {
             Ok(())
         }
         ExtensionKind::Plugin if plugins::valid_plugin_bundle(bundle) => Ok(()),
-        ExtensionKind::Mcp if bundle.files.len() == 1 && bundle.files[0].path == "server.json" => {
-            Ok(())
-        }
         _ => Err(ClientError::new(
             "invalid_response",
             "extension install bundle is invalid",
