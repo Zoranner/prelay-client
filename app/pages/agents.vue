@@ -4,7 +4,6 @@ import type {
   AgentClient,
   AgentItem,
   AgentItemKind,
-  AgentSettings,
   BootstrapState,
   ExtensionKind,
   ExtensionPackage,
@@ -63,6 +62,7 @@ const agentSettings = useAgentSettings({
   endpoints,
   reloadSettings: agentWorkspace.reloadSettings,
   save: (request) => invokeLocalCommand("agent_settings_save", request),
+  settings: cachedAgentSettings,
 });
 const {
   close: closeSettings,
@@ -72,7 +72,6 @@ const {
   discard: discardSettingsDraft,
   draft: settingsDraft,
   endpointOptions,
-  hydrate: hydrateSettingsDraft,
   modelOptions,
   open: openSettings,
   save: saveAgentSettings,
@@ -82,6 +81,11 @@ const agentRules = useAgentRules({
   configuration: agentConfiguration,
   reloadSettings: agentWorkspace.reloadSettings,
   save: (request) => invokeLocalCommand("agent_settings_save", request),
+});
+useAgentRulesHydration({
+  activeClient,
+  settings: cachedAgentSettings,
+  hydrate: agentRules.hydrate,
 });
 const activeRules = computed({
   get: () => agentRules.draft[activeClient.value],
@@ -252,11 +256,6 @@ function refreshActiveClient() {
   }
 }
 
-function hydrateAgentSettings(value: AgentSettings) {
-  hydrateSettingsDraft(value);
-  agentRules.hydrate(value.client, value.client === activeClient.value);
-}
-
 async function uninstallAgentItem(item: AgentItem) {
   const kindLabel = { mcp: "MCP", plugin: "插件", skill: "Skill" }[item.kind];
   const confirmed = await confirmAction({
@@ -306,20 +305,6 @@ watch(showSettings, (visible) => {
       pending.value ? "blocked" : settingsDirty.value ? "discard" : "allow",
   });
 });
-
-watch(
-  () => [
-    cachedAgentSettings.value.codexCli,
-    cachedAgentSettings.value.chatgpt,
-    cachedAgentSettings.value.openCode,
-  ],
-  ([codexCli, chatgpt, openCode], previous) => {
-    if (codexCli && codexCli !== previous?.[0]) hydrateAgentSettings(codexCli);
-    if (chatgpt && chatgpt !== previous?.[1]) hydrateAgentSettings(chatgpt);
-    if (openCode && openCode !== previous?.[2]) hydrateAgentSettings(openCode);
-  },
-  { immediate: true },
-);
 
 watch(
   clientStatuses,

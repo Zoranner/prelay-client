@@ -38,6 +38,17 @@ test("智能体页面只编排路由级状态，展示和设置由领域组件�
   expect(drawer).toContain("agent-settings-form");
 });
 
+test("接入点目录或服务地址晚于本机配置返回时重新反推智能体接入点", () => {
+  const settings = source("composables/useAgentSettings.ts");
+
+  expect(settings).toMatch(
+    /watch\(\s*\[\s*\(\) => options\.settings\.value\.codexCli,\s*\(\) => options\.settings\.value\.chatgpt,\s*\(\) => options\.settings\.value\.openCode,\s*\(\) => options\.endpoints\.value,\s*\(\) => options\.bootstrap\.value\?\.relay_url,\s*\]/,
+  );
+  expect(settings).toContain("if (codexCli) hydrate(codexCli);");
+  expect(settings).toContain("if (chatgpt) hydrate(chatgpt);");
+  expect(settings).toContain("if (openCode) hydrate(openCode);");
+});
+
 test("规则编辑器独立负责输入、预览和滚动同步", () => {
   const rulesEditor = source("components/agents/AgentRulesEditor.vue");
 

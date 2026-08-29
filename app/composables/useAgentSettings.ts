@@ -20,6 +20,7 @@ type AgentSettingsOptions = {
   activeClient: Readonly<Ref<AgentClient>>;
   bootstrap: Readonly<Ref<BootstrapState | null>>;
   endpoints: Readonly<Ref<RelayEndpoint[]>>;
+  settings: Readonly<Ref<Partial<Record<AgentClient, AgentSettings>>>>;
   reloadSettings: (client: AgentClient) => Promise<void>;
   save: (request: AgentSettingsSaveRequest) => Promise<unknown>;
 };
@@ -173,6 +174,22 @@ export function useAgentSettings(options: AgentSettingsOptions) {
     copyAgentClientSettings(configuration, draft, "openCode");
   }
 
+  watch(
+    [
+      () => options.settings.value.codexCli,
+      () => options.settings.value.chatgpt,
+      () => options.settings.value.openCode,
+      () => options.endpoints.value,
+      () => options.bootstrap.value?.relay_url,
+    ],
+    ([codexCli, chatgpt, openCode]) => {
+      if (codexCli) hydrate(codexCli);
+      if (chatgpt) hydrate(chatgpt);
+      if (openCode) hydrate(openCode);
+    },
+    { immediate: true },
+  );
+
   return {
     configuration,
     customEndpointValue,
@@ -180,7 +197,6 @@ export function useAgentSettings(options: AgentSettingsOptions) {
     discard,
     draft,
     endpointOptions,
-    hydrate,
     modelOptions,
     open,
     save,
