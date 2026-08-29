@@ -26,6 +26,8 @@ use windows::{
     },
 };
 
+const VERSION_COMMAND_TIMEOUT: Duration = Duration::from_secs(5);
+
 pub fn agent_client_versions(clients: Vec<AgentClient>) -> Vec<AgentClientVersion> {
     clients
         .into_iter()
@@ -203,7 +205,7 @@ pub(crate) fn command_client_version(command_path: &Path) -> Option<String> {
     #[cfg(windows)]
     command.creation_flags(CREATE_NO_WINDOW.0);
     let mut child = command.spawn().ok()?;
-    let deadline = Instant::now() + Duration::from_secs(2);
+    let deadline = Instant::now() + VERSION_COMMAND_TIMEOUT;
     let status = loop {
         match child.try_wait().ok()? {
             Some(status) => break status,

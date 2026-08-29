@@ -1,7 +1,11 @@
 use std::fs;
+#[cfg(windows)]
+use std::time::{Duration, Instant};
 
 use tempfile::tempdir;
 
+#[cfg(windows)]
+use super::super::command_client_version;
 use super::super::{
     agent_client_statuses_with, command_path_in, command_version_from_output,
     newest_chatgpt_desktop_version, scan_user_items_with_installation, AgentClient,
@@ -213,6 +217,21 @@ fn extracts_a_semantic_version_from_command_output() {
         Some("2.1.17".to_string())
     );
     assert_eq!(command_version_from_output("unknown"), None);
+}
+
+#[cfg(windows)]
+#[test]
+fn reads_a_version_from_a_command_that_finishes_within_five_seconds() {
+    let directory = tempdir().unwrap();
+    let command = directory.path().join("slow-version.cmd");
+    write(
+        &command,
+        "@powershell.exe -NoProfile -Command \"Start-Sleep -Milliseconds 2800\"\r\n@echo agent 1.2.3\r\n",
+    );
+
+    let started_at = Instant::now();
+    assert_eq!(command_client_version(&command), Some("1.2.3".to_string()));
+    assert!(started_at.elapsed() >= Duration::from_millis(2_800));
 }
 
 #[test]
