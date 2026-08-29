@@ -49,14 +49,12 @@ test("接入点目录或服务地址晚于本机配置返回时重新反推智�
   expect(settings).toContain("if (openCode) hydrate(openCode);");
 });
 
-test("智能体刷新按钮沿用列表页面的加载反馈", () => {
+test("智能体刷新按钮是带图标的主操作并保留加载反馈", () => {
   const page = source("pages/agents.vue");
 
   expect(page).toMatch(
-    /<Button\s+:disabled="clientStatusesLoading"\s+aria-label="刷新"\s+title="刷新"\s+@click="refreshAgentClients"\s+>\s+\{\{ clientStatusesLoading \? "刷新中\.\.\." : "刷新" \}\}/,
+    /<Button\s+variant="primary"\s+icon="ph:arrows-clockwise"\s+:disabled="clientStatusesLoading"\s+aria-label="刷新"\s+title="刷新"\s+@click="refreshAgentClients"\s+>\s+\{\{ clientStatusesLoading \? "刷新中\.\.\." : "刷新" \}\}/,
   );
-  expect(page).not.toContain('variant="primary"');
-  expect(page).not.toContain("agent-refresh-icon--loading");
 });
 
 test("规则编辑器独立负责输入、预览和滚动同步", () => {

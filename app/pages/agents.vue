@@ -351,6 +351,8 @@ onBeforeUnmount(() => {
     <PanelSection title="智能体">
       <template #header-actions>
         <Button
+          variant="primary"
+          icon="ph:arrows-clockwise"
           :disabled="clientStatusesLoading"
           aria-label="刷新"
           title="刷新"
