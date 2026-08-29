@@ -12,13 +12,3 @@
   min-height: 0;
   grid-template-columns: 184px minmax(0, 1fr);
 }
-
-.agent-refresh-icon--loading {
-  animation: agent-refresh-spin 800ms linear infinite;
-}
-
-@keyframes agent-refresh-spin {
-  to {
-    transform: rotate(360deg);
-  }
-}

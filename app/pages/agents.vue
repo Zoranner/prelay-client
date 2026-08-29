@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Button, Icon, useConfirm, useNotification } from "@stellar/ui";
+import { Button, useConfirm, useNotification } from "@stellar/ui";
 import type {
   AgentClient,
   AgentItem,
@@ -350,23 +350,12 @@ onBeforeUnmount(() => {
     <PanelSection title="智能体">
       <template #header-actions>
         <Button
-          variant="primary"
           :disabled="clientStatusesLoading"
           aria-label="刷新"
           title="刷新"
           @click="refreshAgentClients"
         >
-          <template #icon>
-            <Icon
-              :icon="
-                clientStatusesLoading
-                  ? 'ph:circle-notch'
-                  : 'ph:arrows-clockwise'
-              "
-              :class="{ 'agent-refresh-icon--loading': clientStatusesLoading }"
-            />
-          </template>
-          刷新
+          {{ clientStatusesLoading ? "刷新中..." : "刷新" }}
         </Button>
       </template>
       <div class="agent-content">
