@@ -1,5 +1,11 @@
 <script setup lang="ts">
-import { Button, Modal, Select } from "@stellar/ui";
+import {
+  Button,
+  Modal,
+  Select,
+  useConfirm,
+  useNotification,
+} from "@stellar/ui";
 import type { AgentClient, ExtensionCatalogPackage } from "~/stores/relay";
 import { synchronizeExtensionInstallSelection } from "~/utils/extensionInstallSelection";
 
@@ -10,6 +16,8 @@ const props = defineProps<{
 }>();
 const emit = defineEmits<{ installed: [] }>();
 const { invokeLocalCommand } = useLocalCommand();
+const { confirm: confirmAction } = useConfirm();
+const notifications = useNotification();
 const selectedClients = ref<AgentClient[]>([]);
 const installing = ref(false);
 
@@ -42,15 +50,42 @@ function selectClients(values: AgentClient[]) {
   });
 }
 
-async function install() {
+async function install(overwrite = false) {
   if (!props.extension || !selectedClients.value.length) return;
   installing.value = true;
   try {
-    await invokeLocalCommand("extensions_install", {
-      request: { package: props.extension, clients: selectedClients.value },
-    });
+    await invokeLocalCommand(
+      "extensions_install",
+      {
+        request: {
+          package: props.extension,
+          clients: selectedClients.value,
+          overwrite,
+        },
+      },
+      { notify: false },
+    );
     visible.value = false;
     emit("installed");
+  } catch (caught) {
+    const error = caught as { code?: string; message?: string };
+    if (!overwrite && error.code === "extension_target_exists") {
+      const confirmed = await confirmAction({
+        title: "覆盖已有技能",
+        message: "目标技能目录已存在，是否覆盖安装？",
+        description:
+          "覆盖会删除该技能目录中的现有文件，然后写入当前扩展包内容。",
+        confirmText: "覆盖",
+        danger: true,
+      });
+      if (confirmed) {
+        await install(true);
+      }
+      return;
+    }
+    notifications.danger(error.message ?? "扩展安装失败。", {
+      title: "扩展安装失败",
+    });
   } finally {
     installing.value = false;
   }
@@ -90,7 +125,7 @@ watch(
       <Button
         variant="primary"
         :disabled="installing || !selectedClients.length"
-        @click="install"
+        @click="install()"
       >
         {{ installing ? "安装中..." : "安装" }}
       </Button>

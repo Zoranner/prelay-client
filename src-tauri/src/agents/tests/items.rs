@@ -4,7 +4,7 @@ use tempfile::tempdir;
 
 use super::super::{
     scan_user_items_with_installation, uninstall_user_item_with_installation, AgentClient,
-    AgentItemKind, AgentItemStatus,
+    AgentItemKind, AgentItemSource, AgentItemStatus,
 };
 use super::write;
 
@@ -47,6 +47,20 @@ enabled = true
             .join("SKILL.md"),
         "---\nname: web-research\n---\n",
     );
+    write(
+        directory
+            .path()
+            .join(".agents")
+            .join(".prelay")
+            .join("skills")
+            .join("7765622d7265736561726368.json"),
+        r#"{
+  "package": "web-research",
+  "version": "v1.2.0",
+  "commitSha": "abc123",
+  "roots": ["web-research"]
+}"#,
+    );
 
     let snapshot = scan_user_items_with_installation(directory.path(), |client| {
         client == AgentClient::CodexCli
@@ -72,6 +86,8 @@ enabled = true
         item.kind == AgentItemKind::Plugin
             && item.name == "research@prelay"
             && item.status == AgentItemStatus::Enabled
+            && item.source == AgentItemSource::Team
+            && item.version.as_deref() == Some("0.1.0")
             && item.source_path
                 == directory
                     .path()
@@ -88,7 +104,39 @@ enabled = true
         item.kind == AgentItemKind::Skill
             && item.name == "web-research"
             && item.status == AgentItemStatus::Enabled
+            && item.source == AgentItemSource::Team
+            && item.version.as_deref() == Some("v1.2.0")
     }));
+}
+
+#[test]
+fn marks_unmanaged_local_skill_as_personal_without_version() {
+    let directory = tempdir().unwrap();
+    write(
+        directory.path().join(".codex").join("config.toml"),
+        "[mcp_servers.research]\ncommand = \"prelay-search\"\n",
+    );
+    write(
+        directory
+            .path()
+            .join(".agents")
+            .join("skills")
+            .join("manual")
+            .join("SKILL.md"),
+        "# Manual\n",
+    );
+
+    let snapshot = scan_user_items_with_installation(directory.path(), |client| {
+        client == AgentClient::CodexCli
+    });
+    let skill = snapshot.clients[0]
+        .items
+        .iter()
+        .find(|item| item.kind == AgentItemKind::Skill)
+        .unwrap();
+
+    assert_eq!(skill.source, AgentItemSource::Personal);
+    assert_eq!(skill.version, None);
 }
 
 #[test]

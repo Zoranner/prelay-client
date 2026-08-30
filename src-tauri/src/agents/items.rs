@@ -1,11 +1,12 @@
 use std::{
-    collections::BTreeSet,
+    collections::{BTreeMap, BTreeSet},
     fs,
     io::Write,
     path::{Path, PathBuf},
 };
 
 use atomic_write_file::AtomicWriteFile;
+use serde::Deserialize;
 use toml_edit::{value, DocumentMut, Item, Table};
 
 use super::{
@@ -13,7 +14,7 @@ use super::{
     integrations,
     integrations::integration,
     model::{
-        AgentClient, AgentClientItems, AgentItem, AgentItemKind, AgentItemStatus,
+        AgentClient, AgentClientItems, AgentItem, AgentItemKind, AgentItemSource, AgentItemStatus,
         AgentItemsSnapshot, REGISTERED_AGENT_CLIENTS,
     },
 };
@@ -159,6 +160,7 @@ fn toml_items(
             kind,
             name: name.to_owned(),
             version: None,
+            source: AgentItemSource::Personal,
             source_path: path.display().to_string(),
             status: if entry
                 .get("enabled")
@@ -185,11 +187,13 @@ fn codex_plugin_items(
     entries
         .iter()
         .map(|(name, entry)| {
+            let marketplace = name.rsplit_once('@').map(|(_, value)| value);
             let Some(cache_path) = codex_plugin_cache_path(codex_root, name) else {
                 return AgentItem {
                     kind: AgentItemKind::Plugin,
                     name: name.to_owned(),
                     version: None,
+                    source: AgentItemSource::Personal,
                     source_path: config_path.display().to_string(),
                     status: AgentItemStatus::Error,
                     error_message: Some("未找到已登记插件的本地缓存。".to_string()),
@@ -198,7 +202,15 @@ fn codex_plugin_items(
             AgentItem {
                 kind: AgentItemKind::Plugin,
                 name: name.to_owned(),
-                version: None,
+                version: cache_path
+                    .file_name()
+                    .and_then(|name| name.to_str())
+                    .map(ToString::to_string),
+                source: if marketplace == Some("prelay") {
+                    AgentItemSource::Team
+                } else {
+                    AgentItemSource::Personal
+                },
                 source_path: cache_path.display().to_string(),
                 status: if entry
                     .get("enabled")
@@ -311,11 +323,51 @@ pub(crate) fn write_json(path: &Path, document: &serde_json::Value) -> Result<()
 
 pub(crate) fn scan_skills(root: PathBuf) -> Vec<AgentItem> {
     let mut skills = Vec::new();
-    visit_skill_directory(&root, &mut skills);
+    let metadata = skill_installation_metadata(root.parent());
+    visit_skill_directory(&root, &metadata, &mut skills);
     skills
 }
 
-fn visit_skill_directory(path: &Path, skills: &mut Vec<AgentItem>) {
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct ManagedSkillPackage {
+    #[serde(default)]
+    version: Option<String>,
+    #[serde(default)]
+    roots: BTreeSet<String>,
+}
+
+fn skill_installation_metadata(parent: Option<&Path>) -> BTreeMap<String, Option<String>> {
+    let Some(directory) = parent.map(|path| path.join(".prelay").join("skills")) else {
+        return BTreeMap::new();
+    };
+    let mut metadata = BTreeMap::new();
+    let Ok(entries) = fs::read_dir(directory) else {
+        return metadata;
+    };
+    for entry in entries.flatten() {
+        let path = entry.path();
+        if path.extension().and_then(|extension| extension.to_str()) != Some("json") {
+            continue;
+        }
+        let Ok(contents) = fs::read_to_string(path) else {
+            continue;
+        };
+        let Ok(package) = serde_json::from_str::<ManagedSkillPackage>(&contents) else {
+            continue;
+        };
+        for root in package.roots {
+            metadata.insert(root, package.version.clone());
+        }
+    }
+    metadata
+}
+
+fn visit_skill_directory(
+    path: &Path,
+    metadata: &BTreeMap<String, Option<String>>,
+    skills: &mut Vec<AgentItem>,
+) {
     let Ok(entries) = fs::read_dir(path) else {
         return;
     };
@@ -327,13 +379,23 @@ fn visit_skill_directory(path: &Path, skills: &mut Vec<AgentItem>) {
                 skills.push(AgentItem {
                     kind: AgentItemKind::Skill,
                     name: entry.file_name().to_string_lossy().to_string(),
-                    version: None,
+                    version: metadata
+                        .get(&entry.file_name().to_string_lossy().to_string())
+                        .cloned()
+                        .flatten(),
+                    source: if metadata
+                        .contains_key(&entry.file_name().to_string_lossy().to_string())
+                    {
+                        AgentItemSource::Team
+                    } else {
+                        AgentItemSource::Personal
+                    },
                     source_path: path.display().to_string(),
                     status: AgentItemStatus::Enabled,
                     error_message: None,
                 });
             }
-            visit_skill_directory(&path, skills);
+            visit_skill_directory(&path, metadata, skills);
         }
     }
 }
@@ -343,6 +405,7 @@ pub(crate) fn error_item(kind: AgentItemKind, path: &Path) -> AgentItem {
         kind,
         name: "配置读取失败".to_string(),
         version: None,
+        source: AgentItemSource::Personal,
         source_path: path.display().to_string(),
         status: AgentItemStatus::Error,
         error_message: Some("无法读取扩展配置。".to_string()),

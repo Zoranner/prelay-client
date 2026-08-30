@@ -1,14 +1,16 @@
 use std::{
+    collections::{BTreeMap, BTreeSet},
     fs,
     path::{Path, PathBuf},
 };
 
+use serde::Deserialize;
 use serde_json::Value;
 
 use super::{AgentIntegration, AgentItem, AgentItemKind};
 use crate::agents::{
     command_client_version, command_path, deduplicate, error_item, remove_skill_directory,
-    scan_skills, write_json, AgentItemStatus,
+    scan_skills, write_json, AgentItemSource, AgentItemStatus,
 };
 
 pub static OPENCODE: OpenCodeIntegration = OpenCodeIntegration;
@@ -37,7 +39,10 @@ impl AgentIntegration for OpenCodeIntegration {
         } else {
             Vec::new()
         };
-        items.extend(local_plugin_items(&config_directory(home).join("plugins")));
+        items.extend(local_plugin_items(
+            &config_directory(home).join("plugins"),
+            home,
+        ));
         items.extend(scan_skills(home.join(".agents").join("skills")));
         deduplicate(items)
     }
@@ -91,6 +96,7 @@ fn mcp_items(config: &Value, path: &Path) -> Vec<AgentItem> {
             kind: AgentItemKind::Mcp,
             name: name.to_string(),
             version: None,
+            source: AgentItemSource::Personal,
             source_path: path.display().to_string(),
             status: if entry
                 .get("enabled")
@@ -117,6 +123,7 @@ fn plugin_items(config: &Value, path: &Path) -> Vec<AgentItem> {
             kind: AgentItemKind::Plugin,
             name: name.to_string(),
             version: None,
+            source: AgentItemSource::Personal,
             source_path: path.display().to_string(),
             status: AgentItemStatus::Enabled,
             error_message: None,
@@ -124,20 +131,59 @@ fn plugin_items(config: &Value, path: &Path) -> Vec<AgentItem> {
         .collect()
 }
 
-fn local_plugin_items(root: &Path) -> Vec<AgentItem> {
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct ManagedPluginPackage {
+    #[serde(default)]
+    version: Option<String>,
+    #[serde(default)]
+    files: BTreeSet<String>,
+}
+
+fn local_plugin_items(root: &Path, home: &Path) -> Vec<AgentItem> {
     let mut items = Vec::new();
-    visit_plugin_directory(root, root, &mut items);
+    let metadata = plugin_installation_metadata(home);
+    visit_plugin_directory(root, root, &metadata, &mut items);
     items
 }
 
-fn visit_plugin_directory(root: &Path, path: &Path, items: &mut Vec<AgentItem>) {
+fn plugin_installation_metadata(home: &Path) -> BTreeMap<String, Option<String>> {
+    let directory = home.join(".prelay").join("plugins");
+    let mut metadata = BTreeMap::new();
+    let Ok(entries) = fs::read_dir(directory) else {
+        return metadata;
+    };
+    for entry in entries.flatten() {
+        let path = entry.path();
+        if path.extension().and_then(|extension| extension.to_str()) != Some("json") {
+            continue;
+        }
+        let Ok(contents) = fs::read_to_string(path) else {
+            continue;
+        };
+        let Ok(package) = serde_json::from_str::<ManagedPluginPackage>(&contents) else {
+            continue;
+        };
+        for file in package.files {
+            metadata.insert(file, package.version.clone());
+        }
+    }
+    metadata
+}
+
+fn visit_plugin_directory(
+    root: &Path,
+    path: &Path,
+    metadata: &BTreeMap<String, Option<String>>,
+    items: &mut Vec<AgentItem>,
+) {
     let Ok(entries) = fs::read_dir(path) else {
         return;
     };
     for entry in entries.flatten() {
         let path = entry.path();
         if path.is_dir() {
-            visit_plugin_directory(root, &path, items);
+            visit_plugin_directory(root, &path, metadata, items);
             continue;
         }
         if !matches!(
@@ -149,10 +195,26 @@ fn visit_plugin_directory(root: &Path, path: &Path, items: &mut Vec<AgentItem>) 
         let Some(name) = local_plugin_name(root, &path) else {
             continue;
         };
+        let relative = path
+            .strip_prefix(root)
+            .ok()
+            .map(|path| path.to_string_lossy().replace('\\', "/"));
+        let version = relative
+            .as_ref()
+            .and_then(|path| metadata.get(path).cloned())
+            .flatten();
         items.push(AgentItem {
             kind: AgentItemKind::Plugin,
             name,
-            version: None,
+            source: if relative
+                .as_ref()
+                .is_some_and(|path| metadata.contains_key(path))
+            {
+                AgentItemSource::Team
+            } else {
+                AgentItemSource::Personal
+            },
+            version,
             source_path: path.display().to_string(),
             status: AgentItemStatus::Enabled,
             error_message: None,

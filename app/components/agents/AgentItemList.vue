@@ -7,17 +7,19 @@ type AgentItemRow = AgentItem & { id: string } & Record<string, unknown>;
 const props = defineProps<{
   items: AgentItem[];
   pending?: boolean;
+  showStatus: boolean;
 }>();
 const emit = defineEmits<{
   uninstall: [item: AgentItem];
 }>();
 const notifications = useNotification();
 
-const columns = [
+const columns = computed(() => [
   { key: "name", title: "名称", width: 180, ellipsis: true },
   { key: "version", title: "版本", width: 120, ellipsis: true },
-  { key: "status", title: "状态", width: 88 },
-  { key: "sourcePath", title: "来源", minWidth: 360, ellipsis: true },
+  ...(props.showStatus ? [{ key: "status", title: "状态", width: 88 }] : []),
+  { key: "source", title: "来源", width: 96 },
+  { key: "sourcePath", title: "位置", minWidth: 360, ellipsis: true },
   {
     key: "actions",
     title: "操作",
@@ -25,7 +27,7 @@ const columns = [
     align: "right" as const,
     fixed: "right" as const,
   },
-];
+]);
 
 const rows = computed<AgentItemRow[]>(() =>
   props.items.map((item) => ({
@@ -79,6 +81,11 @@ async function copySourcePath(sourcePath: string) {
     <template #cell-version="{ row }">
       {{ row.version || "-" }}
     </template>
+    <template #cell-source="{ row }">
+      <Badge :variant="row.source === 'team' ? 'primary' : 'default'">
+        {{ row.source === "team" ? "团队" : "个人" }}
+      </Badge>
+    </template>
     <template #cell-sourcePath="{ row }">
       <div class="agent-item-source">
         <span :title="row.sourcePath">{{ row.sourcePath }}</span>
@@ -94,7 +101,7 @@ async function copySourcePath(sourcePath: string) {
         />
       </div>
     </template>
-    <template #cell-status="{ row }">
+    <template v-if="showStatus" #cell-status="{ row }">
       <Badge :variant="statusVariant(row.status)">
         {{ statusLabel(row.status) }}
       </Badge>

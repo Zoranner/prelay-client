@@ -143,11 +143,13 @@ export interface RequestLog {
 export type AgentClient = "codexCli" | "chatgpt" | "openCode";
 export type AgentItemKind = "mcp" | "skill" | "plugin";
 export type AgentItemStatus = "enabled" | "disabled" | "error";
+export type AgentItemSource = "personal" | "team";
 
 export interface AgentItem {
   kind: AgentItemKind;
   name: string;
   version: string | null;
+  source: AgentItemSource;
   sourcePath: string;
   status: AgentItemStatus;
   errorMessage: string | null;

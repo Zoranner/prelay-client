@@ -11,7 +11,7 @@ use super::super::newest_chatgpt_desktop_version;
 use super::super::{
     agent_client_statuses_with, command_path_in, command_version_from_output,
     scan_user_items_with_installation, AgentClient, AgentClientVersion, AgentItemKind,
-    AgentItemStatus,
+    AgentItemSource, AgentItemStatus,
 };
 use super::write;
 
@@ -174,6 +174,46 @@ fn names_a_local_opencode_plugin_after_its_plugin_directory() {
             && item.name == "caveman"
             && Path::new(&item.source_path).ends_with(&plugin_path)
     }));
+}
+
+#[test]
+fn reads_team_opencode_plugin_version_from_installation_record() {
+    let directory = tempdir().unwrap();
+    write(
+        directory
+            .path()
+            .join(".config")
+            .join("opencode")
+            .join("plugins")
+            .join("caveman")
+            .join("plugin.js"),
+        "export default {};",
+    );
+    write(
+        directory
+            .path()
+            .join(".prelay")
+            .join("plugins")
+            .join("636176656d616e.json"),
+        r#"{
+  "package": "caveman",
+  "version": "v2.0.0",
+  "commitSha": "def456",
+  "files": ["caveman/plugin.js"]
+}"#,
+    );
+
+    let snapshot = scan_user_items_with_installation(directory.path(), |client| {
+        client == AgentClient::OpenCode
+    });
+    let plugin = snapshot.clients[0]
+        .items
+        .iter()
+        .find(|item| item.kind == AgentItemKind::Plugin)
+        .unwrap();
+
+    assert_eq!(plugin.source, AgentItemSource::Team);
+    assert_eq!(plugin.version.as_deref(), Some("v2.0.0"));
 }
 
 #[test]

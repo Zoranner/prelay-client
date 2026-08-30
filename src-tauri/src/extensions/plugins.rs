@@ -1,6 +1,11 @@
-use std::{fs, path::Path};
+use std::{
+    collections::BTreeSet,
+    fs,
+    path::{Path, PathBuf},
+};
 
 use prelay_protocol::ExtensionInstallBundle;
+use serde::Serialize;
 
 use crate::{
     agents::{register_codex_plugin, AgentClient},
@@ -12,6 +17,16 @@ use super::atomic_write;
 const CODEX_PLUGIN_MANIFEST: &str = ".codex-plugin/plugin.json";
 const OPENCODE_PLUGIN_PREFIX: &str = ".opencode/plugins/";
 const PRELAY_MARKETPLACE: &str = "prelay";
+const MANAGED_PLUGINS_DIRECTORY: &str = ".prelay/plugins";
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct ManagedPluginPackage {
+    package: String,
+    version: String,
+    commit_sha: String,
+    files: BTreeSet<String>,
+}
 
 pub(super) fn install_plugin(
     home: &Path,
@@ -85,14 +100,41 @@ fn install_opencode_plugin(
         ));
     }
     let root = home.join(".config").join("opencode").join("plugins");
-    for file in files {
+    for file in &files {
         let relative = file
             .path
             .strip_prefix(OPENCODE_PLUGIN_PREFIX)
             .expect("validated OpenCode plugin path");
         atomic_write(&root.join(relative), file.content.as_bytes())?;
     }
+    let files = files
+        .iter()
+        .filter_map(|file| file.path.strip_prefix(OPENCODE_PLUGIN_PREFIX))
+        .map(ToString::to_string)
+        .collect();
+    let manifest = ManagedPluginPackage {
+        package: bundle.name.clone(),
+        version: bundle.version.tag.clone(),
+        commit_sha: bundle.version.commit_sha.clone(),
+        files,
+    };
+    let manifest_path = plugin_manifest_path(home, &bundle.name)?;
+    let contents = serde_json::to_vec_pretty(&manifest)
+        .map_err(|error| local_error(format!("无法保存插件安装记录：{error}")))?;
+    atomic_write(&manifest_path, &contents)?;
     Ok(())
+}
+
+fn plugin_manifest_path(home: &Path, package: &str) -> Result<PathBuf, ClientError> {
+    safe_component(package)?;
+    let key = package
+        .as_bytes()
+        .iter()
+        .map(|byte| format!("{byte:02x}"))
+        .collect::<String>();
+    Ok(home
+        .join(MANAGED_PLUGINS_DIRECTORY)
+        .join(format!("{key}.json")))
 }
 
 pub(super) fn valid_plugin_bundle(bundle: &ExtensionInstallBundle) -> bool {
@@ -157,5 +199,13 @@ mod tests {
                 .unwrap(),
             "export const Review = async () => ({});"
         );
+        let manifest = std::fs::read_to_string(
+            directory
+                .path()
+                .join(".prelay/plugins/7265766965772d746f6f6c73.json"),
+        )
+        .unwrap();
+        assert!(manifest.contains("\"version\": \"v1.0.0\""));
+        assert!(manifest.contains("review.ts"));
     }
 }

@@ -14,7 +14,7 @@ pub use items::{
 };
 pub use model::{
     AgentClient, AgentClientItems, AgentClientStatus, AgentClientVersion, AgentItem, AgentItemKind,
-    AgentItemStatus, AgentItemsSnapshot, REGISTERED_AGENT_CLIENTS,
+    AgentItemSource, AgentItemStatus, AgentItemsSnapshot, REGISTERED_AGENT_CLIENTS,
 };
 
 pub(crate) use discovery::{chatgpt_desktop_version, command_client_version, command_path};

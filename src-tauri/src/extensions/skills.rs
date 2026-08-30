@@ -15,19 +15,33 @@ const MANAGED_SKILLS_DIRECTORY: &str = ".prelay/skills";
 
 #[derive(Debug, Deserialize, Serialize)]
 struct ManagedSkillPackage {
+    #[serde(default)]
+    package: String,
+    #[serde(default)]
+    version: Option<String>,
+    #[serde(default)]
+    commit_sha: Option<String>,
     roots: BTreeSet<String>,
 }
 
 pub(super) fn install_skill_files(
     target_root: &Path,
     package: &str,
+    version: &str,
+    commit_sha: &str,
     files: &[ExtensionFile],
+    overwrite: bool,
 ) -> Result<(), ClientError> {
     let roots = skill_roots(files)?;
     let manifest_path = managed_skill_manifest_path(target_root, package)?;
     let previous = read_managed_skill_package(&manifest_path)?;
 
-    ensure_skill_roots_available(target_root, package, &roots, previous.as_ref())?;
+    if !overwrite {
+        ensure_skill_roots_available(target_root, package, &roots, previous.as_ref())?;
+    }
+    if overwrite {
+        release_skill_roots_from_other_packages(&manifest_path, &roots)?;
+    }
 
     let mut roots_to_replace = roots.clone();
     if let Some(previous) = &previous {
@@ -47,7 +61,15 @@ pub(super) fn install_skill_files(
             .expect("validated skill path");
         atomic_write(&target_root.join(relative), source.content.as_bytes())?;
     }
-    write_managed_skill_package(&manifest_path, &ManagedSkillPackage { roots })
+    write_managed_skill_package(
+        &manifest_path,
+        &ManagedSkillPackage {
+            package: package.to_string(),
+            version: Some(version.to_string()),
+            commit_sha: Some(commit_sha.to_string()),
+            roots,
+        },
+    )
 }
 
 fn skill_roots(files: &[ExtensionFile]) -> Result<BTreeSet<String>, ClientError> {
@@ -117,6 +139,42 @@ fn write_managed_skill_package(
     atomic_write(path, &contents)
 }
 
+fn release_skill_roots_from_other_packages(
+    current_manifest: &Path,
+    roots: &BTreeSet<String>,
+) -> Result<(), ClientError> {
+    let Some(managed_directory) = current_manifest.parent() else {
+        return Err(ClientError::new(
+            "local_extensions_error",
+            "skill manifest has no parent directory",
+        ));
+    };
+    if !managed_directory.exists() {
+        return Ok(());
+    }
+    for entry in fs::read_dir(managed_directory).map_err(storage_error)? {
+        let path = entry.map_err(storage_error)?.path();
+        if path == current_manifest || path.extension().is_none_or(|extension| extension != "json")
+        {
+            continue;
+        }
+        let Some(mut managed) = read_managed_skill_package(&path)? else {
+            continue;
+        };
+        let original_len = managed.roots.len();
+        managed.roots.retain(|root| !roots.contains(root));
+        if managed.roots.len() == original_len {
+            continue;
+        }
+        if managed.roots.is_empty() {
+            fs::remove_file(path).map_err(storage_error)?;
+        } else {
+            write_managed_skill_package(&path, &managed)?;
+        }
+    }
+    Ok(())
+}
+
 fn ensure_skill_roots_available(
     target_root: &Path,
     package: &str,
@@ -145,7 +203,7 @@ fn ensure_skill_roots_available(
                 && !managed.roots.is_disjoint(roots)
             {
                 return Err(ClientError::new(
-                    "local_extensions_error",
+                    "extension_target_exists",
                     "技能目录已由另一个扩展包管理。",
                 ));
             }
@@ -157,8 +215,8 @@ fn ensure_skill_roots_available(
             && previous.is_none_or(|managed| !managed.roots.contains(root))
         {
             return Err(ClientError::new(
-                "local_extensions_error",
-                "技能目录已存在且不受当前扩展包管理。",
+                "extension_target_exists",
+                "技能目录已存在，确认后可覆盖安装。",
             ));
         }
     }
@@ -189,10 +247,13 @@ mod tests {
         install_skill_files(
             &root,
             "engineering",
+            "1.0.0",
+            "commit",
             &[
                 skill_file("skills/check/SKILL.md", "old"),
                 skill_file("skills/retired/SKILL.md", "retired"),
             ],
+            false,
         )
         .unwrap();
         fs::write(root.join("check").join("stale.md"), "stale").unwrap();
@@ -200,7 +261,10 @@ mod tests {
         install_skill_files(
             &root,
             "engineering",
+            "1.1.0",
+            "commit2",
             &[skill_file("skills/check/SKILL.md", "new")],
+            false,
         )
         .unwrap();
 
@@ -218,8 +282,8 @@ mod tests {
         let root = directory.path().join("skills");
         let files = [skill_file("skills/shared/SKILL.md", "first")];
 
-        install_skill_files(&root, "first-package", &files).unwrap();
-        let result = install_skill_files(&root, "second-package", &files);
+        install_skill_files(&root, "first-package", "1.0.0", "commit", &files, false).unwrap();
+        let result = install_skill_files(&root, "second-package", "1.0.0", "commit", &files, false);
 
         assert!(result.is_err());
         assert_eq!(
@@ -238,13 +302,71 @@ mod tests {
         let result = install_skill_files(
             &root,
             "managed-package",
+            "1.0.0",
+            "commit",
             &[skill_file("skills/manual/SKILL.md", "managed")],
+            false,
         );
 
         assert!(result.is_err());
         assert_eq!(
             fs::read_to_string(root.join("manual").join("SKILL.md")).unwrap(),
             "manual"
+        );
+    }
+
+    #[test]
+    fn overwrite_replaces_an_unmanaged_skill_directory_after_confirmation() {
+        let directory = tempdir().unwrap();
+        let root = directory.path().join("skills");
+        fs::create_dir_all(root.join("manual")).unwrap();
+        fs::write(root.join("manual").join("SKILL.md"), "manual").unwrap();
+
+        install_skill_files(
+            &root,
+            "managed-package",
+            "1.0.0",
+            "commit",
+            &[skill_file("skills/manual/SKILL.md", "managed")],
+            true,
+        )
+        .unwrap();
+
+        assert_eq!(
+            fs::read_to_string(root.join("manual").join("SKILL.md")).unwrap(),
+            "managed"
+        );
+    }
+
+    #[test]
+    fn overwrite_transfers_managed_skill_directory_to_the_new_package() {
+        let directory = tempdir().unwrap();
+        let root = directory.path().join("skills");
+        let files = [skill_file("skills/shared/SKILL.md", "first")];
+
+        install_skill_files(&root, "first-package", "1.0.0", "commit", &files, false).unwrap();
+        install_skill_files(
+            &root,
+            "second-package",
+            "1.0.0",
+            "commit",
+            &[skill_file("skills/shared/SKILL.md", "second")],
+            true,
+        )
+        .unwrap();
+        install_skill_files(
+            &root,
+            "second-package",
+            "1.1.0",
+            "commit2",
+            &[skill_file("skills/shared/SKILL.md", "third")],
+            false,
+        )
+        .unwrap();
+
+        assert_eq!(
+            fs::read_to_string(root.join("shared").join("SKILL.md")).unwrap(),
+            "third"
         );
     }
 }

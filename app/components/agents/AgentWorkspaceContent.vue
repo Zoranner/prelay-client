@@ -18,7 +18,22 @@ type SectionOption<T extends string> = {
   value: T;
 };
 
-defineProps<{
+const {
+  activeClient,
+  activeExtensionSection,
+  activeSection,
+  clientContentLoading,
+  clientInstalled,
+  clientStatusesLoaded,
+  extensionLoading,
+  extensionPackages,
+  extensionSectionOptions,
+  itemPending,
+  rules,
+  sectionItems,
+  sectionOptions,
+  workspace,
+} = defineProps<{
   activeClient: AgentClient;
   activeExtensionSection: ExtensionCatalogKind;
   activeSection: AgentSection;
@@ -34,6 +49,12 @@ defineProps<{
   sectionOptions: SectionOption<AgentSection>[];
   workspace: AgentClient | "extensions";
 }>();
+
+const showItemStatus = computed(
+  () =>
+    activeSection !== "skill" &&
+    !(activeClient === "openCode" && activeSection === "plugin"),
+);
 
 const emit = defineEmits<{
   detail: [extension: ExtensionCatalogPackage];
@@ -120,6 +141,7 @@ function updateExtensionSection(value: string | number | boolean | null) {
           <AgentItemList
             :items="sectionItems"
             :pending="itemPending"
+            :show-status="showItemStatus"
             @uninstall="emit('uninstall', $event)"
           />
         </div>

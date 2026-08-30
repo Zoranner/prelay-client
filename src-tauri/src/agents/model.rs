@@ -25,12 +25,20 @@ pub enum AgentItemStatus {
     Error,
 }
 
+#[derive(Debug, Clone, Copy, Deserialize, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub enum AgentItemSource {
+    Personal,
+    Team,
+}
+
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AgentItem {
     pub kind: AgentItemKind,
     pub name: String,
     pub version: Option<String>,
+    pub source: AgentItemSource,
     pub source_path: String,
     pub status: AgentItemStatus,
     pub error_message: Option<String>,

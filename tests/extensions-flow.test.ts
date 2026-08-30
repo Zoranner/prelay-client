@@ -93,6 +93,9 @@ test("扩展库沿用智能体工作区的分类表格与单层操作表面", ()
   expect(installModal).toContain("multiple");
   expect(installModal).toContain("synchronizeExtensionInstallSelection");
   expect(installModal).toContain("function selectClients");
+  expect(installModal).toContain("extension_target_exists");
+  expect(installModal).toContain('confirmText: "覆盖"');
+  expect(installModal).toContain("overwrite");
   expect(installModal).not.toContain("Checkbox");
   expect(installModal).not.toContain("extension_install_preview");
   expect(installModal).not.toContain("正在生成安装变更");

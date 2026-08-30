@@ -41,6 +41,7 @@ pub struct ExtensionCatalogSnapshot {
 pub struct ExtensionInstallRequest {
     pub package: ExtensionPackage,
     pub clients: Vec<AgentClient>,
+    pub overwrite: bool,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -124,7 +125,14 @@ pub async fn install_extension(
         }
         ExtensionKind::Skill => {
             for target_root in agent_skill_target_roots(&request.clients, home) {
-                skills::install_skill_files(&target_root, &bundle.name, &bundle.files)?;
+                skills::install_skill_files(
+                    &target_root,
+                    &bundle.name,
+                    &bundle.version.tag,
+                    &bundle.version.commit_sha,
+                    &bundle.files,
+                    request.overwrite,
+                )?;
             }
         }
         ExtensionKind::Plugin => plugins::install_plugin(home, &bundle, &request.clients)?,
