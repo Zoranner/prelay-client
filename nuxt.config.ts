@@ -27,26 +27,6 @@ export default defineNuxtConfig({
         shiki: shikiLite,
       },
     },
-    build: {
-      rolldownOptions: {
-        checks: {
-          pluginTimings: false,
-        },
-        output: {
-          codeSplitting: {
-            groups: [
-              {
-                name: "vendor",
-                test: /node_modules[\\/]/,
-                priority: -1,
-                maxSize: 400 * 1024,
-                entriesAware: true,
-              },
-            ],
-          },
-        },
-      },
-    },
     server: {
       strictPort: true,
     },
