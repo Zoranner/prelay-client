@@ -67,20 +67,22 @@ fn authenticated_management_request_sends_the_display_name() {
 }
 
 #[test]
-fn existing_identity_keeps_the_client_generated_credential_for_a_retry() {
+fn missing_local_credential_registers_against_existing_identity() {
     let (base_url, server) = one_response_server(
-        "400 Bad Request",
-        r#"{"error":{"code":"identity_already_registered","message":"already registered"}}"#,
-        |request| assert!(request.starts_with("POST /api/identities HTTP/1.1")),
+        "200 OK",
+        r#"{"identity_id":"identity-a","created":false}"#,
+        |request| {
+            assert!(request.starts_with("POST /api/identities HTTP/1.1"));
+            assert!(request.contains("\"credential\":\""));
+        },
     );
     let store = MemoryCredentialStore::default();
     let client = ApiClient::new(base_url, &store).expect("create client");
 
-    let error = tauri::async_runtime::block_on(client.ensure_registered(&identity()))
-        .expect_err("existing identity must not be recovered automatically");
+    tauri::async_runtime::block_on(client.ensure_registered(&identity()))
+        .expect("existing identity accepts a newly generated credential");
     server.join().expect("join test relay");
 
-    assert_eq!(error.code(), "identity_already_registered");
     assert!(
         store
             .load()
