@@ -107,10 +107,6 @@ pub(crate) fn uninstall_user_item_with_installation(
         })
         .ok_or_else(|| "未找到要卸载的本地条目。".to_string())?;
 
-    if item.status == AgentItemStatus::Error {
-        return Err("无法卸载配置读取失败的条目。".to_string());
-    }
-
     integration(client).uninstall(home, kind, name, &item.source_path)
 }
 
@@ -284,14 +280,17 @@ pub(crate) fn remove_codex_plugin(home: &Path, name: &str) -> Result<(), String>
     let (plugin_name, marketplace) = name
         .rsplit_once('@')
         .ok_or_else(|| "插件标识格式不正确。".to_string())?;
-    remove_directory(
-        &home
-            .join(".codex")
-            .join("plugins")
-            .join("cache")
-            .join(marketplace)
-            .join(plugin_name),
-    )
+    let cache_path = home
+        .join(".codex")
+        .join("plugins")
+        .join("cache")
+        .join(marketplace)
+        .join(plugin_name);
+    match fs::remove_dir_all(&cache_path) {
+        Ok(()) => Ok(()),
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(()),
+        Err(error) => Err(format!("无法删除本地文件：{error}")),
+    }
 }
 
 pub(crate) fn remove_skill_directory(source_path: &str) -> Result<(), String> {

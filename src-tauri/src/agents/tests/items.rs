@@ -196,6 +196,29 @@ fn reports_a_configured_plugin_without_a_local_cache_as_an_error() {
 }
 
 #[test]
+fn uninstalls_a_configured_plugin_when_its_local_cache_is_missing() {
+    let directory = tempdir().unwrap();
+    let config_path = directory.path().join(".codex").join("config.toml");
+    write(
+        &config_path,
+        "[plugins.\"search@prelay\"]\nenabled = true\n",
+    );
+
+    uninstall_user_item_with_installation(
+        directory.path(),
+        AgentClient::CodexCli,
+        AgentItemKind::Plugin,
+        "search@prelay",
+        &config_path.display().to_string(),
+        |client| client == AgentClient::CodexCli,
+    )
+    .unwrap();
+
+    let contents = fs::read_to_string(config_path).unwrap();
+    assert!(!contents.contains("search@prelay"));
+}
+
+#[test]
 fn uses_native_separators_for_skill_source_paths() {
     let directory = tempdir().unwrap();
     write(

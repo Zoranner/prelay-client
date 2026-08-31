@@ -114,7 +114,7 @@ async function copySourcePath(sourcePath: string) {
         icon="ph:trash"
         aria-label="卸载"
         title="卸载"
-        :disabled="pending || row.status === 'error'"
+        :disabled="pending"
         @click.stop="emit('uninstall', row)"
       />
     </template>
