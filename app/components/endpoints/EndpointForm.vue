@@ -1,6 +1,10 @@
 <script setup lang="ts">
 import { Button, Input, Popover, Select, useNotification } from "@stellar/ui";
 import type { EndpointModel, Provider, RelayEndpoint } from "~/stores/relay";
+import {
+  groupEndpointModels,
+  type EndpointModelGroup,
+} from "~/utils/endpointModels";
 
 const props = defineProps<{
   endpoint?: RelayEndpoint | null;
@@ -27,11 +31,6 @@ type ModelForm = {
   model_name: string;
 };
 
-type ModelGroup = {
-  name: string;
-  mappings: Array<{ model: EndpointModel; index: number }>;
-};
-
 const name = ref("");
 const protocol = ref("openai");
 const models = ref<EndpointModel[]>([]);
@@ -43,16 +42,7 @@ const notifications = useNotification();
 const availableProviders = computed(() =>
   props.providers.filter((provider) => provider.models.length > 0),
 );
-const modelGroups = computed<ModelGroup[]>(() => {
-  const groups = new Map<string, ModelGroup>();
-  models.value.forEach((model, index) => {
-    const name = model.model_name.trim() || model.upstream_model.trim();
-    const group = groups.get(name) ?? { name, mappings: [] };
-    group.mappings.push({ model, index });
-    groups.set(name, group);
-  });
-  return [...groups.values()];
-});
+const modelGroups = computed(() => groupEndpointModels(models.value));
 const providerOptions = computed(() => [
   { label: "选择供应商", value: "" },
   ...availableProviders.value.map((provider) => ({
@@ -99,7 +89,10 @@ function modelsForProvider(providerId: string) {
   );
 }
 
-function availableUpstreamModels(providerId: string, group?: ModelGroup) {
+function availableUpstreamModels(
+  providerId: string,
+  group?: EndpointModelGroup,
+) {
   const usedModelNames = new Set(
     group?.mappings
       .filter((mapping) => mapping.model.provider_id === providerId)
@@ -114,7 +107,7 @@ function providerForModel(model: Pick<EndpointModel, "provider_id">) {
   return props.providers.find((provider) => provider.id === model.provider_id);
 }
 
-function upstreamModelOptions(providerId: string, group?: ModelGroup) {
+function upstreamModelOptions(providerId: string, group?: EndpointModelGroup) {
   const models = availableUpstreamModels(providerId, group);
   return [
     {
@@ -132,7 +125,7 @@ function upstreamModelOptions(providerId: string, group?: ModelGroup) {
   ];
 }
 
-function selectProvider(form: ModelForm, group?: ModelGroup) {
+function selectProvider(form: ModelForm, group?: EndpointModelGroup) {
   form.upstream_model =
     availableUpstreamModels(form.provider_id, group)[0]?.model_name ?? "";
 }

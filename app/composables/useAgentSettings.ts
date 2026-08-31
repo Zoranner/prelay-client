@@ -6,6 +6,7 @@ import type {
   RelayEndpoint,
 } from "~/stores/relay";
 import { clientSupportsSettings } from "~/utils/agentClient";
+import { groupEndpointModels } from "~/utils/endpointModels";
 import {
   codexSettingsPayload,
   copyAgentClientSettings,
@@ -54,9 +55,9 @@ export function useAgentSettings(options: AgentSettingsOptions) {
     { value: customEndpointValue, label: "自定义" },
   ]);
   const modelOptions = computed(() =>
-    (selectedEndpoint.value?.models ?? []).map((model) => ({
-      value: model.model_name,
-      label: model.model_name,
+    groupEndpointModels(selectedEndpoint.value?.models ?? []).map((group) => ({
+      value: group.name,
+      label: group.name,
     })),
   );
   const isCustomCodexEndpoint = computed(
