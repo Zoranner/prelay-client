@@ -38,7 +38,7 @@ onBeforeUnmount(() => exitRegistration?.unregister());
 <template>
   <Modal
     :visible="visible"
-    title="更新已准备就绪"
+    title="新版本已就绪"
     size="small"
     :blocked="clientUpdate.installing.value"
     :show-cancel="false"
