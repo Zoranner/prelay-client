@@ -1,5 +1,5 @@
 use prelay_protocol::{
-    ModelStatsSummary, ProviderStatsSummary, RequestLogSummary, StatsOverview,
+    ActivitySummary, ModelStatsSummary, ProviderStatsSummary, StatsOverview,
     TokenUsageTimelinePoint,
 };
 use tauri::State;
@@ -32,13 +32,13 @@ pub async fn stats_timeline(
 }
 
 #[tauri::command]
-pub async fn stats_requests(
+pub async fn stats_activities(
     state: State<'_, NativeState>,
     limit: Option<usize>,
-) -> Result<Vec<RequestLogSummary>, ClientError> {
+) -> Result<Vec<ActivitySummary>, ClientError> {
     let path = match limit {
-        Some(limit) => format!("/api/stats/requests?limit={limit}"),
-        None => "/api/stats/requests".to_string(),
+        Some(limit) => format!("/api/stats/activities?limit={limit}"),
+        None => "/api/stats/activities".to_string(),
     };
     authenticated_api(&state).await?.get(&path).await
 }

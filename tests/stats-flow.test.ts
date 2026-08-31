@@ -4,7 +4,7 @@ import { readFileSync } from "node:fs";
 const page = (name: string) =>
   readFileSync(new URL(`../app/pages/${name}.vue`, import.meta.url), "utf8");
 
-test("活动页只读取和展示请求明细", () => {
+test("活动页只读取和展示活动明细", () => {
   const stats = page("stats");
   const table = readFileSync(
     new URL("../app/components/activity/RequestTable.vue", import.meta.url),
@@ -18,7 +18,11 @@ test("活动页只读取和展示请求明细", () => {
     new URL("../crates/protocol/src/stats.rs", import.meta.url),
     "utf8",
   );
-  expect(stats).toContain('"stats_requests"');
+  const relayStore = readFileSync(
+    new URL("../app/stores/relay.ts", import.meta.url),
+    "utf8",
+  );
+  expect(stats).toContain('"stats_activities"');
   expect(stats).not.toContain('"stats_overview"');
   expect(stats).not.toContain('"stats_models"');
   expect(stats).not.toContain('"stats_providers"');
@@ -41,7 +45,9 @@ test("活动页只读取和展示请求明细", () => {
   expect(table).not.toContain('<th class="text-left">错误</th>');
   expect(table).not.toContain("上游请求 ID");
   expect(table).toContain("cell-status");
-  expect(table).toContain("查看请求诊断");
+  expect(table).toContain("查看活动错误");
+  expect(table).not.toContain("查看活动诊断");
+  expect(table).toContain("v-if=\"row.status === 'failed'\"");
   expect(table).toContain("activity-provider-model");
   expect(table).toContain("activity-metric");
   expect(table).toContain("activity-content-nowrap");
@@ -57,14 +63,14 @@ test("活动页只读取和展示请求明细", () => {
   );
   expect(table).not.toContain("max-content");
   expect(table).toContain("Modal");
-  expect(table).toContain("diagnosticsDialogOpen");
+  expect(table).toContain("errorDialogOpen");
   expect(table).not.toContain("<details");
   expect(table).toContain("requestColumns");
   expect(table).toContain("fixed-header");
   expect(table).toContain("activity-table__grid");
   expect(tableStyles).toContain("overflow: auto");
   expect(table).not.toContain("<EmptyState");
-  expect(table).toContain('empty-text="暂无请求记录"');
+  expect(table).toContain('empty-text="暂无活动"');
   expect(table).toContain(':loading="pending"');
   expect(table).toContain("RadioGroup");
   expect(table).toContain('variant="button"');
@@ -94,8 +100,12 @@ test("活动页只读取和展示请求明细", () => {
     );
   }
   expect(table).not.toContain("request-error__message");
+  expect(requestLogDto).toContain("pub struct ActivitySummary");
   expect(requestLogDto).toContain("pub endpoint_name: Option<String>");
   expect(requestLogDto).toContain("pub first_token_ms: Option<i64>");
   expect(requestLogDto).toContain("pub cache_read_tokens: Option<i64>");
   expect(requestLogDto).toContain("pub cache_write_tokens: Option<i64>");
+  expect(relayStore).toContain("export interface Activity");
+  expect(relayStore).not.toContain("export interface RequestLog");
+  expect(relayStore).not.toContain("metadata_json");
 });

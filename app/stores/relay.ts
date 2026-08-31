@@ -116,7 +116,7 @@ export interface ProviderStats extends ModelStats {
   average_first_token_ms: number | null;
 }
 
-export interface RequestLog {
+export interface Activity {
   id: string;
   created_at: string;
   protocol_in: string | null;
@@ -137,7 +137,6 @@ export interface RequestLog {
   cache_write_tokens: number | null;
   latency_ms: number | null;
   upstream_request_id: string | null;
-  metadata_json: string | null;
 }
 
 export type AgentClient = "codexCli" | "chatgpt" | "openCode";

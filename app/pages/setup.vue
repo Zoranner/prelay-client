@@ -45,7 +45,7 @@ async function save() {
       <form class="setup-form" @submit.prevent="save">
         <p class="setup-form__eyebrow">连接服务地址</p>
         <p>
-          输入部署的服务地址。供应商配置、接入点与请求记录将按当前 Windows
+          输入部署的服务地址。供应商配置、接入点与活动将按当前 Windows
           身份保存在该服务中。
         </p>
         <Input

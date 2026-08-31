@@ -23,7 +23,7 @@ export type RelayCommand =
   | "endpoints_regenerate_token"
   | "stats_overview"
   | "stats_timeline"
-  | "stats_requests"
+  | "stats_activities"
   | "stats_models"
   | "stats_providers"
   | "credential_rotate";

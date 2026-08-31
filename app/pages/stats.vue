@@ -1,15 +1,15 @@
 <script setup lang="ts">
-import type { RequestLog } from "~/stores/relay";
+import type { Activity } from "~/stores/relay";
 import { Button } from "@stellar/ui";
 import RequestTable from "~/components/activity/RequestTable.vue";
 import PanelSection from "~/components/shell/PanelSection.vue";
 
 const { pending, invokeCommand } = useRelayCommand();
-const requests = ref<RequestLog[]>([]);
+const activities = ref<Activity[]>([]);
 const limit = ref(100);
-async function loadRequests() {
+async function loadActivities() {
   try {
-    requests.value = await invokeCommand<RequestLog[]>("stats_requests", {
+    activities.value = await invokeCommand<Activity[]>("stats_activities", {
       limit: limit.value,
     });
   } catch {
@@ -17,7 +17,7 @@ async function loadRequests() {
   }
 }
 
-onMounted(loadRequests);
+onMounted(loadActivities);
 </script>
 
 <template>
@@ -28,7 +28,7 @@ onMounted(loadRequests);
           variant="primary"
           icon="ph:arrows-clockwise"
           :disabled="pending"
-          @click="loadRequests"
+          @click="loadActivities"
         >
           {{ pending ? "刷新中..." : "刷新" }}
         </Button>
@@ -36,8 +36,8 @@ onMounted(loadRequests);
       <RequestTable
         v-model:limit="limit"
         :pending="pending"
-        :requests="requests"
-        @reload="loadRequests"
+        :requests="activities"
+        @reload="loadActivities"
       />
     </PanelSection>
   </main>

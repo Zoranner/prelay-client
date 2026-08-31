@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { RequestLog } from "~/stores/relay";
+import type { Activity } from "~/stores/relay";
 import {
   Badge,
   Button,
@@ -10,21 +10,14 @@ import {
   Table,
   Tag,
 } from "@stellar/ui";
-import {
-  requestDiagnostics,
-  type RequestDiagnostics,
-} from "~/utils/diagnosticMetadata";
 import { protocolLabel, protocolTagVariant } from "~/utils/providerTemplates";
 
-type RequestTableRow = RequestLog &
-  Record<string, unknown> & {
-    diagnostics: RequestDiagnostics | null;
-  };
+type RequestTableRow = Activity & Record<string, unknown>;
 
 const props = defineProps<{
   limit: number;
   pending?: boolean;
-  requests: RequestLog[];
+  requests: Activity[];
 }>();
 const emit = defineEmits<{
   reload: [];
@@ -54,12 +47,6 @@ const requestColumns = [
   { key: "output", title: "输出" },
   { key: "latency", title: "耗时" },
 ];
-const diagnosticColumns = [
-  { key: "diagnostic", title: "诊断", width: 340, ellipsis: true },
-  { key: "severity", title: "级别", width: 88 },
-  { key: "count", title: "次数", width: 72 },
-  { key: "paths", title: "路径样例", width: 320, ellipsis: true },
-];
 const visibleRequests = computed(() =>
   statusFilter.value === "all"
     ? props.requests
@@ -69,33 +56,18 @@ const tableRows = computed<RequestTableRow[]>(() =>
   visibleRequests.value.map((request) => ({
     ...request,
     model_upstream: request.model_upstream ?? "-",
-    diagnostics: requestDiagnostics(request.metadata_json),
   })),
 );
-const selectedDiagnostics = ref<RequestDiagnostics | null>(null);
+const selectedError = ref<Activity | null>(null);
 const workspaceExit = useWorkspaceExitGuard();
-let diagnosticsExitRegistration:
+let errorExitRegistration:
   ReturnType<typeof workspaceExit.register> | undefined;
-const diagnosticsDialogOpen = computed({
-  get: () => selectedDiagnostics.value !== null,
+const errorDialogOpen = computed({
+  get: () => selectedError.value !== null,
   set: (visible: boolean) => {
-    if (!visible) selectedDiagnostics.value = null;
+    if (!visible) selectedError.value = null;
   },
 });
-const diagnosticRows = computed(
-  () =>
-    selectedDiagnostics.value?.diagnostics.map((diagnostic) => ({
-      ...diagnostic,
-      diagnostic: `${diagnostic.code}\n${diagnostic.message}`,
-      paths: diagnostic.paths.join("\n") || "-",
-    })) ?? [],
-);
-
-function statusTitle(row: RequestLog) {
-  return (
-    [row.error_code, row.error_message].filter(Boolean).join("\n") || undefined
-  );
-}
 
 function upstreamTitle(row: RequestTableRow) {
   return (
@@ -107,25 +79,25 @@ function formatMetric(value: number | null, unit = "") {
   return value === null ? "-" : `${value.toLocaleString()}${unit}`;
 }
 
-function openDiagnostics(diagnostics: RequestDiagnostics) {
-  selectedDiagnostics.value = diagnostics;
+function openError(activity: Activity) {
+  selectedError.value = activity;
 }
 
-watch(diagnosticsDialogOpen, (isOpen) => {
+watch(errorDialogOpen, (isOpen) => {
   if (!isOpen) {
-    diagnosticsExitRegistration?.unregister();
-    diagnosticsExitRegistration = undefined;
+    errorExitRegistration?.unregister();
+    errorExitRegistration = undefined;
     return;
   }
-  diagnosticsExitRegistration = workspaceExit.register({
+  errorExitRegistration = workspaceExit.register({
     close: () => {
-      selectedDiagnostics.value = null;
+      selectedError.value = null;
     },
     state: () => "allow",
   });
 });
 
-onBeforeUnmount(() => diagnosticsExitRegistration?.unregister());
+onBeforeUnmount(() => errorExitRegistration?.unregister());
 
 function updateLimit(value: string | number | boolean | null) {
   if (typeof value === "number") {
@@ -158,7 +130,7 @@ function updateLimit(value: string | number | boolean | null) {
         class="activity-table__grid"
         :columns="requestColumns"
         :data="tableRows"
-        empty-text="暂无请求记录"
+        empty-text="暂无活动"
         :loading="pending"
         layout="auto"
         row-key="id"
@@ -203,19 +175,18 @@ function updateLimit(value: string | number | boolean | null) {
           <div class="activity-status">
             <Badge
               :variant="row.status === 'failed' ? 'danger' : 'success'"
-              :title="statusTitle(row)"
             >
               {{ row.http_status ?? row.status }}
             </Badge>
             <Button
-              v-if="row.diagnostics"
+              v-if="row.status === 'failed'"
               square
               size="tiny"
               variant="text"
-              icon="ph:warning-circle"
-              aria-label="查看请求诊断"
-              title="查看请求诊断"
-              @click="openDiagnostics(row.diagnostics)"
+              icon="ph:info"
+              aria-label="查看活动错误"
+              title="查看活动错误"
+              @click="openError(row)"
             />
           </div>
         </template>
@@ -263,50 +234,32 @@ function updateLimit(value: string | number | boolean | null) {
   </div>
 
   <Modal
-    v-model:visible="diagnosticsDialogOpen"
-    title="请求诊断"
-    size="xlarge"
-    height="min(680px, calc(100dvh - 4rem))"
+    v-model:visible="errorDialogOpen"
+    title="活动错误"
+    size="large"
     :show-cancel="false"
     :show-confirm="false"
   >
-    <div v-if="selectedDiagnostics" class="diagnostics-detail">
-      <div
-        v-if="selectedDiagnostics.streamIssue"
-        class="diagnostics-stream-issue"
-      >
-        <Icon icon="ph:warning" />
-        {{ selectedDiagnostics.streamIssue }}
-      </div>
-      <Table
-        v-if="diagnosticRows.length"
-        class="diagnostics-detail__table"
-        :columns="diagnosticColumns"
-        :data="diagnosticRows"
-        fixed-header
-        layout="fixed"
-        row-key="code"
-      >
-        <template #cell-diagnostic="{ row }">
-          <div class="diagnostics-entry" :title="row.diagnostic">
-            <span class="diagnostics-entry__code">{{ row.code }}</span>
-            <span class="diagnostics-entry__message">{{ row.message }}</span>
-          </div>
-        </template>
-        <template #cell-severity="{ row }">
-          <Badge :variant="row.severity === 'warning' ? 'warning' : 'default'">
-            {{ row.severity === "warning" ? "警告" : "提示" }}
-          </Badge>
-        </template>
-        <template #cell-paths="{ row }">
-          <span class="diagnostics-paths" :title="row.paths">{{
-            row.paths
-          }}</span>
-        </template>
-      </Table>
+    <div v-if="selectedError" class="activity-error-detail">
+      <dl>
+        <div>
+          <dt>HTTP 状态</dt>
+          <dd>{{ selectedError.http_status ?? "-" }}</dd>
+        </div>
+        <div>
+          <dt>错误码</dt>
+          <dd>{{ selectedError.error_code ?? "-" }}</dd>
+        </div>
+        <div>
+          <dt>错误说明</dt>
+          <dd class="activity-error-detail__message">
+            {{ selectedError.error_message ?? "上游未提供错误说明" }}
+          </dd>
+        </div>
+      </dl>
     </div>
     <template #footer>
-      <Button @click="diagnosticsDialogOpen = false">关闭</Button>
+      <Button @click="errorDialogOpen = false">关闭</Button>
     </template>
   </Modal>
 </template>

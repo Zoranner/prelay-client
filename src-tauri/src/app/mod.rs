@@ -43,7 +43,7 @@ pub fn run() {
             crate::commands::extensions::extensions_install,
             crate::commands::stats::stats_overview,
             crate::commands::stats::stats_timeline,
-            crate::commands::stats::stats_requests,
+            crate::commands::stats::stats_activities,
             crate::commands::stats::stats_models,
             crate::commands::stats::stats_providers,
             crate::commands::identity::credential_rotate

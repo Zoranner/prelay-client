@@ -23,7 +23,7 @@ test("Nuxt 管理页面只通过固定的 Tauri command 调用服务端", () => 
     "endpoints_delete",
     "endpoints_regenerate_token",
     "stats_overview",
-    "stats_requests",
+    "stats_activities",
     "stats_models",
     "stats_providers",
     "credential_rotate",
