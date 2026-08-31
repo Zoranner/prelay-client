@@ -105,6 +105,10 @@ export function useAgentSettings(options: AgentSettingsOptions) {
         endpointName: endpoint.name,
         endpointToken: endpoint.token,
         relayUrl: options.bootstrap.value.relay_url,
+        models: endpoint.models.map(({ model_name, upstream_model }) => ({
+          modelName: model_name,
+          upstreamModel: upstream_model,
+        })),
       };
     }
     return null;

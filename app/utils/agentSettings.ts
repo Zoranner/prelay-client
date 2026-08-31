@@ -43,7 +43,10 @@ export type AgentSettingsSaveRequest = {
   };
   connection: {
     client: AgentClient;
-    connection: Record<string, string | undefined>;
+    connection: Record<
+      string,
+      string | undefined | Array<{ modelName: string; upstreamModel: string }>
+    >;
   } | null;
 };
 

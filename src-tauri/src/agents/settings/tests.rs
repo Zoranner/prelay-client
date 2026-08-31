@@ -1,5 +1,6 @@
 use std::fs;
 
+use serde_json::json;
 use tempfile::tempdir;
 
 use crate::agents::AgentClient;
@@ -85,6 +86,7 @@ sandbox = "unelevated"
         endpoint_name: "Prelay".to_string(),
         relay_url: "https://relay.example.test/".to_string(),
         endpoint_token: "endpoint-token".to_string(),
+        models: Vec::new(),
     };
 
     save_user_settings(
@@ -109,6 +111,99 @@ sandbox = "unelevated"
     let auth: serde_json::Value =
         serde_json::from_str(&fs::read_to_string(codex_root.join("auth.json")).unwrap()).unwrap();
     assert_eq!(auth["OPENAI_API_KEY"], "endpoint-token");
+}
+
+#[test]
+fn saves_every_prelay_model_alias_to_the_codex_catalog() {
+    let directory = tempdir().unwrap();
+    let codex_root = directory.path().join(".codex");
+    fs::create_dir_all(&codex_root).unwrap();
+    fs::write(codex_root.join("config.toml"), "").unwrap();
+
+    let connection: CodexConnection = serde_json::from_value(json!({
+        "kind": "prelay",
+        "endpointId": "endpoint-id",
+        "endpointName": "Endpoint 1",
+        "relayUrl": "https://relay.example.test",
+        "endpointToken": "endpoint-token",
+        "models": [
+            {
+                "modelName": "team-flash",
+                "upstreamModel": "deepseek-v4-flash"
+            },
+            {
+                "modelName": "minimax-main",
+                "upstreamModel": "MiniMax-M2"
+            }
+        ]
+    }))
+    .unwrap();
+    let settings = CodexSettings {
+        model: Some("team-flash".to_string()),
+        ..Default::default()
+    };
+
+    save_user_settings(
+        directory.path(),
+        &AgentSettings::CodexCli(settings),
+        Some(&AgentConnection::CodexCli(connection)),
+    )
+    .unwrap();
+
+    let catalog: serde_json::Value =
+        serde_json::from_str(&fs::read_to_string(codex_root.join("models.json")).unwrap()).unwrap();
+    assert_eq!(catalog["models"].as_array().unwrap().len(), 2);
+    assert_eq!(catalog["models"][0]["slug"], "team-flash");
+    assert_eq!(catalog["models"][1]["slug"], "minimax-main");
+    assert_eq!(catalog["models"][0]["apply_patch_tool_type"], "freeform");
+
+    let saved = fs::read_to_string(codex_root.join("config.toml")).unwrap();
+    let config: toml::Value = toml::from_str(&saved).unwrap();
+    assert_eq!(
+        config["model_catalog_json"].as_str(),
+        Some(
+            codex_root
+                .join("models.json")
+                .to_string_lossy()
+                .replace('\\', "/")
+                .as_str()
+        )
+    );
+}
+
+#[test]
+fn rejects_a_default_model_that_is_not_mapped_by_the_prelay_endpoint() {
+    let directory = tempdir().unwrap();
+    let codex_root = directory.path().join(".codex");
+    fs::create_dir_all(&codex_root).unwrap();
+    fs::write(codex_root.join("config.toml"), "").unwrap();
+
+    let connection: CodexConnection = serde_json::from_value(json!({
+        "kind": "prelay",
+        "endpointId": "endpoint-id",
+        "endpointName": "Endpoint 1",
+        "relayUrl": "https://relay.example.test",
+        "endpointToken": "endpoint-token",
+        "models": [{
+            "modelName": "team-flash",
+            "upstreamModel": "deepseek-v4-flash"
+        }]
+    }))
+    .unwrap();
+    let settings = CodexSettings {
+        model: Some("old-endpoint-model".to_string()),
+        ..Default::default()
+    };
+
+    let error = save_user_settings(
+        directory.path(),
+        &AgentSettings::CodexCli(settings),
+        Some(&AgentConnection::CodexCli(connection)),
+    )
+    .unwrap_err();
+
+    assert_eq!(error, "默认模型不属于所选接入点。");
+    assert!(!codex_root.join("models.json").exists());
 }
 
 #[test]

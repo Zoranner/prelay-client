@@ -1,5 +1,6 @@
 use std::path::Path;
 
+use serde_json::{json, Value};
 use toml_edit::{value, DocumentMut, Item, Table};
 
 use super::{
@@ -9,7 +10,7 @@ use super::{
         set_table_string, table_mut, toml_bool, toml_integer, toml_string, toml_web_search,
         write_text,
     },
-    CodexConnection, CodexFeatures, CodexSettings,
+    CodexConnection, CodexEndpointModel, CodexFeatures, CodexSettings,
 };
 
 pub(super) fn save_codex_settings(
@@ -73,7 +74,7 @@ pub(super) fn save_codex_settings(
     let windows = table_mut(&mut document, "windows");
     set_table_string(windows, "sandbox", settings.windows_sandbox.as_deref());
 
-    apply_codex_connection(&mut document, connection)?;
+    apply_codex_connection(home, &mut document, settings.model.as_deref(), connection)?;
 
     write_text(&config_path, document.to_string().as_bytes())?;
     if let Some(connection) = connection {
@@ -94,12 +95,30 @@ pub(super) fn save_codex_settings(
 }
 
 fn apply_codex_connection(
+    home: &Path,
     document: &mut DocumentMut,
+    model: Option<&str>,
     connection: Option<&CodexConnection>,
 ) -> Result<(), String> {
     let Some(connection) = connection else {
         return Ok(());
     };
+    let model_catalog_json = match connection {
+        CodexConnection::Prelay { models, .. } => {
+            validate_prelay_default_model(model, models)?;
+            Some(
+                write_prelay_model_catalog(home, models)?
+                    .to_string_lossy()
+                    .replace('\\', "/"),
+            )
+        }
+        CodexConnection::Custom { .. } => None,
+    };
+    set_item(
+        document,
+        "model_catalog_json",
+        model_catalog_json.as_deref(),
+    );
     let provider_id = document
         .as_table()
         .get("model_provider")
@@ -143,6 +162,53 @@ fn apply_codex_connection(
     provider.remove("experimental_bearer_token");
     provider.remove("env_key");
     Ok(())
+}
+
+fn validate_prelay_default_model(
+    model: Option<&str>,
+    models: &[CodexEndpointModel],
+) -> Result<(), String> {
+    if models.is_empty() {
+        return Ok(());
+    }
+    let model = model.map(str::trim).filter(|model| !model.is_empty());
+    if model.is_some_and(|model| models.iter().any(|item| item.model_name == model)) {
+        Ok(())
+    } else {
+        Err("默认模型不属于所选接入点。".to_string())
+    }
+}
+
+fn write_prelay_model_catalog(
+    home: &Path,
+    models: &[CodexEndpointModel],
+) -> Result<std::path::PathBuf, String> {
+    let templates = serde_json::from_str::<Value>(include_str!("deepseek_models.json"))
+        .map_err(|error| format!("Codex 模型档案无法解析: {error}"))?;
+    let profiles = templates["models"]
+        .as_array()
+        .ok_or_else(|| "Codex 模型档案缺少 models 数组".to_string())?;
+    let fallback = profiles
+        .first()
+        .ok_or_else(|| "Codex 模型档案为空".to_string())?;
+    let catalog = models
+        .iter()
+        .map(|model| {
+            let mut profile = profiles
+                .iter()
+                .find(|profile| profile["slug"] == model.upstream_model)
+                .cloned()
+                .unwrap_or_else(|| fallback.clone());
+            profile["slug"] = Value::String(model.model_name.clone());
+            profile["display_name"] = Value::String(model.model_name.clone());
+            profile
+        })
+        .collect::<Vec<_>>();
+    let contents = serde_json::to_vec_pretty(&json!({ "models": catalog }))
+        .map_err(|error| format!("Codex 模型目录无法序列化: {error}"))?;
+    let path = home.join(".codex").join("models.json");
+    write_text(&path, &contents)?;
+    Ok(path)
 }
 
 fn write_codex_auth_token(home: &Path, token: &str) -> Result<(), String> {

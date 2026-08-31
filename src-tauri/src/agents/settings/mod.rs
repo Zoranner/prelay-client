@@ -34,11 +34,19 @@ pub enum CodexConnection {
         endpoint_name: String,
         relay_url: String,
         endpoint_token: String,
+        models: Vec<CodexEndpointModel>,
     },
     Custom {
         base_url: String,
         token: String,
     },
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CodexEndpointModel {
+    pub model_name: String,
+    pub upstream_model: String,
 }
 
 #[derive(Debug, Clone, Deserialize)]
