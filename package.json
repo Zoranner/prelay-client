@@ -1,7 +1,7 @@
 {
   "name": "prelay-client",
   "private": true,
-  "version": "0.1.5",
+  "version": "0.1.6",
   "type": "module",
   "scripts": {
     "dev": "nuxt dev",
@@ -33,7 +33,7 @@
     "@dicebear/styles": "10.5.0",
     "@iconify-json/ph": "^1.2.2",
     "@lobehub/icons-static-svg": "^1.94.0",
-    "@stellar/ui": "0.1.5",
+    "@stellar/ui": "0.1.6",
     "@tauri-apps/api": "^2.0.0",
     "echarts": "^6.1.0"
   }

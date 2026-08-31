@@ -173,9 +173,7 @@ function updateLimit(value: string | number | boolean | null) {
         </template>
         <template #cell-status="{ row }">
           <div class="activity-status">
-            <Badge
-              :variant="row.status === 'failed' ? 'danger' : 'success'"
-            >
+            <Badge :variant="row.status === 'failed' ? 'danger' : 'success'">
               {{ row.http_status ?? row.status }}
             </Badge>
             <Button
