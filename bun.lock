@@ -9,7 +9,7 @@
         "@dicebear/styles": "10.5.0",
         "@iconify-json/ph": "^1.2.2",
         "@lobehub/icons-static-svg": "^1.94.0",
-        "@stellar/ui": "0.1.4",
+        "@stellar/ui": "0.1.5",
         "@tauri-apps/api": "^2.0.0",
         "echarts": "^6.1.0",
       },
@@ -391,7 +391,7 @@
 
     "@speed-highlight/core": ["@speed-highlight/core@1.2.24", "http://pkg.rd.kim/repository/npm-group/@speed-highlight/core/-/core-1.2.24.tgz", {}, "sha512-qeW2e1l78afw8VhRPfPQ1Gjj+KU5XFQ/OFV5ti6eTa9bruO7mJyZtA4vw0ofqmA3tKCkROE9xLk3VZoeRc98nw=="],
 
-    "@stellar/ui": ["@stellar/ui@0.1.4", "https://git.kimo.ink/api/packages/npm-hosted/npm/%40stellar%2Fui/-/0.1.4/ui-0.1.4.tgz", { "dependencies": { "@types/markdown-it": "^14.1.2", "markdown-it": "^14.1.0", "shiki": "^3.21.0", "tailwind-merge": "^3.0.0", "tailwind-variants": "^3.2.2" }, "peerDependencies": { "@nuxt/kit": "^3.0.0", "tailwindcss": "^4.0.0", "vue": "^3.4.0" }, "optionalPeers": ["@nuxt/kit"] }, "sha512-b583oOZytfqh10kgZ1JC08B7kH1w+HgpWitvNbG56MiTtqiTMHVaWnnvQTdkvqDdgfmk1aVKZlhlXdBmlJ0rKA=="],
+    "@stellar/ui": ["@stellar/ui@0.1.5", "https://git.kimo.ink/api/packages/npm-hosted/npm/%40stellar%2Fui/-/0.1.5/ui-0.1.5.tgz", { "dependencies": { "@types/markdown-it": "^14.1.2", "markdown-it": "^14.1.0", "shiki": "^3.21.0", "tailwind-merge": "^3.0.0", "tailwind-variants": "^3.2.2" }, "peerDependencies": { "@nuxt/kit": "^3.0.0", "tailwindcss": "^4.0.0", "vue": "^3.4.0" }, "optionalPeers": ["@nuxt/kit"] }, "sha512-2tq0sA5LWwhFf5YbtJHI2wW88RStB5hHD8qGbxc8yT4D7c7DAZcRFkQ1tzX5eeEM0WmCAk8/bzDhqpO6f424rQ=="],
 
     "@tailwindcss/node": ["@tailwindcss/node@4.3.3", "http://pkg.rd.kim/repository/npm-group/@tailwindcss/node/-/node-4.3.3.tgz", { "dependencies": { "@jridgewell/remapping": "^2.3.5", "enhanced-resolve": "^5.24.1", "jiti": "^2.7.0", "lightningcss": "1.32.0", "magic-string": "^0.30.21", "source-map-js": "^1.2.1", "tailwindcss": "4.3.3" } }, "sha512-/T8IKEsf9VTU6tLjgC7+sv2mOPtQxzE2jMw7u4Tt40Tx+QSZxpzh95/H6cMKoja9XuW7iMdLJYBB0o9G1CaAgg=="],
 
