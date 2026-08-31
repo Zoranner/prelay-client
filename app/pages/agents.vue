@@ -10,7 +10,7 @@ import type {
   RelayEndpoint,
 } from "~/stores/relay";
 import { useRelayStore } from "~/stores/relay";
-import { agentClientDefinitions } from "~/utils/agentClient";
+import { agentClientDefinitions, sortAgentClients } from "~/utils/agentClient";
 import AgentSidebar from "~/components/agents/AgentSidebar.vue";
 import AgentWorkspaceContent from "~/components/agents/AgentWorkspaceContent.vue";
 import AgentSettingsDrawer from "~/components/agents/AgentSettingsDrawer.vue";
@@ -95,16 +95,18 @@ const activeRules = computed({
 });
 
 const agentClients = computed(() =>
-  agentClientDefinitions.map((definition) => {
-    const status = clientStatuses.value.find(
-      ({ client }) => client === definition.client,
-    );
-    return {
-      ...definition,
-      installed: clientStatusesLoaded.value && Boolean(status?.installed),
-      version: clientStatusesLoaded.value ? (status?.version ?? "-") : "-",
-    };
-  }),
+  sortAgentClients(
+    agentClientDefinitions.map((definition) => {
+      const status = clientStatuses.value.find(
+        ({ client }) => client === definition.client,
+      );
+      return {
+        ...definition,
+        installed: clientStatusesLoaded.value && Boolean(status?.installed),
+        version: clientStatusesLoaded.value ? (status?.version ?? "-") : "-",
+      };
+    }),
+  ),
 );
 const sectionOptions: Array<{
   value: AgentSection;
