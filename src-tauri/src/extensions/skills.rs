@@ -9,7 +9,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::relay::client::ClientError;
 
-use super::{atomic_write, storage_error, SKILLS_PREFIX};
+use super::{atomic_write, decode_extension_file, storage_error, SKILLS_PREFIX};
 
 const MANAGED_SKILLS_DIRECTORY: &str = ".prelay/skills";
 
@@ -33,6 +33,10 @@ pub(super) fn install_skill_files(
     overwrite: bool,
 ) -> Result<(), ClientError> {
     let roots = skill_roots(files)?;
+    let files = files
+        .iter()
+        .map(|source| Ok((source, decode_extension_file(source)?)))
+        .collect::<Result<Vec<_>, ClientError>>()?;
     let manifest_path = managed_skill_manifest_path(target_root, package)?;
     let previous = read_managed_skill_package(&manifest_path)?;
 
@@ -54,12 +58,12 @@ pub(super) fn install_skill_files(
         }
     }
 
-    for source in files {
+    for (source, content) in files {
         let relative = source
             .path
             .strip_prefix(SKILLS_PREFIX)
             .expect("validated skill path");
-        atomic_write(&target_root.join(relative), source.content.as_bytes())?;
+        atomic_write(&target_root.join(relative), &content)?;
     }
     write_managed_skill_package(
         &manifest_path,
@@ -227,6 +231,7 @@ fn ensure_skill_roots_available(
 mod tests {
     use std::fs;
 
+    use base64::{engine::general_purpose::STANDARD as BASE64, Engine};
     use prelay_protocol::ExtensionFile;
     use tempfile::tempdir;
 
@@ -235,7 +240,7 @@ mod tests {
     fn skill_file(path: &str, content: &str) -> ExtensionFile {
         ExtensionFile {
             path: path.to_string(),
-            content: content.to_string(),
+            content_base64: BASE64.encode(content),
         }
     }
 

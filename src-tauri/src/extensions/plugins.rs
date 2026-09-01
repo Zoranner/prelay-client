@@ -12,7 +12,7 @@ use crate::{
     relay::client::ClientError,
 };
 
-use super::atomic_write;
+use super::{atomic_write, decode_extension_file};
 
 const CODEX_PLUGIN_MANIFEST: &str = ".codex-plugin/plugin.json";
 const OPENCODE_PLUGIN_PREFIX: &str = ".opencode/plugins/";
@@ -59,6 +59,11 @@ fn install_codex_plugin(home: &Path, bundle: &ExtensionInstallBundle) -> Result<
             "插件不包含 Codex 插件清单。",
         ));
     }
+    let files = bundle
+        .files
+        .iter()
+        .map(|file| Ok((file, decode_extension_file(file)?)))
+        .collect::<Result<Vec<_>, ClientError>>()?;
     let version = safe_component(&bundle.version.tag)?;
     let name = safe_component(&bundle.name)?;
     let destination = home
@@ -71,9 +76,9 @@ fn install_codex_plugin(home: &Path, bundle: &ExtensionInstallBundle) -> Result<
     if destination.exists() {
         fs::remove_dir_all(&destination).map_err(storage_error)?;
     }
-    for file in &bundle.files {
+    for (file, content) in files {
         if safe_path(&file.path) {
-            atomic_write(&destination.join(&file.path), file.content.as_bytes())?;
+            atomic_write(&destination.join(&file.path), &content)?;
         }
     }
     register_codex_plugin(home, &format!("{}@{PRELAY_MARKETPLACE}", bundle.name))
@@ -92,7 +97,8 @@ fn install_opencode_plugin(
                 && (file.path.ends_with(".js") || file.path.ends_with(".ts"))
                 && safe_path(&file.path)
         })
-        .collect::<Vec<_>>();
+        .map(|file| Ok((file, decode_extension_file(file)?)))
+        .collect::<Result<Vec<_>, ClientError>>()?;
     if files.is_empty() {
         return Err(ClientError::new(
             "invalid_response",
@@ -100,16 +106,16 @@ fn install_opencode_plugin(
         ));
     }
     let root = home.join(".config").join("opencode").join("plugins");
-    for file in &files {
+    for (file, content) in &files {
         let relative = file
             .path
             .strip_prefix(OPENCODE_PLUGIN_PREFIX)
             .expect("validated OpenCode plugin path");
-        atomic_write(&root.join(relative), file.content.as_bytes())?;
+        atomic_write(&root.join(relative), content)?;
     }
     let files = files
         .iter()
-        .filter_map(|file| file.path.strip_prefix(OPENCODE_PLUGIN_PREFIX))
+        .filter_map(|(file, _)| file.path.strip_prefix(OPENCODE_PLUGIN_PREFIX))
         .map(ToString::to_string)
         .collect();
     let manifest = ManagedPluginPackage {
@@ -170,10 +176,11 @@ fn local_error(message: String) -> ClientError {
 
 #[cfg(test)]
 mod tests {
+    use base64::{engine::general_purpose::STANDARD as BASE64, Engine};
     use prelay_protocol::{ExtensionFile, ExtensionInstallBundle, ExtensionKind, ExtensionVersion};
     use tempfile::tempdir;
 
-    use super::install_opencode_plugin;
+    use super::{install_codex_plugin, install_opencode_plugin};
 
     #[test]
     fn installs_opencode_plugin_into_the_global_plugin_directory() {
@@ -188,7 +195,7 @@ mod tests {
             },
             files: vec![ExtensionFile {
                 path: ".opencode/plugins/review.ts".to_string(),
-                content: "export const Review = async () => ({});".to_string(),
+                content_base64: BASE64.encode("export const Review = async () => ({});"),
             }],
         };
 
@@ -207,5 +214,48 @@ mod tests {
         .unwrap();
         assert!(manifest.contains("\"version\": \"v1.0.0\""));
         assert!(manifest.contains("review.ts"));
+    }
+
+    #[test]
+    fn installs_codex_plugin_binary_assets_without_changing_bytes() {
+        let directory = tempdir().unwrap();
+        let icon = [0x89, b'P', b'N', b'G', b'\r', b'\n', 0x1a, b'\n'];
+        let bundle = ExtensionInstallBundle {
+            name: "visual-plugin".to_string(),
+            kind: ExtensionKind::Plugin,
+            version: ExtensionVersion {
+                tag: "v1.0.0".to_string(),
+                commit_sha: "a".repeat(40),
+                updated_at: "2026-08-29T00:00:00Z".to_string(),
+            },
+            files: vec![
+                ExtensionFile {
+                    path: ".codex-plugin/plugin.json".to_string(),
+                    content_base64: BASE64.encode(r#"{ "name": "visual-plugin" }"#),
+                },
+                ExtensionFile {
+                    path: "assets/app-icon.png".to_string(),
+                    content_base64: BASE64.encode(icon),
+                },
+            ],
+        };
+        std::fs::create_dir_all(directory.path().join(".codex")).unwrap();
+        std::fs::write(
+            directory.path().join(".codex/config.toml"),
+            "[plugins]\n\"visual-plugin@prelay\" = { enabled = false }\n",
+        )
+        .unwrap();
+
+        install_codex_plugin(directory.path(), &bundle).unwrap();
+
+        assert_eq!(
+            std::fs::read(
+                directory
+                    .path()
+                    .join(".codex/plugins/cache/prelay/visual-plugin/v1.0.0/assets/app-icon.png"),
+            )
+            .unwrap(),
+            icon
+        );
     }
 }

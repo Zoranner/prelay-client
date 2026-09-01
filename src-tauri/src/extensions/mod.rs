@@ -1,7 +1,8 @@
 use std::{fs, io::Write, path::Path};
 
 use atomic_write_file::AtomicWriteFile;
-use prelay_protocol::{ExtensionInstallBundle, ExtensionSummary};
+use base64::{engine::general_purpose::STANDARD as BASE64, Engine};
+use prelay_protocol::{ExtensionFile, ExtensionInstallBundle, ExtensionSummary};
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -168,6 +169,15 @@ fn safe_skill_path(path: &str) -> bool {
         && path
             .split('/')
             .all(|part| !part.is_empty() && !matches!(part, "." | ".."))
+}
+
+pub(super) fn decode_extension_file(file: &ExtensionFile) -> Result<Vec<u8>, ClientError> {
+    BASE64.decode(&file.content_base64).map_err(|_| {
+        ClientError::new(
+            "invalid_response",
+            "extension install bundle contains invalid Base64 content",
+        )
+    })
 }
 
 fn atomic_write(path: &Path, contents: &[u8]) -> Result<(), ClientError> {
