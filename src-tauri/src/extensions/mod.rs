@@ -14,7 +14,6 @@ use crate::{
 
 pub use prelay_protocol::ExtensionKind;
 
-mod plugins;
 mod rules;
 mod skills;
 
@@ -58,7 +57,6 @@ pub async fn list_extensions(
     let path = match kind {
         ExtensionKind::Rule => "/api/extensions/rules",
         ExtensionKind::Skill => "/api/extensions/skills",
-        ExtensionKind::Plugin => "/api/extensions/plugins",
         ExtensionKind::Mcp => {
             return Err(ClientError::new(
                 "extension_kind_unavailable",
@@ -136,7 +134,6 @@ pub async fn install_extension(
                 )?;
             }
         }
-        ExtensionKind::Plugin => plugins::install_plugin(home, &bundle, &request.clients)?,
         ExtensionKind::Mcp => unreachable!("MCP installation is disabled"),
     }
     Ok(ExtensionInstallResult {
@@ -155,7 +152,6 @@ fn validate_bundle(bundle: &ExtensionInstallBundle) -> Result<(), ClientError> {
         {
             Ok(())
         }
-        ExtensionKind::Plugin if plugins::valid_plugin_bundle(bundle) => Ok(()),
         _ => Err(ClientError::new(
             "invalid_response",
             "extension install bundle is invalid",

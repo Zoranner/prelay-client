@@ -10,7 +10,7 @@ test("智能体客户端按独立安装形态保留产品与图标身份", () =>
       icon: expect.stringContaining("codex.svg"),
       configurable: true,
       monochrome: true,
-      sections: ["rules", "plugin", "mcp", "skill"],
+      sections: ["rules", "mcp", "skill"],
     },
     {
       client: "chatgpt",
@@ -18,7 +18,7 @@ test("智能体客户端按独立安装形态保留产品与图标身份", () =>
       icon: expect.stringContaining("openai.svg"),
       configurable: true,
       monochrome: true,
-      sections: ["rules", "plugin", "mcp", "skill"],
+      sections: ["rules", "mcp", "skill"],
     },
     {
       client: "openCode",
@@ -26,7 +26,7 @@ test("智能体客户端按独立安装形态保留产品与图标身份", () =>
       icon: expect.stringContaining("opencode.svg"),
       configurable: true,
       monochrome: true,
-      sections: ["rules", "plugin", "mcp", "skill"],
+      sections: ["rules", "mcp", "skill"],
     },
   ]);
 });

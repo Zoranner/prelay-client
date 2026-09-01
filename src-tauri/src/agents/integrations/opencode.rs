@@ -1,10 +1,8 @@
 use std::{
-    collections::{BTreeMap, BTreeSet},
     fs,
     path::{Path, PathBuf},
 };
 
-use serde::Deserialize;
 use serde_json::Value;
 
 use super::{AgentIntegration, AgentItem, AgentItemKind};
@@ -33,16 +31,12 @@ impl AgentIntegration for OpenCodeIntegration {
         let path = configuration_path(home);
         let mut items = if path.is_file() {
             match read_config(&path) {
-                Ok(config) => [mcp_items(&config, &path), plugin_items(&config, &path)].concat(),
+                Ok(config) => mcp_items(&config, &path),
                 Err(()) => vec![error_item(AgentItemKind::Mcp, &path)],
             }
         } else {
             Vec::new()
         };
-        items.extend(local_plugin_items(
-            &config_directory(home).join("plugins"),
-            home,
-        ));
         items.extend(scan_skills(home.join(".agents").join("skills")));
         deduplicate(items)
     }
@@ -69,11 +63,6 @@ impl AgentIntegration for OpenCodeIntegration {
         match kind {
             AgentItemKind::Skill => remove_skill_directory(source_path),
             AgentItemKind::Mcp => remove_config_entry(&configuration_path(home), "mcp", name),
-            AgentItemKind::Plugin if Path::new(source_path).is_file() => {
-                fs::remove_file(source_path)
-                    .map_err(|error| format!("无法删除 OpenCode 插件文件：{error}"))
-            }
-            AgentItemKind::Plugin => remove_plugin_entry(&configuration_path(home), name),
         }
     }
 }
@@ -112,130 +101,6 @@ fn mcp_items(config: &Value, path: &Path) -> Vec<AgentItem> {
         .collect()
 }
 
-fn plugin_items(config: &Value, path: &Path) -> Vec<AgentItem> {
-    config
-        .get("plugin")
-        .and_then(Value::as_array)
-        .into_iter()
-        .flatten()
-        .filter_map(Value::as_str)
-        .map(|name| AgentItem {
-            kind: AgentItemKind::Plugin,
-            name: name.to_string(),
-            version: None,
-            source: AgentItemSource::Personal,
-            source_path: path.display().to_string(),
-            status: AgentItemStatus::Enabled,
-            error_message: None,
-        })
-        .collect()
-}
-
-#[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
-struct ManagedPluginPackage {
-    #[serde(default)]
-    version: Option<String>,
-    #[serde(default)]
-    files: BTreeSet<String>,
-}
-
-fn local_plugin_items(root: &Path, home: &Path) -> Vec<AgentItem> {
-    let mut items = Vec::new();
-    let metadata = plugin_installation_metadata(home);
-    visit_plugin_directory(root, root, &metadata, &mut items);
-    items
-}
-
-fn plugin_installation_metadata(home: &Path) -> BTreeMap<String, Option<String>> {
-    let directory = home.join(".prelay").join("plugins");
-    let mut metadata = BTreeMap::new();
-    let Ok(entries) = fs::read_dir(directory) else {
-        return metadata;
-    };
-    for entry in entries.flatten() {
-        let path = entry.path();
-        if path.extension().and_then(|extension| extension.to_str()) != Some("json") {
-            continue;
-        }
-        let Ok(contents) = fs::read_to_string(path) else {
-            continue;
-        };
-        let Ok(package) = serde_json::from_str::<ManagedPluginPackage>(&contents) else {
-            continue;
-        };
-        for file in package.files {
-            metadata.insert(file, package.version.clone());
-        }
-    }
-    metadata
-}
-
-fn visit_plugin_directory(
-    root: &Path,
-    path: &Path,
-    metadata: &BTreeMap<String, Option<String>>,
-    items: &mut Vec<AgentItem>,
-) {
-    let Ok(entries) = fs::read_dir(path) else {
-        return;
-    };
-    for entry in entries.flatten() {
-        let path = entry.path();
-        if path.is_dir() {
-            visit_plugin_directory(root, &path, metadata, items);
-            continue;
-        }
-        if !matches!(
-            path.extension().and_then(|extension| extension.to_str()),
-            Some("js" | "ts")
-        ) {
-            continue;
-        }
-        let Some(name) = local_plugin_name(root, &path) else {
-            continue;
-        };
-        let relative = path
-            .strip_prefix(root)
-            .ok()
-            .map(|path| path.to_string_lossy().replace('\\', "/"));
-        let version = relative
-            .as_ref()
-            .and_then(|path| metadata.get(path).cloned())
-            .flatten();
-        items.push(AgentItem {
-            kind: AgentItemKind::Plugin,
-            name,
-            source: if relative
-                .as_ref()
-                .is_some_and(|path| metadata.contains_key(path))
-            {
-                AgentItemSource::Team
-            } else {
-                AgentItemSource::Personal
-            },
-            version,
-            source_path: path.display().to_string(),
-            status: AgentItemStatus::Enabled,
-            error_message: None,
-        });
-    }
-}
-
-fn local_plugin_name(root: &Path, path: &Path) -> Option<String> {
-    let relative_path = path.strip_prefix(root).ok()?;
-    let mut components = relative_path.components();
-    let first = components.next()?.as_os_str().to_str()?;
-
-    if components.next().is_some() {
-        Some(first.to_string())
-    } else {
-        path.file_stem()
-            .and_then(|name| name.to_str())
-            .map(ToString::to_string)
-    }
-}
-
 fn remove_config_entry(path: &Path, section: &str, name: &str) -> Result<(), String> {
     let mut document =
         read_config(path).map_err(|_| "OpenCode 配置不是有效的 JSONC。".to_string())?;
@@ -245,21 +110,6 @@ fn remove_config_entry(path: &Path, section: &str, name: &str) -> Result<(), Str
         .ok_or_else(|| "未找到要卸载的配置项。".to_string())?;
     if entries.remove(name).is_none() {
         return Err("未找到要卸载的配置项。".to_string());
-    }
-    write_json(path, &document)
-}
-
-fn remove_plugin_entry(path: &Path, name: &str) -> Result<(), String> {
-    let mut document =
-        read_config(path).map_err(|_| "OpenCode 配置不是有效的 JSONC。".to_string())?;
-    let plugins = document
-        .get_mut("plugin")
-        .and_then(Value::as_array_mut)
-        .ok_or_else(|| "未找到要卸载的插件登记。".to_string())?;
-    let original_len = plugins.len();
-    plugins.retain(|entry| entry.as_str() != Some(name));
-    if plugins.len() == original_len {
-        return Err("未找到要卸载的插件登记。".to_string());
     }
     write_json(path, &document)
 }

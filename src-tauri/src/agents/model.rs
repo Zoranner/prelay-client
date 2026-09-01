@@ -14,7 +14,6 @@ pub enum AgentClient {
 pub enum AgentItemKind {
     Mcp,
     Skill,
-    Plugin,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]

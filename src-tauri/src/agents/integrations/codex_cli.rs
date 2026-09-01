@@ -2,8 +2,8 @@ use std::path::{Path, PathBuf};
 
 use super::{AgentIntegration, AgentItem, AgentItemKind};
 use crate::agents::{
-    command_client_version, command_path, remove_codex_config_item, remove_codex_plugin,
-    remove_skill_directory, scan_codex,
+    command_client_version, command_path, remove_codex_config_item, remove_skill_directory,
+    scan_codex,
 };
 
 pub static CODEX_CLI: CodexCliIntegration = CodexCliIntegration;
@@ -37,7 +37,6 @@ impl AgentIntegration for CodexCliIntegration {
     ) -> Result<(), String> {
         match kind {
             AgentItemKind::Mcp => remove_codex_config_item(home, "mcp_servers", name),
-            AgentItemKind::Plugin => remove_codex_plugin(home, name),
             AgentItemKind::Skill => remove_skill_directory(source_path),
         }
     }

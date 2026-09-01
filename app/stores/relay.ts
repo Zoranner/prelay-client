@@ -140,7 +140,7 @@ export interface Activity {
 }
 
 export type AgentClient = "codexCli" | "chatgpt" | "openCode";
-export type AgentItemKind = "mcp" | "skill" | "plugin";
+export type AgentItemKind = "mcp" | "skill";
 export type AgentItemStatus = "enabled" | "disabled" | "error";
 export type AgentItemSource = "personal" | "team";
 
@@ -175,7 +175,7 @@ export interface AgentClientStatus {
   version: string | null;
 }
 
-export type ExtensionKind = "rule" | "plugin" | "mcp" | "skill";
+export type ExtensionKind = "rule" | "mcp" | "skill";
 export type ExtensionCatalogKind = Exclude<ExtensionKind, "mcp">;
 
 export interface ExtensionPackage {

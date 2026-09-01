@@ -17,7 +17,7 @@ export const agentClientDefinitions: Array<{
     icon: codexIcon,
     configurable: true,
     monochrome: true,
-    sections: ["rules", "plugin", "mcp", "skill"],
+    sections: ["rules", "mcp", "skill"],
   },
   {
     client: "chatgpt",
@@ -25,7 +25,7 @@ export const agentClientDefinitions: Array<{
     icon: openaiIcon,
     configurable: true,
     monochrome: true,
-    sections: ["rules", "plugin", "mcp", "skill"],
+    sections: ["rules", "mcp", "skill"],
   },
   {
     client: "openCode",
@@ -33,7 +33,7 @@ export const agentClientDefinitions: Array<{
     icon: openCodeIcon,
     configurable: true,
     monochrome: true,
-    sections: ["rules", "plugin", "mcp", "skill"],
+    sections: ["rules", "mcp", "skill"],
   },
 ];
 

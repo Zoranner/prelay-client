@@ -21,22 +21,7 @@ command = "prelay-search"
 enabled = false
 command = "retired-search"
 
-[plugins."research@prelay"]
-enabled = true
 "#,
-    );
-    write(
-        directory
-            .path()
-            .join(".codex")
-            .join("plugins")
-            .join("cache")
-            .join("prelay")
-            .join("research")
-            .join("0.1.0")
-            .join(".codex-plugin")
-            .join("plugin.json"),
-        "{}",
     );
     write(
         directory
@@ -81,24 +66,6 @@ enabled = true
         item.kind == AgentItemKind::Mcp
             && item.name == "retired"
             && item.status == AgentItemStatus::Disabled
-    }));
-    assert!(codex.items.iter().any(|item| {
-        item.kind == AgentItemKind::Plugin
-            && item.name == "research@prelay"
-            && item.status == AgentItemStatus::Enabled
-            && item.source == AgentItemSource::Team
-            && item.version.as_deref() == Some("0.1.0")
-            && item.source_path
-                == directory
-                    .path()
-                    .join(".codex")
-                    .join("plugins")
-                    .join("cache")
-                    .join("prelay")
-                    .join("research")
-                    .join("0.1.0")
-                    .display()
-                    .to_string()
     }));
     assert!(codex.items.iter().any(|item| {
         item.kind == AgentItemKind::Skill
@@ -161,61 +128,18 @@ fn records_invalid_client_configuration_as_one_error() {
 }
 
 #[test]
-fn reports_a_configured_plugin_without_a_local_cache_as_an_error() {
+fn ignores_host_managed_codex_plugin_configuration() {
     let directory = tempdir().unwrap();
     write(
         directory.path().join(".codex").join("config.toml"),
-        "[plugins.\"search@prelay\"]\nenabled = true\n",
+        "[plugins.\"browser@openai-bundled\"]\nenabled = true\n",
     );
 
     let snapshot = scan_user_items_with_installation(directory.path(), |client| {
         client == AgentClient::CodexCli
     });
-    let plugin = snapshot
-        .clients
-        .iter()
-        .find(|client| client.client == AgentClient::CodexCli)
-        .and_then(|client| {
-            client
-                .items
-                .iter()
-                .find(|item| item.kind == AgentItemKind::Plugin)
-        })
-        .unwrap();
 
-    assert_eq!(plugin.status, AgentItemStatus::Error);
-    assert_eq!(
-        plugin.source_path,
-        directory
-            .path()
-            .join(".codex")
-            .join("config.toml")
-            .display()
-            .to_string()
-    );
-}
-
-#[test]
-fn uninstalls_a_configured_plugin_when_its_local_cache_is_missing() {
-    let directory = tempdir().unwrap();
-    let config_path = directory.path().join(".codex").join("config.toml");
-    write(
-        &config_path,
-        "[plugins.\"search@prelay\"]\nenabled = true\n",
-    );
-
-    uninstall_user_item_with_installation(
-        directory.path(),
-        AgentClient::CodexCli,
-        AgentItemKind::Plugin,
-        "search@prelay",
-        &config_path.display().to_string(),
-        |client| client == AgentClient::CodexCli,
-    )
-    .unwrap();
-
-    let contents = fs::read_to_string(config_path).unwrap();
-    assert!(!contents.contains("search@prelay"));
+    assert!(snapshot.clients[0].items.is_empty());
 }
 
 #[test]
@@ -275,22 +199,7 @@ command = "keep"
 [mcp_servers.remove]
 command = "remove"
 
-[plugins."remove@prelay"]
-enabled = true
 "#,
-    );
-    write(
-        directory
-            .path()
-            .join(".codex")
-            .join("plugins")
-            .join("cache")
-            .join("prelay")
-            .join("remove")
-            .join("0.1.0")
-            .join(".codex-plugin")
-            .join("plugin.json"),
-        "{}",
     );
     write(
         directory
@@ -310,21 +219,11 @@ enabled = true
         .iter()
         .find(|client| client.client == AgentClient::CodexCli)
         .unwrap();
-    for kind in [
-        AgentItemKind::Mcp,
-        AgentItemKind::Plugin,
-        AgentItemKind::Skill,
-    ] {
+    for kind in [AgentItemKind::Mcp, AgentItemKind::Skill] {
         let item = codex
             .items
             .iter()
             .find(|item| item.kind == kind && item.name == "remove")
-            .or_else(|| {
-                codex
-                    .items
-                    .iter()
-                    .find(|item| item.kind == AgentItemKind::Plugin && item.name == "remove@prelay")
-            })
             .unwrap();
         uninstall_user_item_with_installation(
             directory.path(),
@@ -345,7 +244,6 @@ enabled = true
     .items;
     assert!(items.iter().any(|item| item.name == "keep"));
     assert!(items.iter().all(|item| item.name != "remove"));
-    assert!(items.iter().all(|item| item.name != "remove@prelay"));
 }
 
 #[test]

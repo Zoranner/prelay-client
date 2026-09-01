@@ -2,8 +2,7 @@ use std::path::{Path, PathBuf};
 
 use super::{AgentIntegration, AgentItem, AgentItemKind};
 use crate::agents::{
-    chatgpt_desktop_version, remove_codex_config_item, remove_codex_plugin, remove_skill_directory,
-    scan_codex,
+    chatgpt_desktop_version, remove_codex_config_item, remove_skill_directory, scan_codex,
 };
 
 pub static CHATGPT: ChatGptIntegration = ChatGptIntegration;
@@ -37,7 +36,6 @@ impl AgentIntegration for ChatGptIntegration {
     ) -> Result<(), String> {
         match kind {
             AgentItemKind::Mcp => remove_codex_config_item(home, "mcp_servers", name),
-            AgentItemKind::Plugin => remove_codex_plugin(home, name),
             AgentItemKind::Skill => remove_skill_directory(source_path),
         }
     }

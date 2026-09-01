@@ -114,7 +114,6 @@ const sectionOptions: Array<{
   icon: string;
 }> = [
   { value: "rules", label: "规则", icon: "ph:notebook" },
-  { value: "plugin", label: "插件", icon: "ph:puzzle-piece" },
   { value: "mcp", label: "MCP", icon: "ph:terminal-window" },
   { value: "skill", label: "Skill", icon: "ph:book-open-text" },
 ];
@@ -132,7 +131,6 @@ const extensionSectionOptions: Array<{
   icon: string;
 }> = [
   { value: "rule", label: "规则", icon: "ph:notebook" },
-  { value: "plugin", label: "插件", icon: "ph:puzzle-piece" },
   { value: "skill", label: "Skill", icon: "ph:book-open-text" },
 ];
 const activeItems = computed(
@@ -258,7 +256,7 @@ function refreshActiveClient() {
 }
 
 async function uninstallAgentItem(item: AgentItem) {
-  const kindLabel = { mcp: "MCP", plugin: "插件", skill: "Skill" }[item.kind];
+  const kindLabel = { mcp: "MCP", skill: "Skill" }[item.kind];
   const confirmed = await confirmAction({
     title: `卸载${kindLabel}`,
     message: `卸载“${item.name}”？`,

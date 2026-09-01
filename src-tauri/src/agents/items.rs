@@ -7,7 +7,7 @@ use std::{
 
 use atomic_write_file::AtomicWriteFile;
 use serde::Deserialize;
-use toml_edit::{value, DocumentMut, Item, Table};
+use toml_edit::DocumentMut;
 
 use super::{
     discovery::agent_client_is_installed,
@@ -117,11 +117,7 @@ pub(crate) fn scan_codex(home: &Path) -> Vec<AgentItem> {
     }
     let config_path = codex_root.join("config.toml");
     let mut items = match read_toml(&config_path) {
-        Ok(Some(value)) => {
-            let mut items = toml_items(&value, "mcp_servers", AgentItemKind::Mcp, &config_path);
-            items.extend(codex_plugin_items(&value, &codex_root, &config_path));
-            items
-        }
+        Ok(Some(value)) => toml_items(&value, "mcp_servers", AgentItemKind::Mcp, &config_path),
         Ok(None) => Vec::new(),
         Err(()) => vec![error_item(AgentItemKind::Mcp, &config_path)],
     };
@@ -172,76 +168,6 @@ fn toml_items(
         .collect()
 }
 
-fn codex_plugin_items(
-    value: &toml::Value,
-    codex_root: &Path,
-    config_path: &Path,
-) -> Vec<AgentItem> {
-    let Some(entries) = value.get("plugins").and_then(toml::Value::as_table) else {
-        return Vec::new();
-    };
-    entries
-        .iter()
-        .map(|(name, entry)| {
-            let marketplace = name.rsplit_once('@').map(|(_, value)| value);
-            let Some(cache_path) = codex_plugin_cache_path(codex_root, name) else {
-                return AgentItem {
-                    kind: AgentItemKind::Plugin,
-                    name: name.to_owned(),
-                    version: None,
-                    source: AgentItemSource::Personal,
-                    source_path: config_path.display().to_string(),
-                    status: AgentItemStatus::Error,
-                    error_message: Some("未找到已登记插件的本地缓存。".to_string()),
-                };
-            };
-            AgentItem {
-                kind: AgentItemKind::Plugin,
-                name: name.to_owned(),
-                version: cache_path
-                    .file_name()
-                    .and_then(|name| name.to_str())
-                    .map(ToString::to_string),
-                source: if marketplace == Some("prelay") {
-                    AgentItemSource::Team
-                } else {
-                    AgentItemSource::Personal
-                },
-                source_path: cache_path.display().to_string(),
-                status: if entry
-                    .get("enabled")
-                    .and_then(toml::Value::as_bool)
-                    .is_some_and(|enabled| !enabled)
-                {
-                    AgentItemStatus::Disabled
-                } else {
-                    AgentItemStatus::Enabled
-                },
-                error_message: None,
-            }
-        })
-        .collect()
-}
-
-fn codex_plugin_cache_path(codex_root: &Path, plugin_id: &str) -> Option<PathBuf> {
-    let (plugin_name, marketplace) = plugin_id.rsplit_once('@')?;
-    let cache_root = codex_root
-        .join("plugins")
-        .join("cache")
-        .join(marketplace)
-        .join(plugin_name);
-    fs::read_dir(cache_root)
-        .ok()?
-        .flatten()
-        .map(|entry| entry.path())
-        .filter(|path| path.is_dir() && path.join(".codex-plugin").join("plugin.json").is_file())
-        .max_by_key(|path| {
-            fs::metadata(path)
-                .and_then(|metadata| metadata.modified())
-                .ok()
-        })
-}
-
 pub(crate) fn remove_codex_config_item(
     home: &Path,
     section: &str,
@@ -260,37 +186,6 @@ pub(crate) fn remove_codex_config_item(
         return Err("未找到要卸载的配置项。".to_string());
     }
     write_text(&config_path, document.to_string().as_bytes())
-}
-
-pub(crate) fn register_codex_plugin(home: &Path, plugin_id: &str) -> Result<(), String> {
-    let config_path = home.join(".codex").join("config.toml");
-    let contents = fs::read_to_string(&config_path).unwrap_or_default();
-    let mut document = contents
-        .parse::<DocumentMut>()
-        .map_err(|error| format!("Codex 配置不是有效的 TOML：{error}"))?;
-    if document["plugins"].is_none() {
-        document["plugins"] = Item::Table(Table::new());
-    }
-    document["plugins"][plugin_id]["enabled"] = value(true);
-    write_text(&config_path, document.to_string().as_bytes())
-}
-
-pub(crate) fn remove_codex_plugin(home: &Path, name: &str) -> Result<(), String> {
-    remove_codex_config_item(home, "plugins", name)?;
-    let (plugin_name, marketplace) = name
-        .rsplit_once('@')
-        .ok_or_else(|| "插件标识格式不正确。".to_string())?;
-    let cache_path = home
-        .join(".codex")
-        .join("plugins")
-        .join("cache")
-        .join(marketplace)
-        .join(plugin_name);
-    match fs::remove_dir_all(&cache_path) {
-        Ok(()) => Ok(()),
-        Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(()),
-        Err(error) => Err(format!("无法删除本地文件：{error}")),
-    }
 }
 
 pub(crate) fn remove_skill_directory(source_path: &str) -> Result<(), String> {

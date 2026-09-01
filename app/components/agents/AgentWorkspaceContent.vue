@@ -50,11 +50,7 @@ const {
   workspace: AgentClient | "extensions";
 }>();
 
-const showItemStatus = computed(
-  () =>
-    activeSection !== "skill" &&
-    !(activeClient === "openCode" && activeSection === "plugin"),
-);
+const showItemStatus = computed(() => activeSection !== "skill");
 
 const emit = defineEmits<{
   detail: [extension: ExtensionCatalogPackage];

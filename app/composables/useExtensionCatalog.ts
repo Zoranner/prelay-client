@@ -15,7 +15,6 @@ function emptyCatalogs(): CatalogState {
   return {
     rule: emptyCatalog(),
     skill: emptyCatalog(),
-    plugin: emptyCatalog(),
   };
 }
 
@@ -28,12 +27,10 @@ export function useExtensionCatalog() {
   const loaded = useState<LoadedState>("extension-catalog-loaded", () => ({
     rule: false,
     skill: false,
-    plugin: false,
   }));
   const loading = useState<LoadingState>("extension-catalog-loading", () => ({
     rule: false,
     skill: false,
-    plugin: false,
   }));
 
   async function load(kind: ExtensionCatalogKind, force = false) {
@@ -70,8 +67,8 @@ export function useExtensionCatalog() {
     generation += 1;
     loadPromises.clear();
     catalogs.value = emptyCatalogs();
-    loaded.value = { rule: false, skill: false, plugin: false };
-    loading.value = { rule: false, skill: false, plugin: false };
+    loaded.value = { rule: false, skill: false };
+    loading.value = { rule: false, skill: false };
   }
 
   return { catalogs, loaded, loading, load, packages, invalidate };
