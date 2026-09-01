@@ -99,6 +99,19 @@ export type StatsRange =
   | "last_year"
   | "all";
 
+export type LeaderboardMetric =
+  "activities" | "total_tokens" | "successful_activities" | "success_rate";
+
+export interface UserLeaderboardEntry {
+  rank: number;
+  identity_id: string;
+  display_name: string;
+  activity_count: number;
+  total_tokens: number;
+  successful_activities: number;
+  success_rate: number;
+}
+
 export interface ModelStats {
   model_requested: string | null;
   total_requests: number;

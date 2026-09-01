@@ -46,6 +46,7 @@ pub fn run() {
             crate::commands::stats::stats_activities,
             crate::commands::stats::stats_models,
             crate::commands::stats::stats_providers,
+            crate::commands::stats::stats_leaderboard,
             crate::commands::identity::credential_rotate
         ])
         .setup(|app| {

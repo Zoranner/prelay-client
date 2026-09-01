@@ -26,6 +26,7 @@ export type RelayCommand =
   | "stats_activities"
   | "stats_models"
   | "stats_providers"
+  | "stats_leaderboard"
   | "credential_rotate";
 
 export interface CommandState {

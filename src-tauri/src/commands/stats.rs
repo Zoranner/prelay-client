@@ -1,6 +1,6 @@
 use prelay_protocol::{
-    ActivitySummary, ModelStatsSummary, ProviderStatsSummary, StatsOverview,
-    TokenUsageTimelinePoint,
+    stats::UserLeaderboardEntry, ActivitySummary, ModelStatsSummary, ProviderStatsSummary,
+    StatsOverview, TokenUsageTimelinePoint,
 };
 use tauri::State;
 
@@ -58,5 +58,30 @@ pub async fn stats_providers(
     range: Option<String>,
 ) -> Result<Vec<ProviderStatsSummary>, ClientError> {
     let path = range_path("/api/stats/providers", range);
+    authenticated_api(&state).await?.get(&path).await
+}
+
+#[tauri::command]
+pub async fn stats_leaderboard(
+    state: State<'_, NativeState>,
+    range: Option<String>,
+    metric: Option<String>,
+    limit: Option<usize>,
+) -> Result<Vec<UserLeaderboardEntry>, ClientError> {
+    let mut query = Vec::new();
+    if let Some(range) = range {
+        query.push(format!("range={range}"));
+    }
+    if let Some(metric) = metric {
+        query.push(format!("metric={metric}"));
+    }
+    if let Some(limit) = limit {
+        query.push(format!("limit={limit}"));
+    }
+    let path = if query.is_empty() {
+        "/api/stats/leaderboard".to_string()
+    } else {
+        format!("/api/stats/leaderboard?{}", query.join("&"))
+    };
     authenticated_api(&state).await?.get(&path).await
 }

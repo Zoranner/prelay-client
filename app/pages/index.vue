@@ -5,6 +5,7 @@ import type {
   StatsOverview,
   StatsRange,
   TokenUsageTimelinePoint,
+  UserLeaderboardEntry,
 } from "~/stores/relay";
 import { Button } from "@stellar/ui";
 import StatsRangeSelect from "~/components/dashboard/StatsRangeSelect.vue";
@@ -12,12 +13,17 @@ import StatsBreakdownTable from "~/components/dashboard/StatsBreakdownTable.vue"
 import StatsOverviewPanel from "~/components/dashboard/StatsOverview.vue";
 import TokenUsageTrendChart from "~/components/dashboard/TokenUsageTrendChart.vue";
 import PanelSection from "~/components/shell/PanelSection.vue";
+import UserLeaderboardTable from "~/components/dashboard/UserLeaderboardTable.vue";
 
 const { pending, invokeCommand } = useRelayCommand();
 const overview = ref<StatsOverview | null>(null);
 const models = ref<ModelStats[]>([]);
 const providers = ref<ProviderStats[]>([]);
 const timeline = ref<TokenUsageTimelinePoint[]>([]);
+const leaderboard = ref<UserLeaderboardEntry[]>([]);
+const leaderboardRows = computed(() =>
+  leaderboard.value.map((row) => ({ ...row })),
+);
 const selectedRange = ref<StatsRange>("this_week");
 
 const modelRows = computed(() =>
@@ -46,17 +52,28 @@ const providerRows = computed(() =>
 async function loadDashboard() {
   try {
     const range = { range: selectedRange.value };
-    const [overviewValue, modelRows, providerRows, timelineRows] =
-      await Promise.all([
-        invokeCommand<StatsOverview>("stats_overview", range),
-        invokeCommand<ModelStats[]>("stats_models", range),
-        invokeCommand<ProviderStats[]>("stats_providers", range),
-        invokeCommand<TokenUsageTimelinePoint[]>("stats_timeline", range),
-      ]);
+    const [
+      overviewValue,
+      modelRows,
+      providerRows,
+      timelineRows,
+      leaderboardRows,
+    ] = await Promise.all([
+      invokeCommand<StatsOverview>("stats_overview", range),
+      invokeCommand<ModelStats[]>("stats_models", range),
+      invokeCommand<ProviderStats[]>("stats_providers", range),
+      invokeCommand<TokenUsageTimelinePoint[]>("stats_timeline", range),
+      invokeCommand<UserLeaderboardEntry[]>("stats_leaderboard", {
+        range: selectedRange.value,
+        metric: "activities",
+        limit: 50,
+      }),
+    ]);
     overview.value = overviewValue;
     models.value = modelRows;
     providers.value = providerRows;
     timeline.value = timelineRows;
+    leaderboard.value = leaderboardRows;
   } catch {
     // The command composable exposes the stable error to this view.
   }
@@ -95,6 +112,7 @@ watch(selectedRange, loadDashboard);
             title="模型统计"
           />
         </div>
+        <UserLeaderboardTable :rows="leaderboardRows" />
       </div>
     </PanelSection>
   </main>
