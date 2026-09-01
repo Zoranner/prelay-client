@@ -258,7 +258,7 @@ function refreshActiveClient() {
 async function uninstallAgentItem(item: AgentItem) {
   const kindLabel = { mcp: "MCP", skill: "Skill" }[item.kind];
   const confirmed = await confirmAction({
-    title: `卸载${kindLabel}`,
+    title: `卸载 ${item.name}`,
     message: `卸载“${item.name}”？`,
     description: "配置及相关本地文件将一并删除，且无法恢复。",
     confirmText: "卸载",

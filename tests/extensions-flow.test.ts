@@ -72,6 +72,7 @@ test("扩展库沿用智能体工作区的分类表格与单层操作表面", ()
   expect(page).toContain(
     "extensionCatalog.loading.value[activeExtensionSection]",
   );
+  expect(page).toContain("title: `卸载 ${item.name}`");
   expect(page).not.toContain("showExtensionCatalog");
   expect(page).not.toContain("<small>agents</small>");
   expect(detailDrawer).toContain("MarkdownViewer");
