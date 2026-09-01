@@ -106,7 +106,6 @@ export interface ModelStats {
   failed_requests: number;
   input_tokens: number;
   output_tokens: number;
-  estimated_cost: number | null;
   average_latency_ms: number | null;
 }
 

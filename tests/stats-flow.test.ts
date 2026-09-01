@@ -108,4 +108,5 @@ test("活动页只读取和展示活动明细", () => {
   expect(relayStore).toContain("export interface Activity");
   expect(relayStore).not.toContain("export interface RequestLog");
   expect(relayStore).not.toContain("metadata_json");
+  expect(relayStore).not.toContain("estimated_cost");
 });
