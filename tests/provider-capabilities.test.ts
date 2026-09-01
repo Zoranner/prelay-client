@@ -4,6 +4,7 @@ import type { Provider } from "../app/stores/relay";
 import { providerProtocolOptions } from "../app/utils/providerCapabilities";
 import {
   PROVIDER_TEMPLATE_GROUPS,
+  protocolLabel,
   providerTemplateForType,
 } from "../app/utils/providerTemplates";
 
@@ -68,6 +69,10 @@ test("供应商表格保留图像生成协议", () => {
       }),
     ),
   ).toEqual(["openai", "images_generations"]);
+});
+
+test("图像协议使用与其他协议同层的 API 名称", () => {
+  expect(protocolLabel("images_generations")).toBe("Images Generations");
 });
 
 test("DeepSeek 模板默认支持 Responses 协议", () => {

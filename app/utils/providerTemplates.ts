@@ -147,7 +147,7 @@ export function protocolLabel(protocol: string | null) {
       : protocol === "openai" || protocol === "chat_completions"
         ? "Chat Completions"
         : protocol === "images_generations"
-          ? "图像生成"
+          ? "Images Generations"
           : "-";
 }
 
