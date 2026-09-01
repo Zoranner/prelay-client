@@ -18,7 +18,7 @@ test("客户端依赖默认离线可用的组件库图标", () => {
     readFileSync(new URL("../package.json", import.meta.url), "utf8"),
   );
 
-  expect(packageJson.dependencies["@stellar/ui"]).toBe("0.1.6");
+  expect(packageJson.dependencies["@stellar/ui"]).toBe("0.1.7");
   expect(existsSync(iconPlugin)).toBe(false);
 });
 
@@ -60,5 +60,5 @@ test("客户端将图标渲染责任交给 Nuxt 图标模块", () => {
   );
 
   expect(packageJson.dependencies["@iconify-json/ph"]).toBeDefined();
-  expect(packageJson.dependencies["@stellar/ui"]).toBe("0.1.6");
+  expect(packageJson.dependencies["@stellar/ui"]).toBe("0.1.7");
 });
