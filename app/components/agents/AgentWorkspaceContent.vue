@@ -19,7 +19,6 @@ type SectionOption<T extends string> = {
 };
 
 const {
-  activeClient,
   activeExtensionSection,
   activeSection,
   clientContentLoading,
@@ -34,7 +33,6 @@ const {
   sectionOptions,
   workspace,
 } = defineProps<{
-  activeClient: AgentClient;
   activeExtensionSection: ExtensionCatalogKind;
   activeSection: AgentSection;
   clientContentLoading: boolean;

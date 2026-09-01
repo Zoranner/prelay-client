@@ -372,7 +372,6 @@ onBeforeUnmount(() => {
           v-model:active-extension-section="activeExtensionSection"
           v-model:active-section="activeSection"
           v-model:rules="activeRules"
-          :active-client="activeClient"
           :client-content-loading="isAgentContentLoading(activeClient)"
           :client-installed="activeClientDetected"
           :client-statuses-loaded="clientStatusesLoaded"
