@@ -127,13 +127,15 @@ function renderChart() {
       {
         name: "输入",
         type: "bar",
+        stack: "token-usage",
         barMaxWidth: 24,
-        itemStyle: { borderRadius: [4, 4, 0, 0] },
+        itemStyle: { borderRadius: [0, 0, 4, 4] },
         data: props.points.map((point) => point.input_tokens),
       },
       {
         name: "输出",
         type: "bar",
+        stack: "token-usage",
         barMaxWidth: 24,
         itemStyle: { borderRadius: [4, 4, 0, 0] },
         data: props.points.map((point) => point.output_tokens),

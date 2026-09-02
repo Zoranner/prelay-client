@@ -23,7 +23,7 @@ const displayName = computed(() => bootstrap.value?.display_name ?? "当前用�
 const cutoutsStyle = new Style(cutouts);
 const avatarSrc = computed(() =>
   new DiceBearAvatar(cutoutsStyle, {
-    seed: bootstrap.value?.avatar_seed ?? "current-user",
+    seed: bootstrap.value?.identity_id ?? "current-user",
   }).toDataUri(),
 );
 

@@ -159,6 +159,20 @@ test("仪表盘趋势图按需加载 ECharts", () => {
   expect(chart).not.toContain('import * as echarts from "echarts"');
 });
 
+test("仪表盘趋势图将输出堆叠在输入之上", () => {
+  const chart = readFileSync(
+    new URL(
+      "../app/components/dashboard/TokenUsageTrendChart.vue",
+      import.meta.url,
+    ),
+    "utf8",
+  );
+
+  expect(chart).toMatch(
+    /name: "输入"[\s\S]{0,180}stack: "token-usage"[\s\S]{0,180}name: "输出"[\s\S]{0,180}stack: "token-usage"/,
+  );
+});
+
 test("桌面和网页标题栏复用 Prelay 图标资产", () => {
   const tauriConfig = JSON.parse(
     readFileSync(
@@ -204,6 +218,7 @@ test("仪表盘头像使用 DiceBear Cutouts 预设", () => {
   );
   expect(shell).toContain("new Style(cutouts)");
   expect(shell).toContain("new DiceBearAvatar(cutoutsStyle");
+  expect(shell).toContain("bootstrap.value?.identity_id");
 });
 
 test("托盘设置菜单打开桌面偏好弹窗", () => {

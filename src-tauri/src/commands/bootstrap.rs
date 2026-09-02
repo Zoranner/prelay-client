@@ -1,4 +1,4 @@
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use tauri::State;
 
 use crate::{
@@ -10,6 +10,7 @@ use crate::{
 
 #[derive(Debug, Serialize)]
 pub struct BootstrapResponse {
+    pub identity_id: String,
     pub relay_url: String,
     pub display_name: String,
     pub avatar_seed: String,
@@ -19,6 +20,7 @@ pub struct BootstrapResponse {
 pub fn collect_bootstrap(
     identity_source: &impl IdentitySource,
     api_client: &ApiClient<'_>,
+    identity_id: String,
 ) -> Result<BootstrapResponse, ClientError> {
     let identity = identity_source
         .identity()
@@ -27,6 +29,7 @@ pub fn collect_bootstrap(
     let relay_url = api_client.base_url().to_owned();
 
     Ok(BootstrapResponse {
+        identity_id,
         relay_url,
         display_name: identity.display_name,
         avatar_seed: avatar_seed(&identity.account_sid),
@@ -37,7 +40,13 @@ pub fn collect_bootstrap(
 #[tauri::command]
 pub async fn bootstrap(state: State<'_, NativeState>) -> Result<BootstrapResponse, ClientError> {
     let api_client = authenticated_api(&state).await?;
-    collect_bootstrap(&state.identity, &api_client)
+    let identity: CurrentIdentityResponse = api_client.get("/api/identity").await?;
+    collect_bootstrap(&state.identity, &api_client, identity.identity_id)
+}
+
+#[derive(Debug, Deserialize)]
+struct CurrentIdentityResponse {
+    identity_id: String,
 }
 
 fn avatar_seed(account_sid: &str) -> String {

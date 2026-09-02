@@ -1,4 +1,5 @@
 export interface BootstrapState {
+  identity_id: string;
   relay_url?: string;
   display_name: string;
   avatar_seed: string;

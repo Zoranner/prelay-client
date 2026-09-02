@@ -65,7 +65,7 @@ async function loadDashboard() {
       invokeCommand<TokenUsageTimelinePoint[]>("stats_timeline", range),
       invokeCommand<UserLeaderboardEntry[]>("stats_leaderboard", {
         range: selectedRange.value,
-        metric: "activities",
+        metric: "total_tokens",
         limit: 50,
       }),
     ]);
@@ -99,7 +99,10 @@ watch(selectedRange, loadDashboard);
       </template>
       <div class="dashboard-content">
         <StatsOverviewPanel :overview="overview" />
-        <TokenUsageTrendChart :points="timeline" :range="selectedRange" />
+        <div class="dashboard-primary-grid">
+          <TokenUsageTrendChart :points="timeline" :range="selectedRange" />
+          <UserLeaderboardTable :rows="leaderboardRows" />
+        </div>
         <div class="dashboard-stat-lists">
           <StatsBreakdownTable
             empty-message="暂无供应商统计。"
@@ -112,7 +115,6 @@ watch(selectedRange, loadDashboard);
             title="模型统计"
           />
         </div>
-        <UserLeaderboardTable :rows="leaderboardRows" />
       </div>
     </PanelSection>
   </main>
@@ -135,14 +137,54 @@ watch(selectedRange, loadDashboard);
   overflow: auto;
 }
 
+.dashboard-primary-grid {
+  display: grid;
+  min-width: 0;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: var(--spacing-lg);
+}
+
+.dashboard-primary-grid > :first-child {
+  grid-column: span 5;
+}
+
+.dashboard-primary-grid > :last-child {
+  grid-column: span 1;
+}
+
 .dashboard-stat-lists {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: var(--spacing-lg);
 }
 
-@media (max-width: 960px) {
+@media (max-width: 1180px) {
+  .dashboard-primary-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .dashboard-primary-grid > :first-child {
+    grid-column: span 2;
+  }
+
   .dashboard-stat-lists {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 760px) {
+  .dashboard-primary-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .dashboard-primary-grid > :first-child,
+  .dashboard-primary-grid > :last-child {
+    grid-column: span 1;
+  }
+}
+
+@media (max-width: 560px) {
+  .dashboard-primary-grid {
     grid-template-columns: 1fr;
   }
 }

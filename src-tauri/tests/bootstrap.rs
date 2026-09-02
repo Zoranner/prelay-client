@@ -36,8 +36,9 @@ fn bootstrap_only_exposes_display_identity_and_credential_status() {
     let api_client =
         ApiClient::new("https://relay.example.test", &credentials).expect("create API client");
 
-    let response = collect_bootstrap(&identity, &api_client).unwrap();
+    let response = collect_bootstrap(&identity, &api_client, "identity-a".into()).unwrap();
 
+    assert_eq!(response.identity_id, "identity-a");
     assert_eq!(response.display_name, "Ada");
     assert_eq!(response.avatar_seed, "3f1bf7a2cfc2b426");
     assert_eq!(response.relay_url, "https://relay.example.test");
