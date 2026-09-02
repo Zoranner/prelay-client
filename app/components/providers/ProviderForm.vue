@@ -54,7 +54,6 @@ const {
   selectProviderTemplate,
   setModelPopover,
   showAddModel,
-  showApiKey,
   submit: createPayload,
   upstreamProtocols,
 } = useProviderForm({
@@ -83,22 +82,7 @@ function submit() {
         />
         <Input v-model="name" label="名称" autocomplete="off" />
         <FormField label="API Key">
-          <div class="secret-input">
-            <Input
-              v-model="apiKey"
-              class="secret-input__field"
-              :type="showApiKey ? 'text' : 'password'"
-              placeholder="填写上游 API Key"
-            />
-            <Button
-              square
-              size="small"
-              :icon="showApiKey ? 'ph:eye-slash' : 'ph:eye'"
-              :aria-label="showApiKey ? '隐藏 API Key' : '显示 API Key'"
-              :title="showApiKey ? '隐藏 API Key' : '显示 API Key'"
-              @click="showApiKey = !showApiKey"
-            />
-          </div>
+          <Input v-model="apiKey" type="password" placeholder="填写上游 API Key" />
         </FormField>
         <Input v-model="baseUrl" label="Base URL" type="url" />
         <Select
@@ -228,14 +212,10 @@ function submit() {
 .empty-text {
   color: var(--st-text-secondary);
 }
-.secret-input,
 .protocol-url-row {
   display: flex;
   align-items: center;
   gap: var(--spacing-sm);
-}
-.secret-input__field {
-  flex: 1;
 }
 .protocol-urls {
   display: grid;

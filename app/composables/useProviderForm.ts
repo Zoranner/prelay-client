@@ -82,7 +82,6 @@ export function useProviderForm(options: ProviderFormOptions) {
     anthropic: "",
     images_generations: "",
   });
-  const showApiKey = ref(false);
   const showAddModel = ref(false);
   const toolCalls = ref<boolean | null>(null);
   const reasoning = ref<boolean | null>(null);
@@ -133,7 +132,6 @@ export function useProviderForm(options: ProviderFormOptions) {
       provider?.provider_type ?? template?.providerType ?? "gotoken";
     baseUrl.value = provider?.base_url ?? template?.baseUrl ?? "";
     apiKey.value = provider?.api_key ?? "";
-    showApiKey.value = false;
     showAddModel.value = false;
     modelDraft.value = "";
     models.value = provider?.models.map((model) => model.model_name) ?? [];
@@ -307,7 +305,6 @@ export function useProviderForm(options: ProviderFormOptions) {
     selectProviderTemplate,
     setModelPopover,
     showAddModel,
-    showApiKey,
     submit,
     upstreamProtocols,
   };

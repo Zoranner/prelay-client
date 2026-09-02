@@ -57,7 +57,7 @@ test("编辑供应商向原生层传递表单中回填的密钥", () => {
   expect(page).toMatch(/api_key:\s*payload\.api_key,\s*\n/);
 });
 
-test("编辑供应商回填密钥并支持显示或隐藏", () => {
+test("编辑供应商将密钥可见性切换交给组件库输入框", () => {
   const relay = readFileSync(
     new URL("../app/stores/relay.ts", import.meta.url),
     "utf8",
@@ -65,8 +65,10 @@ test("编辑供应商回填密钥并支持显示或隐藏", () => {
 
   expect(relay).toContain("api_key: string;");
   expect(providerSource).toContain('apiKey.value = provider?.api_key ?? ""');
-  expect(providerSource).toContain("ph:eye-slash");
-  expect(providerSource).toContain("showApiKey");
+  expect(providerSource).toContain('type="password"');
+  expect(providerSource).not.toContain("ph:eye-slash");
+  expect(providerSource).not.toContain("showApiKey");
+  expect(providerSource).not.toContain("secret-input");
 });
 
 test("供应商表格使用组件库表格，并通过供应商 ID 执行 Ping", () => {
