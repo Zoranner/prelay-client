@@ -136,7 +136,7 @@ function submit() {
           >
           <Popover
             v-model="showAddModel"
-            position="bottom"
+            position="auto"
             align="right"
             size="large"
             @update:model-value="setModelPopover"

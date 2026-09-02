@@ -146,6 +146,7 @@ test("供应商模型清单与接入点使用同一类列表工作流", () => {
   expect(providerSource).toContain("<span>{{ models.length }} 个</span>");
   expect(providerSource).toContain("新增模型");
   expect(providerSource).toContain("model-popover");
+  expect(providerSource).toContain('position="auto"');
   expect(providerSource).not.toContain(
     "接入点页只能选择这里已经配置的上游模型。",
   );
