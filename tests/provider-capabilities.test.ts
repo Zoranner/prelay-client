@@ -3,10 +3,31 @@ import { expect, test } from "bun:test";
 import type { Provider } from "../app/stores/relay";
 import { providerProtocolOptions } from "../app/utils/providerCapabilities";
 import {
-  PROVIDER_TEMPLATE_GROUPS,
   protocolLabel,
   providerTemplateForType,
 } from "../app/utils/providerTemplates";
+
+const catalogProvider = {
+  id: "example",
+  name: "示例供应商",
+  auth_scheme: "bearer",
+  base_url: "https://api.example.com",
+  protocols: [
+    "chat_completions",
+    "responses",
+    "anthropic_messages",
+    "images_generations",
+  ],
+  protocol_base_urls: [
+    { protocol: "chat_completions", base_url: "https://api.example.com/v1" },
+    {
+      protocol: "anthropic_messages",
+      base_url: "https://api.example.com/v1/messages",
+    },
+  ],
+  language_models: ["chat-model"],
+  image_generation_models: ["image-model"],
+};
 
 const provider = (overrides: Partial<Provider> = {}): Provider => ({
   id: "provider-1",
@@ -75,69 +96,23 @@ test("图像协议使用与其他协议同层的 API 名称", () => {
   expect(protocolLabel("images_generations")).toBe("Images Generations");
 });
 
-test("DeepSeek 模板默认支持 Responses 协议", () => {
-  expect(providerTemplateForType("deepseek")?.protocols).toEqual([
-    "responses",
-    "openai",
-    "anthropic",
-  ]);
-});
-
-test("DeepSeek 位于 API 服务首位", () => {
-  const apiServices = PROVIDER_TEMPLATE_GROUPS.find(
-    (group) => group.label === "API 服务",
-  );
-
-  expect(apiServices?.options[0]?.value).toBe("deepseek");
-  expect(apiServices?.options[1]?.value).toBe("bailian");
-});
-
-test("API 服务使用规范的平台名称", () => {
-  expect(providerTemplateForType("deepseek")?.label).toBe("DeepSeek 开放平台");
-  expect(providerTemplateForType("kimi")?.label).toBe("Kimi API 开放平台");
-  expect(providerTemplateForType("minimax")?.label).toBe("MiniMax API 平台");
-  expect(providerTemplateForType("zhipu")?.label).toBe("智谱 BigModel 平台");
-});
-
-test("API 服务默认使用 Chat Completions 协议地址", () => {
-  expect(providerTemplateForType("deepseek")?.baseUrl).toBe(
-    "https://api.deepseek.com/v1",
-  );
-  expect(providerTemplateForType("qwen")?.baseUrl).toBe(
-    "https://dashscope.aliyuncs.com/compatible-mode/v1",
-  );
-  expect(providerTemplateForType("kimi")?.baseUrl).toBe(
-    "https://api.moonshot.ai/v1",
-  );
-  expect(providerTemplateForType("zhipu")?.baseUrl).toBe(
-    "https://open.bigmodel.cn/api/paas/v4/",
-  );
-  expect(providerTemplateForType("minimax")?.baseUrl).toBe(
-    "https://api.minimaxi.com/v1",
-  );
-});
-
-test("GoToken 位于套餐服务首位并使用官网基础地址", () => {
-  expect(PROVIDER_TEMPLATE_GROUPS[0]?.options[0]).toMatchObject({
-    value: "gotoken",
-    label: "GoToken 套餐",
-    providerType: "gotoken",
-    baseUrl: "https://gotoken.cc",
-    protocols: ["responses", "openai", "anthropic", "images_generations"],
+test("服务端目录供应商映射为表单协议、地址和模型", () => {
+  expect(providerTemplateForType("example", [catalogProvider])).toEqual({
+    value: "catalog:example",
+    label: "示例供应商",
+    providerType: "example",
+    baseUrl: "https://api.example.com",
+    protocols: ["openai", "responses", "anthropic", "images_generations"],
     protocolBaseUrls: {
-      openai: "https://gotoken.cc/v1",
-      anthropic: "https://gotoken.cc/v1",
-      images_generations: "https://gotoken.cc/v1",
+      openai: "https://api.example.com/v1",
+      anthropic: "https://api.example.com/v1/messages",
     },
+    languageModels: ["chat-model"],
+    imageGenerationModels: ["image-model"],
+    models: ["chat-model", "image-model"],
   });
 });
 
-test("供应商预设不重复填写与 Base URL 相同的协议地址", () => {
-  for (const group of PROVIDER_TEMPLATE_GROUPS) {
-    for (const template of group.options) {
-      for (const protocolBaseUrl of Object.values(template.protocolBaseUrls)) {
-        expect(protocolBaseUrl).not.toBe(template.baseUrl);
-      }
-    }
-  }
+test("不提供自定义供应商模板", () => {
+  expect(providerTemplateForType("openai_compatible", [])).toBeUndefined();
 });

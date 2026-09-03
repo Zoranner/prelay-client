@@ -55,8 +55,9 @@ test("供应商和接入点表单保留历史业务字段，并用 Stellar UI �
   ].join("\n");
   const endpointForm = source("components/endpoints/EndpointForm.vue");
 
-  expect(providerForm).toContain("PROVIDER_TEMPLATE_GROUPS");
-  expect(providerForm).toContain("获取模型");
+  expect(providerForm).toContain("catalogProviders");
+  expect(providerForm).not.toContain("获取模型");
+  expect(providerForm).not.toContain("自定义");
   expect(providerForm).toContain("protocolBaseUrls");
   expect(providerForm).toContain("<Input");
   expect(providerForm).toContain("<Select");
@@ -73,4 +74,10 @@ test("编辑抽屉的表单章节不再嵌套边框", () => {
     expect(form).toMatch(/\.\w+-form\s*\{\s*padding: var\(--spacing-lg\);/);
     expect(form).not.toMatch(/\.form-section\s*\{[^}]*border:/s);
   }
+});
+
+test("供应商模型分组使用间距区分而不是分割线", () => {
+  const providerForm = source("components/providers/ProviderForm.vue");
+
+  expect(providerForm).not.toMatch(/\.model-group h4\s*\{[^}]*border-bottom:/s);
 });

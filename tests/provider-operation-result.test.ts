@@ -84,7 +84,7 @@ test("供应商页面按供应商 ID 执行连通性检查，不传 API Key", ()
   expect(page).toContain("providerId: provider.id");
   expect(page).not.toMatch(/providers_ping[\s\S]{0,180}api_key/);
   expect(command).toContain('format!("/api/providers/{provider_id}/ping")');
-  expect(page).toContain('"providers_discover_models"');
+  expect(page).not.toContain('"providers_discover_models"');
   expect(page).toContain('"providers_test_protocol"');
 });
 
@@ -97,19 +97,17 @@ test("供应商表单内的协议测试也发送全局通知并保留指标", ()
   expect(form).toContain('message: feedback.metrics ?? ""');
 });
 
-test("供应商表单以模型发现结果覆盖本地清单并发送结果通知", () => {
+test("供应商表单不通过上游发现覆盖目录模型", () => {
   const form = providerFormDomain();
 
-  expect(form).toContain("notifications.success(");
-  expect(form).toContain('title: "模型已获取"');
-  expect(form).toContain("models.value = result.models ?? [];");
-  expect(form).not.toContain("本次新增");
+  expect(form).not.toContain("requestDiscovery");
+  expect(form).not.toContain("模型已获取");
+  expect(form).not.toContain("models.value = result.models ?? [];");
 });
 
-test("模型发现失败时提示可手工添加模型后继续保存", () => {
+test("供应商表单不提供模型发现失败或手工添加提示", () => {
   const form = providerFormDomain();
 
-  expect(form).toContain("notifications.warning(");
-  expect(form).toContain('title: "模型列表暂不可用"');
-  expect(form).toContain("可手工添加模型后保存供应商。");
+  expect(form).not.toContain("模型列表暂不可用");
+  expect(form).not.toContain("可手工添加模型后保存供应商");
 });
