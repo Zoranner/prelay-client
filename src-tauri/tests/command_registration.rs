@@ -25,3 +25,13 @@ fn bootstrap_does_not_access_the_credential_store_directly() {
     assert!(command.contains("relay::client::{ApiClient, ClientError}"));
     assert!(command.contains("has_stored_credential"));
 }
+
+#[test]
+fn registers_the_authenticated_provider_catalog_command() {
+    let application = source_file("src/app/mod.rs");
+    let command = source_file("src/commands/providers.rs");
+
+    assert!(application.contains("crate::commands::providers::catalog_providers_list"));
+    assert!(command.contains("pub async fn catalog_providers_list("));
+    assert!(command.contains(".get(\"/api/catalog/providers\")"));
+}

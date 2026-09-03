@@ -1,6 +1,7 @@
 use prelay_protocol::{
-    CreateProviderRequest, ProviderCapabilityOverrides, ProviderOperationRequest,
-    ProviderCatalogResponse, ProviderOperationResponse, ProviderResponse, UpdateProviderRequest,
+    CatalogProviderResponse, CreateProviderRequest, ProviderCapabilityOverrides,
+    ProviderCatalogResponse, ProviderOperationRequest, ProviderOperationResponse, ProviderResponse,
+    UpdateProviderRequest,
 };
 use serde::{Deserialize, Serialize};
 use tauri::State;
@@ -25,6 +26,16 @@ pub async fn providers_list(
     state: State<'_, NativeState>,
 ) -> Result<Vec<ProviderResponse>, ClientError> {
     authenticated_api(&state).await?.get("/api/providers").await
+}
+
+#[tauri::command]
+pub async fn catalog_providers_list(
+    state: State<'_, NativeState>,
+) -> Result<Vec<CatalogProviderResponse>, ClientError> {
+    authenticated_api(&state)
+        .await?
+        .get("/api/catalog/providers")
+        .await
 }
 
 #[tauri::command]
@@ -97,17 +108,6 @@ pub async fn providers_ping(
     authenticated_api(&state)
         .await?
         .post(&format!("/api/providers/{provider_id}/ping"), &())
-        .await
-}
-
-#[tauri::command]
-pub async fn providers_discover_models(
-    state: State<'_, NativeState>,
-    input: ProviderOperationRequest,
-) -> Result<ProviderOperationResponse, ClientError> {
-    authenticated_api(&state)
-        .await?
-        .post("/api/providers/discover-models", &input)
         .await
 }
 
