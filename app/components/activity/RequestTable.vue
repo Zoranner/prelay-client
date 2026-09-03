@@ -11,6 +11,7 @@ import {
   Tag,
 } from "@stellar/ui";
 import { protocolLabel, protocolTagVariant } from "~/utils/providerTemplates";
+import { modelCatalogLabel } from "~/utils/modelCatalog";
 
 type RequestTableRow = Activity & Record<string, unknown>;
 
@@ -69,9 +70,28 @@ const errorDialogOpen = computed({
   },
 });
 
+function modelLabel(
+  displayName: string | null | undefined,
+  modelId: string | null | undefined,
+  fallback = "-",
+) {
+  return (
+    displayName?.trim() || modelCatalogLabel(modelId) || modelId || fallback
+  );
+}
+
+function requestedModelTitle(row: RequestTableRow) {
+  return modelLabel(row.model_requested_display_name, row.model_requested);
+}
+
+function upstreamModelTitle(row: RequestTableRow) {
+  return modelLabel(row.model_upstream_display_name, row.model_upstream);
+}
+
 function upstreamTitle(row: RequestTableRow) {
   return (
-    [row.provider_name, row.model_upstream].filter(Boolean).join("\n") || "-"
+    [row.provider_name, upstreamModelTitle(row)].filter(Boolean).join("\n") ||
+    "-"
   );
 }
 
@@ -143,13 +163,20 @@ function updateLimit(value: string | number | boolean | null) {
             >{{ row.endpoint_name ?? "-" }}</span
           >
         </template>
+        <template #cell-model_requested="{ row }">
+          <span
+            class="activity-content-nowrap"
+            :title="requestedModelTitle(row)"
+            >{{ requestedModelTitle(row) }}</span
+          >
+        </template>
         <template #cell-upstream="{ row }">
           <div class="activity-provider-model" :title="upstreamTitle(row)">
             <span class="activity-provider-model__provider">{{
               row.provider_name ?? "-"
             }}</span>
             <span class="activity-provider-model__model">{{
-              row.model_upstream
+              upstreamModelTitle(row)
             }}</span>
           </div>
         </template>

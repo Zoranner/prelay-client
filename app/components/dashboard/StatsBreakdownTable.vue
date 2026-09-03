@@ -1,9 +1,12 @@
 <script setup lang="ts">
 import { Table } from "@stellar/ui";
+import { modelCatalogLabel } from "~/utils/modelCatalog";
 
 type StatsBreakdownRow = Record<string, unknown> & {
   id: string;
   name: string;
+  model_requested?: string | null;
+  model_requested_display_name?: string | null;
   total_requests: number;
   successful_requests: number;
   input_tokens: number;
@@ -48,6 +51,18 @@ function successRate(row: StatsBreakdownRow) {
   if (!row.total_requests) return "-";
   return `${((row.successful_requests / row.total_requests) * 100).toFixed(1)}%`;
 }
+
+function rowName(row: StatsBreakdownRow) {
+  if (row.model_requested !== undefined) {
+    return (
+      row.model_requested_display_name?.trim() ||
+      modelCatalogLabel(row.model_requested) ||
+      row.model_requested ||
+      row.name
+    );
+  }
+  return row.name;
+}
 </script>
 
 <template>
@@ -65,7 +80,7 @@ function successRate(row: StatsBreakdownRow) {
       row-key="id"
     >
       <template #cell-name="{ row }">
-        <span :title="row.name">{{ row.name }}</span>
+        <span :title="rowName(row)">{{ rowName(row) }}</span>
       </template>
       <template #cell-success_rate="{ row }">
         {{ successRate(row) }}

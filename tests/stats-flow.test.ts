@@ -110,3 +110,80 @@ test("活动页只读取和展示活动明细", () => {
   expect(relayStore).not.toContain("metadata_json");
   expect(relayStore).not.toContain("estimated_cost");
 });
+
+test("活动和仪表盘优先显示模型显示名并回退到目录或 ID", () => {
+  const activity = readFileSync(
+    new URL("../app/components/activity/RequestTable.vue", import.meta.url),
+    "utf8",
+  );
+  const breakdown = readFileSync(
+    new URL(
+      "../app/components/dashboard/StatsBreakdownTable.vue",
+      import.meta.url,
+    ),
+    "utf8",
+  );
+  const dashboard = page("index");
+  const activityPage = page("stats");
+  const fixtures = {
+    activity: {
+      model_requested: "requested-model-id",
+      model_requested_display_name: "请求模型显示名",
+      model_upstream: "upstream-model-id",
+      model_upstream_display_name: "上游模型显示名",
+    },
+    legacyActivity: {
+      model_requested: "legacy-requested-model-id",
+      model_upstream: "legacy-upstream-model-id",
+    },
+    modelStats: {
+      model_requested: "stats-model-id",
+      model_requested_display_name: "统计模型显示名",
+    },
+    legacyModelStats: {
+      model_requested: "legacy-stats-model-id",
+    },
+  };
+
+  expect(fixtures.activity.model_requested_display_name).toBe("请求模型显示名");
+  expect(fixtures.activity.model_requested).toBe("requested-model-id");
+  expect(fixtures.legacyActivity.model_requested_display_name).toBeUndefined();
+  expect(fixtures.legacyActivity.model_requested).toBe(
+    "legacy-requested-model-id",
+  );
+  expect(fixtures.modelStats.model_requested_display_name).toBe(
+    "统计模型显示名",
+  );
+  expect(
+    fixtures.legacyModelStats.model_requested_display_name,
+  ).toBeUndefined();
+
+  expect(activity).toContain("model_requested_display_name");
+  expect(activity).toContain("model_upstream_display_name");
+  expect(activity).toContain("modelCatalogLabel");
+  expect(activity).toContain("row.model_requested_display_name");
+  expect(activity).toContain("row.model_upstream_display_name");
+  expect(activity).toContain("requestedModelTitle(row)");
+  expect(activity).toContain("upstreamModelTitle(row)");
+  expect(breakdown).toContain("model_requested_display_name");
+  expect(breakdown).toContain("modelCatalogLabel");
+  expect(breakdown).toContain("{{ rowName(row) }}");
+  expect(dashboard).toContain("model_requested_display_name");
+  expect(dashboard).toContain("modelCatalogLabel");
+
+  expect(activityPage).toContain(
+    'invokeCommand<Activity[]>("stats_activities"',
+  );
+  expect(activityPage).toContain("limit: limit.value");
+  expect(dashboard).toContain(
+    'invokeCommand<ModelStats[]>("stats_models", range)',
+  );
+  expect(dashboard).toContain("const range = { range: selectedRange.value };");
+  expect(dashboard).toContain("row.model_requested");
+  expect(dashboard).toContain(
+    'id: `${row.model_requested ?? "unknown"}-${index}`',
+  );
+  expect(dashboard).not.toContain(
+    "model_requested_display_name: selectedRange",
+  );
+});

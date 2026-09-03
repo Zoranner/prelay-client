@@ -3,10 +3,24 @@ import type { Activity } from "~/stores/relay";
 import { Button } from "@stellar/ui";
 import RequestTable from "~/components/activity/RequestTable.vue";
 import PanelSection from "~/components/shell/PanelSection.vue";
+import { modelCatalogLabel } from "~/utils/modelCatalog";
 
 const { pending, invokeCommand } = useRelayCommand();
 const activities = ref<Activity[]>([]);
 const limit = ref(100);
+const activityRows = computed(() =>
+  activities.value.map((activity) => ({
+    ...activity,
+    model_requested_display_name:
+      activity.model_requested_display_name?.trim() ||
+      modelCatalogLabel(activity.model_requested) ||
+      activity.model_requested,
+    model_upstream_display_name:
+      activity.model_upstream_display_name?.trim() ||
+      modelCatalogLabel(activity.model_upstream) ||
+      activity.model_upstream,
+  })),
+);
 async function loadActivities() {
   try {
     activities.value = await invokeCommand<Activity[]>("stats_activities", {
@@ -36,7 +50,7 @@ onMounted(loadActivities);
       <RequestTable
         v-model:limit="limit"
         :pending="pending"
-        :requests="activities"
+        :requests="activityRows"
         @reload="loadActivities"
       />
     </PanelSection>

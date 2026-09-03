@@ -14,6 +14,7 @@ import StatsOverviewPanel from "~/components/dashboard/StatsOverview.vue";
 import TokenUsageTrendChart from "~/components/dashboard/TokenUsageTrendChart.vue";
 import PanelSection from "~/components/shell/PanelSection.vue";
 import UserLeaderboardTable from "~/components/dashboard/UserLeaderboardTable.vue";
+import { modelCatalogLabel } from "~/utils/modelCatalog";
 
 const { pending, invokeCommand } = useRelayCommand();
 const overview = ref<StatsOverview | null>(null);
@@ -29,7 +30,13 @@ const selectedRange = ref<StatsRange>("this_week");
 const modelRows = computed(() =>
   models.value.map((row, index) => ({
     id: `${row.model_requested ?? "unknown"}-${index}`,
-    name: row.model_requested ?? "未识别模型",
+    name:
+      row.model_requested_display_name?.trim() ||
+      modelCatalogLabel(row.model_requested) ||
+      row.model_requested ||
+      "未识别模型",
+    model_requested: row.model_requested,
+    model_requested_display_name: row.model_requested_display_name,
     total_requests: row.total_requests,
     successful_requests: row.successful_requests,
     input_tokens: row.input_tokens,
