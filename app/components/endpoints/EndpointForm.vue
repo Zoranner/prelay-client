@@ -121,9 +121,7 @@ function upstreamModelOptions(providerId: string, group?: EndpointModelGroup) {
       value: "",
     },
     ...availableModels.map((model) => ({
-      label:
-        model.display_name?.trim() ||
-        modelCatalogLabel(model.model_name),
+      label: model.display_name?.trim() || modelCatalogLabel(model.model_name),
       value: model.model_name,
     })),
   ];
