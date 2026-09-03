@@ -24,6 +24,7 @@ pub fn run() {
             crate::commands::settings::desktop_preferences_get,
             crate::commands::settings::desktop_preferences_save,
             crate::commands::providers::providers_list,
+            crate::commands::providers::catalog_models_get,
             crate::commands::providers::providers_save,
             crate::commands::providers::providers_delete,
             crate::commands::providers::providers_ping,

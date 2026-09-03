@@ -1,5 +1,7 @@
 import { expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
+import { setModelCatalog } from "../app/utils/modelCatalog";
+import { providerModelOptions } from "../app/utils/providerTemplates";
 
 const providerSource = [
   "../app/components/providers/ProviderForm.vue",
@@ -201,6 +203,27 @@ test("供应商与活动表共用协议 Tag 颜色", () => {
   expect(requestTable).toContain("protocolTagVariant");
   expect(requestTable).toContain("<Tag");
   expect(requestTable).not.toContain("function protocolLabel");
+});
+
+test("供应商模型字符串 ID 关联完整目录对象并以显示名称生成选项", () => {
+  const languageModel = {
+    id: "chat-model",
+    display_name: "Chat Model",
+    description: "完整模型对象",
+  };
+  setModelCatalog({
+    language_models: [languageModel],
+    image_generation_models: [],
+    providers: [],
+  });
+
+  expect(providerModelOptions(["chat-model"])).toEqual([
+    { value: "chat-model", label: "Chat Model", model: languageModel },
+  ]);
+  expect(providerModelOptions(["chat-model", "image-model"])).toEqual([
+    { value: "chat-model", label: "Chat Model", model: languageModel },
+    { value: "image-model", label: "image-model", model: undefined },
+  ]);
 });
 
 function pageSource() {

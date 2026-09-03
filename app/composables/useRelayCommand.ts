@@ -12,6 +12,7 @@ export type RelayCommand =
   | "desktop_preferences_get"
   | "desktop_preferences_save"
   | "providers_list"
+  | "catalog_models_get"
   | "providers_save"
   | "providers_delete"
   | "providers_ping"

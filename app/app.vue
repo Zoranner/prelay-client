@@ -3,12 +3,15 @@ import { isTauri } from "@tauri-apps/api/core";
 import type { UnlistenFn } from "@tauri-apps/api/event";
 import { listen } from "@tauri-apps/api/event";
 import { Button, NotificationContainer, Result } from "@stellar/ui";
+import type { ProviderCatalogResponse } from "~/stores/relay";
 import AppTitlebar from "~/components/shell/AppTitlebar.vue";
 import ClientUpdateDialog from "~/components/settings/ClientUpdateDialog.vue";
 import DesktopPreferencesDialog from "~/components/settings/DesktopPreferencesDialog.vue";
 import DashboardShell from "~/components/dashboard/DashboardShell.vue";
+import { setModelCatalog } from "~/utils/modelCatalog";
 
 const managementApi = useRelayManagementApiStatus();
+const { invokeCommand } = useRelayCommand();
 const managementApiError = computed(() => managementApi.error.value);
 const relaySettings = useRelaySettings();
 const desktopPreferences = useDesktopPreferences();
@@ -21,22 +24,24 @@ const route = useRoute();
 const isSetupRoute = computed(() => route.path === "/setup");
 const canShowManagementError = computed(() => route.path !== "/setup");
 const workspacePageKey = ref(0);
+let modelCatalogLoaded = false;
 let unlistenTraySettings: UnlistenFn | undefined;
 
 onMounted(async () => {
-  const isDesktopRuntime = isTauri() || "__TAURI_INTERNALS__" in globalThis;
-
   managementApi.clear();
   await desktopPreferences.load();
-  if (!isDesktopRuntime) return;
+  if (!isDesktopRuntime()) return;
 
   void agentWorkspace.refreshClientStatuses();
+  void tryLoadModelCatalog();
   if (relayUrl.value) void clientUpdate.checkAndDownload();
 
   unlistenTraySettings = await listen("tray:open-settings", () => {
     desktopPreferencesDialog.open();
   });
 });
+
+watch(relayUrl, () => void tryLoadModelCatalog());
 
 onUnmounted(() => {
   unlistenTraySettings?.();
@@ -50,6 +55,26 @@ function reloadApplication() {
 function switchRelayAddress() {
   managementApi.clear();
   void navigateTo("/setup?change=1");
+}
+
+async function loadModelCatalog() {
+  try {
+    setModelCatalog(
+      await invokeCommand<ProviderCatalogResponse>("catalog_models_get"),
+    );
+  } catch {
+    setModelCatalog();
+  }
+}
+
+function isDesktopRuntime() {
+  return isTauri() || "__TAURI_INTERNALS__" in globalThis;
+}
+
+async function tryLoadModelCatalog() {
+  if (!isDesktopRuntime() || !relayUrl.value || modelCatalogLoaded) return;
+  modelCatalogLoaded = true;
+  await loadModelCatalog();
 }
 </script>
 

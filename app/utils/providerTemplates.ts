@@ -1,4 +1,8 @@
-import type { UpstreamProtocol } from "~/stores/relay";
+import type {
+  CatalogModelResponse,
+  UpstreamProtocol,
+} from "~/stores/relay";
+import { modelCatalogEntry, modelCatalogLabel } from "~/utils/modelCatalog";
 
 export type ProviderTemplate = {
   value: string;
@@ -8,6 +12,12 @@ export type ProviderTemplate = {
   protocols: UpstreamProtocol[];
   protocolBaseUrls: Partial<Record<UpstreamProtocol, string>>;
   custom?: boolean;
+};
+
+export type ProviderModelOption = {
+  value: string;
+  label: string;
+  model: CatalogModelResponse | undefined;
 };
 
 export const PROVIDER_TEMPLATE_GROUPS: {
@@ -135,6 +145,16 @@ export function providerTemplateForType(providerType: string) {
 
 export function providerLabel(providerType: string) {
   return providerTemplateForType(providerType)?.label ?? providerType;
+}
+
+export function providerModelOptions(
+  modelIds: string[],
+): ProviderModelOption[] {
+  return modelIds.map((id) => ({
+    value: id,
+    label: modelCatalogLabel(id),
+    model: modelCatalogEntry(id),
+  }));
 }
 
 export type ProtocolTagVariant = "primary" | "success" | "warning" | "default";

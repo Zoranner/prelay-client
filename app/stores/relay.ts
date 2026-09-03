@@ -10,11 +10,97 @@ export interface ProviderModel {
   id: string;
   provider_id: string;
   model_name: string;
+  display_name?: string;
   created_at: string;
 }
 
 export type UpstreamProtocol =
   "responses" | "openai" | "anthropic" | "images_generations";
+
+export type CatalogProviderProtocol =
+  | "chat_completions"
+  | "responses"
+  | "anthropic_messages"
+  | "images_generations";
+
+export type CatalogProviderAuthScheme = "bearer" | "anthropic";
+
+export interface CatalogProviderProtocolBaseUrl {
+  protocol: CatalogProviderProtocol;
+  base_url: string;
+}
+
+export interface CatalogProvider {
+  id: string;
+  name: string;
+  auth_scheme: CatalogProviderAuthScheme;
+  base_url: string;
+  protocols: CatalogProviderProtocol[];
+  protocol_base_urls: CatalogProviderProtocolBaseUrl[];
+  language_models: string[];
+  image_generation_models: string[];
+}
+
+export interface CatalogTruncationPolicyResponse {
+  mode: string;
+  limit: number;
+}
+
+export interface CatalogLanguageModelResponse {
+  id: string;
+  display_name: string;
+  description: string | null;
+  reasoning_efforts: string[] | null;
+  default_reasoning_effort: string | null;
+  context_window: number | null;
+  max_context_window: number | null;
+  effective_context_window_percent: number | null;
+  input_modalities: string[] | null;
+  supports_parallel_tool_calls: boolean | null;
+  supports_reasoning_summaries: boolean | null;
+  supports_image_detail_original: boolean | null;
+  support_verbosity: boolean | null;
+  default_verbosity: string | null;
+  apply_patch_tool_type: string | null;
+  web_search_tool_type: string | null;
+  truncation_policy: CatalogTruncationPolicyResponse | null;
+  reasoning_summary_format: string | null;
+  default_reasoning_summary: string | null;
+  shell_type: string | null;
+  visibility: string | null;
+  supported_in_api: boolean | null;
+  priority: number | null;
+  base_instructions: string | null;
+  experimental_supported_tools: string[] | null;
+  minimal_client_version: string | null;
+}
+
+export interface CatalogImageGenerationModelResponse {
+  id: string;
+  display_name: string;
+  description: string | null;
+  input_modalities: string[] | null;
+  output_modalities: string[] | null;
+  sizes: string[] | null;
+  quality_options: string[] | null;
+  background_options: string[] | null;
+  output_formats: string[] | null;
+  supports_editing: boolean | null;
+  supports_mask: boolean | null;
+  supports_reference_images: boolean | null;
+  visibility: string | null;
+  supported_in_api: boolean | null;
+  priority: number | null;
+}
+
+export type CatalogModelResponse =
+  CatalogLanguageModelResponse | CatalogImageGenerationModelResponse;
+
+export interface ProviderCatalogResponse {
+  language_models: CatalogLanguageModelResponse[];
+  image_generation_models: CatalogImageGenerationModelResponse[];
+  providers: CatalogProvider[];
+}
 
 export interface ProviderProtocolBaseUrls {
   responses?: string | null;
@@ -56,6 +142,7 @@ export interface EndpointModel {
   model_name: string;
   provider_id: string;
   upstream_model: string;
+  display_name?: string;
   created_at?: string;
 }
 
@@ -115,6 +202,7 @@ export interface UserLeaderboardEntry {
 
 export interface ModelStats {
   model_requested: string | null;
+  model_requested_display_name?: string | null;
   total_requests: number;
   successful_requests: number;
   failed_requests: number;
@@ -137,7 +225,9 @@ export interface Activity {
   endpoint_name: string | null;
   provider_name: string | null;
   model_requested: string | null;
+  model_requested_display_name?: string | null;
   model_upstream: string | null;
+  model_upstream_display_name?: string | null;
   status: string;
   http_status: number | null;
   error_code: string | null;
