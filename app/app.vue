@@ -24,7 +24,8 @@ const route = useRoute();
 const isSetupRoute = computed(() => route.path === "/setup");
 const canShowManagementError = computed(() => route.path !== "/setup");
 const workspacePageKey = ref(0);
-let modelCatalogLoaded = false;
+let modelCatalogUrl: string | null = null;
+let modelCatalogRequestId = 0;
 let unlistenTraySettings: UnlistenFn | undefined;
 
 onMounted(async () => {
@@ -41,7 +42,16 @@ onMounted(async () => {
   });
 });
 
-watch(relayUrl, () => void tryLoadModelCatalog());
+watch(relayUrl, (url) => {
+  if (!url) {
+    modelCatalogUrl = null;
+    modelCatalogRequestId += 1;
+    setModelCatalog();
+    return;
+  }
+
+  void tryLoadModelCatalog(url);
+});
 
 onUnmounted(() => {
   unlistenTraySettings?.();
@@ -57,24 +67,28 @@ function switchRelayAddress() {
   void navigateTo("/setup?change=1");
 }
 
-async function loadModelCatalog() {
+async function tryLoadModelCatalog(url = relayUrl.value) {
+  if (!isDesktopRuntime() || !url || modelCatalogUrl === url) return;
+
+  modelCatalogUrl = url;
+  const requestId = ++modelCatalogRequestId;
+  setModelCatalog();
+
   try {
-    setModelCatalog(
-      await invokeCommand<ProviderCatalogResponse>("catalog_models_get"),
-    );
+    const catalog =
+      await invokeCommand<ProviderCatalogResponse>("catalog_models_get");
+    if (modelCatalogUrl === url && requestId === modelCatalogRequestId) {
+      setModelCatalog(catalog);
+    }
   } catch {
-    setModelCatalog();
+    if (modelCatalogUrl === url && requestId === modelCatalogRequestId) {
+      setModelCatalog();
+    }
   }
 }
 
 function isDesktopRuntime() {
   return isTauri() || "__TAURI_INTERNALS__" in globalThis;
-}
-
-async function tryLoadModelCatalog() {
-  if (!isDesktopRuntime() || !relayUrl.value || modelCatalogLoaded) return;
-  modelCatalogLoaded = true;
-  await loadModelCatalog();
 }
 </script>
 

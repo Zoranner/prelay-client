@@ -146,6 +146,20 @@ test("桌面客户端启动后自动下载可用更新并提示安装", () => {
   expect(update).toContain("checkAndDownload,");
 });
 
+test("模型目录随服务地址切换重新加载且旧请求不能覆盖新目录", () => {
+  const app = appSource();
+
+  expect(app).not.toContain("let modelCatalogLoaded = false;");
+  expect(app).toContain("let modelCatalogUrl: string | null = null;");
+  expect(app).toContain("let modelCatalogRequestId = 0;");
+  expect(app).toMatch(
+    /const requestId = \+\+modelCatalogRequestId;[\s\S]{0,500}requestId === modelCatalogRequestId/,
+  );
+  expect(app).toMatch(
+    /watch\(relayUrl, \(url\) => \{[\s\S]{0,260}modelCatalogUrl = null;[\s\S]{0,260}modelCatalogRequestId \+= 1;/,
+  );
+});
+
 test("仪表盘趋势图按需加载 ECharts", () => {
   const chart = readFileSync(
     new URL(
