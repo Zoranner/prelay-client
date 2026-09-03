@@ -1,5 +1,9 @@
 <script setup lang="ts">
-import type { Provider, UpstreamProtocol } from "~/stores/relay";
+import type {
+  CatalogProvider,
+  Provider,
+  UpstreamProtocol,
+} from "~/stores/relay";
 import type { ProviderFormPayload } from "~/composables/useProviderForm";
 import { type ProviderOperationResult } from "~/utils/providerOperations";
 import { Button, Drawer, useConfirm, useNotification } from "@stellar/ui";
@@ -12,6 +16,7 @@ const { confirm: confirmAction } = useConfirm();
 const notifications = useNotification();
 const workspaceExit = useWorkspaceExitGuard();
 const providers = ref<Provider[]>([]);
+const catalogProviders = ref<CatalogProvider[]>([]);
 const editingProvider = ref<Provider | null>(null);
 const showForm = ref(false);
 const loadingProviders = ref(false);
@@ -28,7 +33,12 @@ type ProviderPingState = {
 async function loadProviders() {
   loadingProviders.value = true;
   try {
-    providers.value = await invokeCommand<Provider[]>("providers_list");
+    const [availableProviders, availableCatalogProviders] = await Promise.all([
+      invokeCommand<Provider[]>("providers_list"),
+      invokeCommand<CatalogProvider[]>("catalog_providers_list"),
+    ]);
+    providers.value = availableProviders;
+    catalogProviders.value = availableCatalogProviders;
     pingStates.value = Object.fromEntries(
       providers.value.map((provider) => [provider.id, { checking: false }]),
     );
@@ -108,16 +118,6 @@ async function deleteProvider(provider: Provider) {
   } catch {
     // The command composable exposes the error to this view.
   }
-}
-
-async function discoverModelsFromForm(input: {
-  provider_type: string;
-  base_url: string;
-  api_key: string;
-}) {
-  return invokeCommand<ProviderOperationResult>("providers_discover_models", {
-    input,
-  });
 }
 
 function testProtocolFromForm(input: {
@@ -207,8 +207,8 @@ onMounted(loadProviders);
     >
       <ProviderForm
         :provider="editingProvider"
+        :catalog-providers="catalogProviders"
         :pending="pending"
-        :discover-models="discoverModelsFromForm"
         :test-protocol="testProtocolFromForm"
         @save="saveProvider"
         @dirty-change="formDirty = $event"

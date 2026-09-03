@@ -1,14 +1,15 @@
 import { useNotification } from "@stellar/ui";
 import type {
+  CatalogProvider,
   Provider,
   ProviderCapabilities,
   UpstreamProtocol,
 } from "~/stores/relay";
 import {
-  PROVIDER_TEMPLATE_GROUPS,
   protocolLabel,
-  protocolTagVariant,
+  providerModelOptions,
   providerTemplateForType,
+  providerTemplates,
 } from "~/utils/providerTemplates";
 import {
   getProviderOperationFeedback,
@@ -35,9 +36,7 @@ export type ProviderFormPayload = {
 
 type ProviderFormOptions = {
   provider: () => Provider | null | undefined;
-  discoverModels: (
-    input: ProviderOperationInput,
-  ) => Promise<ProviderOperationResult>;
+  catalogProviders: () => CatalogProvider[];
   testProtocol: (
     input: ProviderOperationInput,
   ) => Promise<ProviderOperationResult>;
@@ -50,26 +49,31 @@ const allProtocols: UpstreamProtocol[] = [
   "anthropic",
   "images_generations",
 ];
-const protocolOptions = allProtocols.map((protocol) => ({
-  value: protocol,
-  label: protocolLabel(protocol),
-  tagVariant: protocolTagVariant(protocol),
-}));
-const providerTemplateOptions = PROVIDER_TEMPLATE_GROUPS.flatMap((group) =>
-  group.options.map((option) => ({
-    label: `${group.label} - ${option.label}`,
-    value: option.value,
-  })),
-);
 
 export function useProviderForm(options: ProviderFormOptions) {
-  const providerTemplate = ref("custom");
+  const providerTemplateOptions = computed(() =>
+    providerTemplates(options.catalogProviders()).map((option) => ({
+      label: option.label,
+      value: option.value,
+    })),
+  );
+  const providerTemplate = ref("");
   const name = ref("");
-  const providerType = ref("openai_compatible");
+  const providerType = ref("");
   const baseUrl = ref("");
   const apiKey = ref("");
-  const models = ref<string[]>([]);
-  const modelDraft = ref("");
+  const languageModels = ref<string[]>([]);
+  const imageGenerationModels = ref<string[]>([]);
+  const models = computed(() => [
+    ...languageModels.value,
+    ...imageGenerationModels.value,
+  ]);
+  const languageModelOptions = computed(() =>
+    providerModelOptions(languageModels.value),
+  );
+  const imageGenerationModelOptions = computed(() =>
+    providerModelOptions(imageGenerationModels.value),
+  );
   const upstreamProtocols = ref<UpstreamProtocol[]>([]);
   const orderedUpstreamProtocols = computed(() =>
     allProtocols.filter((protocol) =>
@@ -82,7 +86,6 @@ export function useProviderForm(options: ProviderFormOptions) {
     anthropic: "",
     images_generations: "",
   });
-  const showAddModel = ref(false);
   const toolCalls = ref<boolean | null>(null);
   const reasoning = ref<boolean | null>(null);
   const toolChoice = ref<boolean | null>(null);
@@ -94,7 +97,6 @@ export function useProviderForm(options: ProviderFormOptions) {
   const maxOutputTokens = ref<number | null>(null);
   const preservedCapabilities = ref<ProviderCapabilities>({});
   const notifications = useNotification();
-  const defaultProviderTemplate = PROVIDER_TEMPLATE_GROUPS[0]?.options[0];
   let initialDraft = "";
 
   function serializeDraft() {
@@ -124,17 +126,26 @@ export function useProviderForm(options: ProviderFormOptions) {
 
   function resetDraft(provider: Provider | null | undefined) {
     const template = provider
-      ? providerTemplateForType(provider.provider_type)
-      : defaultProviderTemplate;
-    providerTemplate.value = template?.value ?? "gotoken";
-    name.value = provider?.name ?? template?.label ?? "GoToken 套餐";
+      ? providerTemplateForType(
+          provider.provider_type,
+          options.catalogProviders(),
+        )
+      : providerTemplates(options.catalogProviders())[0];
+    providerTemplate.value = template?.value ?? "";
+    name.value = provider?.name ?? template?.label ?? "";
     providerType.value =
-      provider?.provider_type ?? template?.providerType ?? "gotoken";
+      provider?.provider_type ?? template?.providerType ?? "";
     baseUrl.value = provider?.base_url ?? template?.baseUrl ?? "";
     apiKey.value = provider?.api_key ?? "";
-    showAddModel.value = false;
-    modelDraft.value = "";
-    models.value = provider?.models.map((model) => model.model_name) ?? [];
+    const savedModelIds =
+      provider?.models.map((model) => model.model_name) ?? [];
+    const imageModelIds = new Set(template?.imageGenerationModels ?? []);
+    languageModels.value = provider
+      ? savedModelIds.filter((id) => !imageModelIds.has(id))
+      : (template?.languageModels ?? []);
+    imageGenerationModels.value = provider
+      ? savedModelIds.filter((id) => imageModelIds.has(id))
+      : (template?.imageGenerationModels ?? []);
     upstreamProtocols.value = (
       provider?.capabilities?.upstream_protocols ??
       template?.protocols ??
@@ -163,34 +174,19 @@ export function useProviderForm(options: ProviderFormOptions) {
   }
 
   function selectProviderTemplate() {
-    const template = PROVIDER_TEMPLATE_GROUPS.flatMap(
-      (group) => group.options,
-    ).find((item) => item.value === providerTemplate.value);
+    const template = providerTemplates(options.catalogProviders()).find(
+      (item) => item.value === providerTemplate.value,
+    );
     if (!template) return;
     name.value = template.label;
     providerType.value = template.providerType;
     baseUrl.value = template.baseUrl;
+    languageModels.value = [...template.languageModels];
+    imageGenerationModels.value = [...template.imageGenerationModels];
     upstreamProtocols.value = [...template.protocols];
     for (const protocol of allProtocols) {
       protocolBaseUrls[protocol] = template.protocolBaseUrls[protocol] ?? "";
     }
-  }
-
-  function addModel() {
-    const model = modelDraft.value.trim();
-    if (!model || models.value.includes(model)) return;
-    models.value.push(model);
-    modelDraft.value = "";
-    showAddModel.value = false;
-  }
-
-  function setModelPopover(open: boolean) {
-    showAddModel.value = open;
-    if (!open) modelDraft.value = "";
-  }
-
-  function removeModel(model: string) {
-    models.value = models.value.filter((item) => item !== model);
   }
 
   function operationInput(protocol?: UpstreamProtocol): ProviderOperationInput {
@@ -202,25 +198,6 @@ export function useProviderForm(options: ProviderFormOptions) {
       ...(protocol ? { protocol } : {}),
       ...(models.value[0] ? { model: models.value[0] } : {}),
     };
-  }
-
-  async function requestDiscovery() {
-    if (!apiKey.value.trim()) {
-      notifications.danger("请填写上游 API Key。", { title: "连接配置不完整" });
-      return;
-    }
-    const result = await options.discoverModels(operationInput());
-    if (!result.ok) {
-      notifications.warning(
-        `${result.error ?? "请检查连接信息和 API Key。"} 可手工添加模型后保存供应商。`,
-        { title: "模型列表暂不可用" },
-      );
-      return;
-    }
-    models.value = result.models ?? [];
-    notifications.success(`共 ${models.value.length} 个模型。`, {
-      title: "模型已获取",
-    });
   }
 
   async function requestProtocolTest(protocol: UpstreamProtocol) {
@@ -245,6 +222,12 @@ export function useProviderForm(options: ProviderFormOptions) {
       return null;
     }
     const provider = options.provider();
+    if (!provider && !providerTemplate.value) {
+      notifications.danger("请选择目录中的供应商。", {
+        title: "供应商配置不完整",
+      });
+      return null;
+    }
     if (!provider && !apiKey.value.trim()) {
       notifications.danger("请填写上游 API Key。", { title: "连接配置不完整" });
       return null;
@@ -286,25 +269,22 @@ export function useProviderForm(options: ProviderFormOptions) {
   );
 
   return {
-    addModel,
     allProtocols,
     apiKey,
     baseUrl,
-    modelDraft,
+    languageModels,
+    imageGenerationModels,
+    imageGenerationModelOptions,
+    languageModelOptions,
     models,
     name,
     orderedUpstreamProtocols,
     protocolBaseUrls,
     protocolLabel,
-    protocolOptions,
     providerTemplate,
     providerTemplateOptions,
-    removeModel,
-    requestDiscovery,
     requestProtocolTest,
     selectProviderTemplate,
-    setModelPopover,
-    showAddModel,
     submit,
     upstreamProtocols,
   };

@@ -5,6 +5,7 @@ import {
   groupEndpointModels,
   type EndpointModelGroup,
 } from "~/utils/endpointModels";
+import { modelCatalogLabel } from "~/utils/modelCatalog";
 
 const props = defineProps<{
   endpoint?: RelayEndpoint | null;
@@ -28,7 +29,6 @@ const emit = defineEmits<{
 type ModelForm = {
   provider_id: string;
   upstream_model: string;
-  model_name: string;
 };
 
 const name = ref("");
@@ -51,7 +51,6 @@ const providerOptions = computed(() => [
   })),
 ]);
 let initialDraft = "";
-
 function serializeDraft() {
   return JSON.stringify({
     name: name.value,
@@ -59,13 +58,16 @@ function serializeDraft() {
     models: models.value,
   });
 }
-
 watch(
   () => props.endpoint,
   (current) => {
     name.value = current?.name ?? "";
     protocol.value = current?.protocol ?? "openai";
-    models.value = current?.models.map((model) => ({ ...model })) ?? [];
+    models.value =
+      current?.models.map((model) => ({
+        ...model,
+        model_name: model.upstream_model,
+      })) ?? [];
     newModelForm.value = emptyModelForm();
     newProviderForm.value = emptyModelForm();
     showAddModel.value = false;
@@ -75,13 +77,11 @@ watch(
   },
   { immediate: true },
 );
-
 watch(serializeDraft, (draft) => emit("dirty-change", draft !== initialDraft));
 
 function emptyModelForm(): ModelForm {
-  return { provider_id: "", upstream_model: "", model_name: "" };
+  return { provider_id: "", upstream_model: "" };
 }
-
 function modelsForProvider(providerId: string) {
   return (
     availableProviders.value.find((provider) => provider.id === providerId)
@@ -99,7 +99,9 @@ function availableUpstreamModels(
       .map((mapping) => mapping.model.upstream_model) ?? [],
   );
   return modelsForProvider(providerId).filter(
-    (model) => !usedModelNames.has(model.model_name),
+    (model) =>
+      (!group || model.model_name === group.name) &&
+      !usedModelNames.has(model.model_name),
   );
 }
 
@@ -108,18 +110,20 @@ function providerForModel(model: Pick<EndpointModel, "provider_id">) {
 }
 
 function upstreamModelOptions(providerId: string, group?: EndpointModelGroup) {
-  const models = availableUpstreamModels(providerId, group);
+  const availableModels = availableUpstreamModels(providerId, group);
   return [
     {
       label: providerId
-        ? models.length
+        ? availableModels.length
           ? "选择上游模型"
           : "无可用模型"
         : "先选择供应商",
       value: "",
     },
-    ...models.map((model) => ({
-      label: model.model_name,
+    ...availableModels.map((model) => ({
+      label:
+        model.display_name?.trim() ||
+        modelCatalogLabel(model.model_name),
       value: model.model_name,
     })),
   ];
@@ -132,7 +136,7 @@ function selectProvider(form: ModelForm, group?: EndpointModelGroup) {
 
 function addMapping(form: ModelForm, fixedModelName?: string) {
   const upstreamModel = form.upstream_model.trim();
-  const modelName = fixedModelName ?? (form.model_name.trim() || upstreamModel);
+  const modelName = fixedModelName ?? upstreamModel;
   if (!form.provider_id || !upstreamModel) {
     notifications.danger("请选择供应商和上游模型。", {
       title: "模型配置不完整",
@@ -146,6 +150,24 @@ function addMapping(form: ModelForm, fixedModelName?: string) {
   ) {
     notifications.danger("请选择该供应商已配置的模型。", {
       title: "上游模型无效",
+    });
+    return false;
+  }
+  if (fixedModelName && upstreamModel !== fixedModelName) {
+    notifications.danger("只能添加相同名称的上游模型。", {
+      title: "模型不匹配",
+    });
+    return false;
+  }
+  if (
+    models.value.some(
+      (mapping) =>
+        mapping.provider_id === form.provider_id &&
+        mapping.upstream_model === upstreamModel,
+    )
+  ) {
+    notifications.danger("该供应商已经绑定此模型。", {
+      title: "模型已存在",
     });
     return false;
   }
@@ -201,10 +223,10 @@ function submit() {
     ...(props.endpoint ? { id: props.endpoint.id } : {}),
     name: name.value.trim(),
     protocol: protocol.value,
-    models: models.value.map(({ provider_id, upstream_model, model_name }) => ({
+    models: models.value.map(({ provider_id, upstream_model }) => ({
       provider_id,
       upstream_model,
-      model_name,
+      model_name: upstream_model,
     })),
   });
 }
@@ -248,11 +270,6 @@ function submit() {
                   "
                   :options="upstreamModelOptions(newModelForm.provider_id)"
                 />
-                <Input
-                  v-model="newModelForm.model_name"
-                  label="对外模型名"
-                  placeholder="不填则使用上游模型名"
-                />
               </div>
             </template>
             <template #footer>
@@ -270,7 +287,7 @@ function submit() {
       <div class="model-list">
         <div v-for="group in modelGroups" :key="group.name" class="model-group">
           <div class="model-group__header">
-            <code>{{ group.name }}</code>
+            <code :title="group.name">{{ group.displayName }}</code>
             <div class="model-group__actions">
               <small>{{ group.mappings.length }} 个供应商</small>
               <Popover
@@ -329,7 +346,12 @@ function submit() {
           >
             <small
               >{{ providerForModel(mapping.model)?.name ?? "已删除供应商" }} /
-              {{ mapping.model.upstream_model }}</small
+              {{
+                mapping.model.display_name?.trim() ||
+                modelCatalogLabel(
+                  mapping.model.model_name || mapping.model.upstream_model,
+                )
+              }}</small
             >
             <Button
               square
@@ -419,15 +441,9 @@ function submit() {
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: var(--spacing-md);
 }
-.model-popover > :nth-child(3) {
-  grid-column: span 2;
-}
 @media (max-width: 640px) {
   .model-popover {
     grid-template-columns: 1fr;
-  }
-  .model-popover > :nth-child(3) {
-    grid-column: auto;
   }
 }
 </style>

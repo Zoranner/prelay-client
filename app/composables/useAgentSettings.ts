@@ -3,6 +3,8 @@ import type {
   AgentClient,
   AgentSettings,
   BootstrapState,
+  CatalogLanguageModelResponse,
+  CatalogModelResponse,
   RelayEndpoint,
 } from "~/stores/relay";
 import { clientSupportsSettings } from "~/utils/agentClient";
@@ -35,6 +37,12 @@ function managementBaseUrl(relayUrl: string) {
   return normalized.endsWith("/v1") ? normalized : `${normalized}/v1`;
 }
 
+function catalogLanguageModel(
+  model: CatalogModelResponse | undefined,
+): CatalogLanguageModelResponse | undefined {
+  return model && "reasoning_efforts" in model ? model : undefined;
+}
+
 export function useAgentSettings(options: AgentSettingsOptions) {
   const notifications = useNotification();
   const configuration = reactive(createAgentConfiguration());
@@ -50,14 +58,15 @@ export function useAgentSettings(options: AgentSettingsOptions) {
     ...options.endpoints.value.map((endpoint) => ({
       value: endpoint.id,
       label: endpoint.name,
-      description: `${endpoint.models.length} 个模型`,
+      description: `${groupEndpointModels(endpoint.models).length} 个模型`,
     })),
     { value: customEndpointValue, label: "自定义" },
   ]);
   const modelOptions = computed(() =>
     groupEndpointModels(selectedEndpoint.value?.models ?? []).map((group) => ({
       value: group.name,
-      label: group.name,
+      label: group.displayName,
+      catalogModel: catalogLanguageModel(group.catalogModel),
     })),
   );
   const isCustomCodexEndpoint = computed(
@@ -106,9 +115,10 @@ export function useAgentSettings(options: AgentSettingsOptions) {
         endpointName: endpoint.name,
         endpointToken: endpoint.token,
         relayUrl: options.bootstrap.value.relay_url,
-        models: endpoint.models.map(({ model_name, upstream_model }) => ({
-          modelName: model_name,
-          upstreamModel: upstream_model,
+        models: groupEndpointModels(endpoint.models).map((group) => ({
+          modelName: group.name,
+          upstreamModel: group.mappings[0]?.model.upstream_model ?? group.name,
+          catalogModel: catalogLanguageModel(group.catalogModel),
         })),
       };
     }

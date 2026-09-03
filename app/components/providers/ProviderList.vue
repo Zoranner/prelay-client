@@ -2,12 +2,7 @@
 import { Badge, Button, Table, Tag } from "@stellar/ui";
 import type { Provider } from "~/stores/relay";
 import { providerProtocolOptions } from "~/utils/providerCapabilities";
-import {
-  protocolLabel,
-  protocolTagVariant,
-  providerLabel,
-  PROVIDER_TEMPLATE_GROUPS,
-} from "~/utils/providerTemplates";
+import { protocolLabel, protocolTagVariant } from "~/utils/providerTemplates";
 
 type ProviderRow = Provider & Record<string, unknown>;
 
@@ -31,7 +26,6 @@ const emit = defineEmits<{
 
 const columns = [
   { key: "name", title: "名称", width: 220, ellipsis: true },
-  { key: "category", title: "类型", width: 88 },
   { key: "protocols", title: "协议", width: 260, ellipsis: true },
   { key: "models", title: "模型", width: 104, align: "right" as const },
   { key: "status", title: "状态", width: 128 },
@@ -44,15 +38,6 @@ const columns = [
   },
 ];
 const rows = computed<ProviderRow[]>(() => props.providers as ProviderRow[]);
-
-function providerCategory(providerType: string) {
-  const group = PROVIDER_TEMPLATE_GROUPS.find((item) =>
-    item.options.some((option) => option.providerType === providerType),
-  );
-  if (group?.label === "套餐服务") return "套餐";
-  if (group?.label === "API 服务") return "API";
-  return "自定义";
-}
 
 function pingStatus(providerId: string) {
   const state = props.pingStates[providerId];
@@ -81,12 +66,9 @@ function pingStatus(providerId: string) {
   >
     <template #cell-name="{ row }">
       <div class="provider-name">
-        <span>{{ row.name || providerLabel(row.provider_type) }}</span>
+        <span>{{ row.name || row.provider_type }}</span>
         <small :title="row.base_url">{{ row.base_url }}</small>
       </div>
-    </template>
-    <template #cell-category="{ row }">
-      <Badge>{{ providerCategory(row.provider_type) }}</Badge>
     </template>
     <template #cell-protocols="{ row }">
       <div class="protocols">
@@ -115,7 +97,7 @@ function pingStatus(providerId: string) {
           size="small"
           icon="ph:heartbeat"
           :disabled="pingStatus(row.id).label === '检查中'"
-          :aria-label="`测试 ${row.name || providerLabel(row.provider_type)}`"
+          :aria-label="`测试 ${row.name || row.provider_type}`"
           title="测试连接"
           @click.stop="emit('ping', row)"
         />

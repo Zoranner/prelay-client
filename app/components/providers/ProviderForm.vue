@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { Button, FormField, Input, Popover, Select } from "@stellar/ui";
-import type { Provider } from "~/stores/relay";
+import { Button, FormField, Input, Select, Tag } from "@stellar/ui";
+import type { CatalogProvider, Provider } from "~/stores/relay";
 import {
   type ProviderFormPayload,
   type ProviderOperationInput,
@@ -10,10 +10,8 @@ import type { ProviderOperationResult } from "~/utils/providerOperations";
 
 const props = defineProps<{
   provider?: Provider | null;
+  catalogProviders: CatalogProvider[];
   pending?: boolean;
-  discoverModels: (
-    input: ProviderOperationInput,
-  ) => Promise<ProviderOperationResult>;
   testProtocol: (
     input: ProviderOperationInput,
   ) => Promise<ProviderOperationResult>;
@@ -36,29 +34,23 @@ const emit = defineEmits<{
 }>();
 
 const {
-  addModel,
   apiKey,
   baseUrl,
-  modelDraft,
+  imageGenerationModelOptions,
+  languageModelOptions,
   models,
   name,
   orderedUpstreamProtocols,
   protocolBaseUrls,
   protocolLabel,
-  protocolOptions,
   providerTemplate,
   providerTemplateOptions,
-  removeModel,
-  requestDiscovery,
   requestProtocolTest,
   selectProviderTemplate,
-  setModelPopover,
-  showAddModel,
   submit: createPayload,
-  upstreamProtocols,
 } = useProviderForm({
   provider: () => props.provider,
-  discoverModels: props.discoverModels,
+  catalogProviders: () => props.catalogProviders,
   testProtocol: props.testProtocol,
   onDirtyChange: (dirty) => emit("dirty-change", dirty),
 });
@@ -82,23 +74,20 @@ function submit() {
         />
         <Input v-model="name" label="名称" autocomplete="off" />
         <FormField label="API Key">
-          <Input v-model="apiKey" type="password" placeholder="填写上游 API Key" />
+          <Input
+            v-model="apiKey"
+            type="password"
+            placeholder="填写上游 API Key"
+          />
         </FormField>
         <Input v-model="baseUrl" label="Base URL" type="url" />
-        <Select
-          v-model="upstreamProtocols"
-          multiple
-          label="支持协议"
-          placeholder="选择支持协议"
-          :options="protocolOptions"
-        />
-        <div class="protocol-urls">
+        <div class="protocol-urls" aria-label="支持协议">
           <div
             v-for="protocol in orderedUpstreamProtocols"
             :key="protocol"
             class="protocol-url-row"
           >
-            <span>{{ protocolLabel(protocol) }}</span>
+            <span class="protocol-label">{{ protocolLabel(protocol) }}</span>
             <Input
               v-model="protocolBaseUrls[protocol]"
               :placeholder="baseUrl || '填写协议地址'"
@@ -107,8 +96,7 @@ function submit() {
               v-if="protocol !== 'images_generations'"
               square
               type="button"
-              size="small"
-              icon="ph:plugs-connected"
+              icon="ph:flask"
               aria-label="测试协议"
               title="测试协议"
               :disabled="pending"
@@ -124,61 +112,48 @@ function submit() {
         <h3>模型清单</h3>
         <div class="section-header__actions">
           <span>{{ models.length }} 个</span>
-          <Button
-            type="button"
-            size="small"
-            icon="ph:download-simple"
-            aria-label="获取模型"
-            title="获取模型"
-            :disabled="pending"
-            @click="requestDiscovery"
-            >获取</Button
-          >
-          <Popover
-            v-model="showAddModel"
-            position="auto"
-            align="right"
-            size="large"
-            @update:model-value="setModelPopover"
-          >
-            <Button size="small" type="button" variant="primary" icon="ph:plus">
-              新增
-            </Button>
-            <template #title>新增模型</template>
-            <template #content>
-              <div class="model-popover">
-                <Input
-                  v-model="modelDraft"
-                  label="上游模型"
-                  placeholder="kimi-k2-0711-preview"
-                  @enter="addModel"
-                />
-              </div>
-            </template>
-            <template #footer>
-              <Button
-                variant="primary"
-                type="button"
-                :disabled="pending"
-                @click="addModel"
-                >确认</Button
-              >
-            </template>
-          </Popover>
         </div>
       </div>
       <div class="model-list">
-        <div v-for="model in models" :key="model" class="model-row">
-          <code>{{ model }}</code>
-          <Button
-            square
-            size="small"
-            variant="danger"
-            icon="ph:trash"
-            aria-label="删除模型"
-            title="删除模型"
-            @click="removeModel(model)"
-          />
+        <div
+          v-if="languageModelOptions.length"
+          class="model-group model-group--language"
+        >
+          <h4 class="model-group__header">
+            <span>语言模型</span>
+            <small>{{ languageModelOptions.length }}</small>
+          </h4>
+          <div class="model-tags">
+            <Tag
+              v-for="modelOption in languageModelOptions"
+              :key="`language-${modelOption.value}`"
+              class="model-tag model-tag--language"
+              size="small"
+              variant="primary"
+            >
+              {{ modelOption.label }}
+            </Tag>
+          </div>
+        </div>
+        <div
+          v-if="imageGenerationModelOptions.length"
+          class="model-group model-group--image"
+        >
+          <h4 class="model-group__header">
+            <span>图像生成模型</span>
+            <small>{{ imageGenerationModelOptions.length }}</small>
+          </h4>
+          <div class="model-tags">
+            <Tag
+              v-for="modelOption in imageGenerationModelOptions"
+              :key="`image-${modelOption.value}`"
+              class="model-tag model-tag--image"
+              size="small"
+              variant="warning"
+            >
+              {{ modelOption.label }}
+            </Tag>
+          </div>
         </div>
         <p v-if="!models.length" class="empty-text">暂无模型。</p>
       </div>
@@ -221,13 +196,24 @@ function submit() {
   display: grid;
   gap: var(--spacing-sm);
 }
-.protocol-url-row > span {
+.protocol-url-row > :nth-child(2) {
+  flex: 1;
+}
+.protocol-label {
   width: 160px;
+  flex: 0 0 160px;
   color: var(--st-text-secondary);
   white-space: nowrap;
 }
-.protocol-url-row > :nth-child(2) {
-  flex: 1;
+@media (max-width: 720px) {
+  .protocol-url-row {
+    align-items: stretch;
+    flex-direction: column;
+  }
+  .protocol-label {
+    width: auto;
+    flex-basis: auto;
+  }
 }
 .section-header {
   display: flex;
@@ -244,34 +230,55 @@ function submit() {
   color: var(--st-text-secondary);
 }
 .model-list {
+  grid-template-columns: minmax(0, 1fr);
   gap: var(--spacing-sm);
 }
-.model-row {
+.model-group {
+  display: grid;
+  gap: var(--spacing-sm);
+  min-width: 0;
+  align-content: start;
+}
+.model-group:only-child {
+  grid-column: 1 / -1;
+}
+.model-group + .model-group {
+  margin-top: var(--spacing-md);
+}
+.model-group h4 {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--spacing-sm);
+  margin: 0 0 var(--spacing-xs);
+  color: var(--st-text-secondary);
+  font-size: 13px;
+  font-weight: 600;
+}
+.model-group--language h4 {
+  color: var(--st-primary);
+}
+.model-group--image h4 {
+  color: var(--st-warning);
+}
+.model-group h4 small {
+  color: var(--st-text-muted);
+  font-family: var(--font-family-mono);
+  font-size: 12px;
+  font-weight: 500;
+}
+.model-tags {
   display: flex;
   min-width: 0;
-  justify-content: space-between;
-  align-items: center;
-  gap: var(--spacing-md);
-  border-top: 1px solid var(--st-border-divider);
-  padding: var(--spacing-sm) 0 0 var(--spacing-md);
+  flex-wrap: wrap;
+  gap: var(--spacing-xs);
 }
-.model-row code {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+.model-tag {
+  max-width: 100%;
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
-.model-popover {
-  display: grid;
-  gap: var(--spacing-md);
-}
-@media (max-width: 720px) {
-  .protocol-url-row {
-    align-items: stretch;
-    flex-direction: column;
-  }
-  .protocol-url-row > span {
-    width: auto;
-  }
+.empty-text {
+  grid-column: 1 / -1;
 }
 </style>

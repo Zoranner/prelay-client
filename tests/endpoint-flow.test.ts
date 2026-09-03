@@ -38,9 +38,12 @@ test("接入点模型映射只允许选择已保存模型的供应商", () => {
   expect(endpointForm).toContain("providerOptions");
 });
 
-test("接入点允许多个供应商映射为同一个对外模型名", () => {
-  expect(endpointForm).not.toContain("请使用不同的对外模型名。");
-  expect(endpointForm).not.toContain("接入点模型名重复");
+test("接入点不允许自定义对外模型名", () => {
+  expect(endpointForm).not.toContain('v-model="newModelForm.model_name"');
+  expect(endpointForm).not.toContain('label="对外模型名"');
+  expect(endpointForm).toContain(
+    "const modelName = fixedModelName ?? upstreamModel",
+  );
 });
 
 test("接入点模型列表按对外模型分组展示供应商候选", () => {
@@ -48,6 +51,7 @@ test("接入点模型列表按对外模型分组展示供应商候选", () => {
   expect(endpointForm).toContain('v-for="group in modelGroups"');
   expect(endpointForm).toContain("group.mappings.length");
   expect(endpointForm).toContain("group.mappings");
+  expect(endpointForm).toContain("mapping.model.upstream_model");
 });
 
 test("接入点模型从列表上下文新增而非底部统一编辑器", () => {
