@@ -1,8 +1,14 @@
 <script setup lang="ts">
 import { Select } from "@stellar/ui";
+import type { CatalogLanguageModelResponse } from "~/stores/relay";
 import type { OpenCodeSettingsDraft } from "~/utils/agentSettings";
 
-type SelectOption = { value: string; label: string; description?: string };
+type SelectOption = {
+  value: string;
+  label: string;
+  description?: string;
+  catalogModel?: CatalogLanguageModelResponse;
+};
 
 const model = defineModel<OpenCodeSettingsDraft>({ required: true });
 defineProps<{

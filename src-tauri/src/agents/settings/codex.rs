@@ -194,16 +194,22 @@ fn write_prelay_model_catalog(
     let catalog = models
         .iter()
         .map(|model| {
-            let mut profile = profiles
-                .iter()
-                .find(|profile| profile["slug"] == model.upstream_model)
-                .cloned()
-                .unwrap_or_else(|| fallback.clone());
+            let mut profile = match &model.catalog_model {
+                Some(catalog_model) => serde_json::to_value(catalog_model)
+                    .map_err(|error| format!("Codex 模型档案无法序列化: {error}"))?,
+                None => profiles
+                    .iter()
+                    .find(|profile| profile["slug"] == model.upstream_model)
+                    .cloned()
+                    .unwrap_or_else(|| fallback.clone()),
+            };
             profile["slug"] = Value::String(model.model_name.clone());
-            profile["display_name"] = Value::String(model.model_name.clone());
-            profile
+            if model.catalog_model.is_none() {
+                profile["display_name"] = Value::String(model.model_name.clone());
+            }
+            Ok::<Value, String>(profile)
         })
-        .collect::<Vec<_>>();
+        .collect::<Result<Vec<_>, String>>()?;
     let contents = serde_json::to_vec_pretty(&json!({ "models": catalog }))
         .map_err(|error| format!("Codex 模型目录无法序列化: {error}"))?;
     let path = home.join(".codex").join("models.json");

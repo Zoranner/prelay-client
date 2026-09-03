@@ -76,3 +76,16 @@ test("未知对外模型 ID 的组显示名称回退为 ID", () => {
   expect(group?.displayName).toBe("legacy-model-id");
   expect(group?.catalogModel).toBeUndefined();
 });
+
+test("接入点归组优先使用服务端模型显示名", () => {
+  const [group] = groupEndpointModels([
+    {
+      model_name: "model-id",
+      upstream_model: "upstream-id",
+      provider_id: "provider-a",
+      display_name: "服务端显示名",
+    },
+  ]);
+
+  expect(group.displayName).toBe("服务端显示名");
+});

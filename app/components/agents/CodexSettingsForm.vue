@@ -1,8 +1,14 @@
 <script setup lang="ts">
 import { Input, RadioGroup, Select, Toggle } from "@stellar/ui";
+import type { CatalogLanguageModelResponse } from "~/stores/relay";
 import type { CodexSettingsDraft } from "~/utils/agentSettings";
 
-type SelectOption = { value: string; label: string; description?: string };
+type SelectOption = {
+  value: string;
+  label: string;
+  description?: string;
+  catalogModel?: CatalogLanguageModelResponse;
+};
 
 const model = defineModel<CodexSettingsDraft>({ required: true });
 const props = defineProps<{

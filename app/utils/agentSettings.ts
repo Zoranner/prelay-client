@@ -1,3 +1,11 @@
+import type { AgentClient, CatalogLanguageModelResponse } from "~/stores/relay";
+
+type AgentConnectionModel = {
+  modelName: string;
+  upstreamModel: string;
+  catalogModel?: CatalogLanguageModelResponse;
+};
+
 export type CodexSettingsDraft = {
   endpoint: string;
   customBaseUrl: string;
@@ -43,10 +51,7 @@ export type AgentSettingsSaveRequest = {
   };
   connection: {
     client: AgentClient;
-    connection: Record<
-      string,
-      string | undefined | Array<{ modelName: string; upstreamModel: string }>
-    >;
+    connection: Record<string, string | undefined | AgentConnectionModel[]>;
   } | null;
 };
 
@@ -116,4 +121,3 @@ export function codexSettingsPayload(
 export function openCodeSettingsPayload(settings: OpenCodeSettingsDraft) {
   return { ...settings };
 }
-import type { AgentClient } from "~/stores/relay";

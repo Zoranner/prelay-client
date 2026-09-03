@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { Button, Table, Tag } from "@stellar/ui";
-import type { RelayEndpoint } from "~/stores/relay";
+import type { EndpointModel, RelayEndpoint } from "~/stores/relay";
+import { modelCatalogLabel } from "~/utils/modelCatalog";
 
 type EndpointRow = RelayEndpoint & Record<string, unknown>;
 
@@ -32,6 +33,13 @@ const rows = computed<EndpointRow[]>(() => props.endpoints as EndpointRow[]);
 function maskToken(token: string) {
   if (token.length <= 10) return "*".repeat(token.length);
   return `${token.slice(0, 6)}...${token.slice(-4)}`;
+}
+
+function modelLabel(model: EndpointModel) {
+  return (
+    model.display_name?.trim() ||
+    modelCatalogLabel(model.model_name || model.upstream_model)
+  );
 }
 </script>
 
@@ -70,7 +78,7 @@ function maskToken(token: string) {
           :key="model.id ?? `${model.provider_id}-${model.model_name}`"
           size="small"
         >
-          {{ model.model_name }}
+          {{ modelLabel(model) }}
         </Tag>
         <Tag v-if="row.models.length > 3" size="small"
           >+{{ row.models.length - 3 }}</Tag

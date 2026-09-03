@@ -17,7 +17,7 @@ export function groupEndpointModels(
     const name = model.model_name.trim() || model.upstream_model.trim();
     const group = groups.get(name) ?? {
       name,
-      displayName: modelCatalogLabel(name),
+      displayName: model.display_name?.trim() || modelCatalogLabel(name),
       catalogModel: modelCatalogEntry(name),
       mappings: [],
     };

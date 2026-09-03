@@ -226,6 +226,14 @@ test("供应商模型字符串 ID 关联完整目录对象并以显示名称生�
   ]);
 });
 
+test("供应商模型清单使用目录显示名但保留模型 ID", () => {
+  expect(providerSource).toContain("providerModelOptions");
+  expect(providerSource).toContain("modelOption.label");
+  expect(providerSource).toContain("modelOption.value");
+  expect(providerSource).not.toMatch(/v-for="model in languageModels"/);
+  expect(providerSource).not.toMatch(/v-for="model in imageGenerationModels"/);
+});
+
 function pageSource() {
   return readFileSync(
     new URL("../app/pages/providers.vue", import.meta.url),

@@ -50,6 +50,14 @@ test("智能体工作区按客户端状态、内容与设置职责分层", () =>
   expect(settings).toContain("codexConnection");
   expect(settings).toContain("openCodeConnection");
   expect(settings).toContain("endpointToken");
+  expect(settings).toContain("groupEndpointModels(endpoint.models)");
+  expect(settings).toContain("modelName: group.name");
+  expect(settings).toContain(
+    "description: `${groupEndpointModels(endpoint.models).length} 个模型`",
+  );
+  expect(settings).not.toContain(
+    "endpoint.models.map(({ model_name, upstream_model })",
+  );
   expect(settings).toContain("copyAgentClientSettings(configuration, draft");
   expect(rules).toContain(
     'const draft = reactive({ codexCli: "", chatgpt: "", openCode: "" })',
@@ -83,4 +91,29 @@ test("智能体本地操作不复用管理服务命令状态", () => {
   expect(workspace).not.toContain('"agents_versions"');
   expect(nativeAgents).toContain("CREATE_NO_WINDOW");
   expect(nativeAgents).toContain("creation_flags(CREATE_NO_WINDOW.0)");
+});
+
+test("智能体模型选项使用目录显示名且连接携带目录对象", () => {
+  const settings = source("composables/useAgentSettings.ts");
+  const agentUtils = source("utils/agentSettings.ts");
+  const codex = readFileSync(
+    new URL("../src-tauri/src/agents/settings/codex.rs", import.meta.url),
+    "utf8",
+  );
+  const settingsMod = readFileSync(
+    new URL("../src-tauri/src/agents/settings/mod.rs", import.meta.url),
+    "utf8",
+  );
+
+  expect(settings).toContain("label: group.displayName");
+  expect(settings).toContain("catalogLanguageModel(group.catalogModel)");
+  expect(settings).toContain("catalogModel");
+  expect(settings).toContain("modelName: group.name");
+  expect(settings).toContain("upstreamModel:");
+  expect(agentUtils).toContain("CatalogLanguageModelResponse");
+  expect(codex).toContain("catalog_model");
+  expect(codex).toContain("model.model_name.clone()");
+  expect(settingsMod).toContain(
+    "pub catalog_model: Option<CatalogLanguageModelResponse>",
+  );
 });

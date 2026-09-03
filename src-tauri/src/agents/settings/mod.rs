@@ -1,5 +1,6 @@
 use std::path::Path;
 
+use prelay_protocol::CatalogLanguageModelResponse;
 use serde::{Deserialize, Serialize};
 
 use super::AgentClient;
@@ -47,6 +48,7 @@ pub enum CodexConnection {
 pub struct CodexEndpointModel {
     pub model_name: String,
     pub upstream_model: String,
+    pub catalog_model: Option<CatalogLanguageModelResponse>,
 }
 
 #[derive(Debug, Clone, Deserialize)]

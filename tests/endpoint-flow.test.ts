@@ -128,3 +128,12 @@ test("接入点编辑抽屉将操作固定在 Drawer footer", () => {
   expect(endpointPage).toContain("<template #footer>");
   expect(endpointPage).toContain('form="endpoint-form"');
 });
+
+test("接入点模型显示目录或服务端显示名并保留模型 ID", () => {
+  expect(endpointForm).toContain("group.displayName");
+  expect(endpointForm).toContain("modelCatalogLabel");
+  expect(endpointForm).toContain("model.display_name");
+  expect(endpointForm).toContain("model_name: upstream_model");
+  expect(endpointList).toContain("model.display_name");
+  expect(endpointList).toContain("modelCatalogLabel");
+});
