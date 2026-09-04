@@ -6,7 +6,7 @@ import {
   groupEndpointModels,
   type EndpointModelGroup,
 } from "~/utils/endpointModels";
-import { modelCatalogEntry, modelCatalogLabel } from "~/utils/modelCatalog";
+import { modelCatalogLabel } from "~/utils/modelCatalog";
 
 const props = defineProps<{
   endpoint?: RelayEndpoint | null;
@@ -209,12 +209,7 @@ function submit() {
     notifications.danger("请填写接入点名称。", { title: "接入点配置不完整" });
     return;
   }
-  if (
-    !models.value.length ||
-    models.value.some(
-      ({ upstream_model }) => !modelCatalogEntry(upstream_model),
-    )
-  ) {
+  if (!models.value.length) {
     notifications.danger("请至少新增一个模型。", { title: "接入点配置不完整" });
     return;
   }

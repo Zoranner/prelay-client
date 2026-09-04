@@ -49,6 +49,10 @@ test("接入点不允许自定义对外模型名", () => {
   expect(endpointForm).not.toContain("const modelName =");
 });
 
+test("接入点保存不依赖客户端模型目录是否已加载", () => {
+  expect(endpointForm).not.toContain("!modelCatalogEntry(upstream_model)");
+});
+
 test("接入点模型列表按对外模型分组展示供应商候选", () => {
   expect(endpointForm).toContain("const modelGroups");
   expect(endpointForm).toContain('v-for="group in modelGroups"');
