@@ -189,7 +189,11 @@ export function useAgentSettings(options: AgentSettingsOptions) {
     return null;
   }
 
-  function openCodeConnection() {
+  function openCodeConnection(): {
+    kind: "prelay";
+    endpointToken: string;
+    relayUrl: string;
+  } | null {
     const endpoint = selectedEndpoint.value;
     if (endpoint && options.bootstrap.value?.relay_url) {
       return {
@@ -219,9 +223,12 @@ export function useAgentSettings(options: AgentSettingsOptions) {
     let savedByValidation = false;
     if (connection?.kind === "prelay") {
       const modelIds =
-        "models" in connection
-          ? connection.models.map((model) => model.id)
-          : [draft.openCode.model];
+        client === "openCode"
+          ? [draft.openCode.model]
+          : (connection as Extract<
+                CodexConnectionDraft,
+                { kind: "prelay" }
+              >).models.map((model) => model.id);
       const selectedModel =
         client === "codexCli"
           ? draft.codexCli.model
