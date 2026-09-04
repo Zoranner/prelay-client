@@ -193,6 +193,7 @@ fn write_prelay_model_catalog(
         .map(|model| {
             let mut profile = serde_json::to_value(model)
                 .map_err(|error| format!("Codex 模型档案无法序列化: {error}"))?;
+            remove_null_fields(&mut profile);
             profile["slug"] = Value::String(model.id.clone());
             Ok::<Value, String>(profile)
         })
@@ -202,6 +203,17 @@ fn write_prelay_model_catalog(
     let path = home.join(".codex").join("models.json");
     write_text(&path, &contents)?;
     Ok(path)
+}
+
+fn remove_null_fields(value: &mut Value) {
+    match value {
+        Value::Object(object) => {
+            object.retain(|_, value| !value.is_null());
+            object.values_mut().for_each(remove_null_fields);
+        }
+        Value::Array(values) => values.iter_mut().for_each(remove_null_fields),
+        Value::Null | Value::Bool(_) | Value::Number(_) | Value::String(_) => {}
+    }
 }
 
 fn write_codex_auth_token(home: &Path, token: &str) -> Result<(), String> {

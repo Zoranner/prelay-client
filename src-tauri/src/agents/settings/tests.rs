@@ -156,6 +156,7 @@ fn saves_every_prelay_model_alias_to_the_codex_catalog() {
         catalog["models"][0]["base_instructions"],
         "Use the team policy."
     );
+    assert!(catalog["models"][0].get("apply_patch_tool_type").is_none());
     assert!(catalog["models"][0].get("prefer_websockets").is_none());
 
     let saved = fs::read_to_string(codex_root.join("config.toml")).unwrap();
