@@ -2,7 +2,7 @@
 import { Button, Input, Popover, Select, useNotification } from "@stellar/ui";
 import type { EndpointModel, Provider, RelayEndpoint } from "~/stores/relay";
 import {
-  catalogModelsForProvider,
+  endpointModelsForProvider,
   groupEndpointModels,
   type EndpointModelGroup,
 } from "~/utils/endpointModels";
@@ -83,7 +83,7 @@ function emptyModelForm(): ModelForm {
 }
 function modelsForProvider(providerId: string) {
   const provider = availableProviders.value.find(({ id }) => id === providerId);
-  return provider ? catalogModelsForProvider(provider) : [];
+  return provider ? endpointModelsForProvider(provider) : [];
 }
 
 function availableUpstreamModels(

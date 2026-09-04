@@ -1,5 +1,8 @@
 import { expect, test } from "bun:test";
-import { groupEndpointModels } from "../app/utils/endpointModels";
+import {
+  endpointModelsForProvider,
+  groupEndpointModels,
+} from "../app/utils/endpointModels";
 import { modelCatalogEntry, setModelCatalog } from "../app/utils/modelCatalog";
 
 test("接入点按对外模型 ID 归组并保留全部供应商路由", () => {
@@ -44,6 +47,31 @@ test("接入点按对外模型 ID 归组并保留全部供应商路由", () => {
     groups[0]?.mappings.map((mapping) => mapping.model.provider_id),
   ).toEqual(["provider-a", "provider-b"]);
   expect(groups[0]?.mappings.map((mapping) => mapping.index)).toEqual([0, 1]);
+});
+
+test("接入点新增候选使用供应商已保存模型而不依赖客户端目录", () => {
+  setModelCatalog(undefined);
+  const models = endpointModelsForProvider({
+    id: "provider-a",
+    name: "Provider A",
+    provider_type: "legacy-provider",
+    base_url: "https://example.test",
+    api_key: "",
+    api_key_masked: "********",
+    capabilities: {},
+    upstream_protocols: ["openai"],
+    models: [
+      {
+        id: "provider-model-a",
+        provider_id: "provider-a",
+        model_name: "provider-model-a",
+        created_at: "2026-09-04T00:00:00Z",
+      },
+    ],
+    created_at: "2026-09-04T00:00:00Z",
+  });
+
+  expect(models.map((model) => model.model_name)).toEqual(["provider-model-a"]);
 });
 
 test("未命名对外模型以其上游模型名作为组名", () => {

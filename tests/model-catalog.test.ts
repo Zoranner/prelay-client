@@ -215,12 +215,12 @@ test("实际智能体保存门禁阻断 Prelay、放行 Custom 并在 ready 时�
   expect(saves).toBe(2);
 });
 
-test("Provider 与 Endpoint 模型选项只能来自完整目录", () => {
+test("Provider 模型选项使用目录，Endpoint 模型选项使用供应商已保存模型", () => {
   const provider = source("composables/useProviderForm.ts");
   const endpoint = source("components/endpoints/EndpointForm.vue");
   const endpointModels = source("utils/endpointModels.ts");
   expect(provider).toContain("modelCatalogProviderModels");
   expect(provider).not.toContain("providers_discover_models");
-  expect(endpointModels).toContain("modelCatalogProviderModels");
+  expect(endpointModels).toContain("return provider.models");
   expect(endpoint).not.toContain('label="对外模型名"');
 });
