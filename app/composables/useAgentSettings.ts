@@ -9,6 +9,7 @@ import type {
 } from "~/stores/relay";
 import { clientSupportsSettings } from "~/utils/agentClient";
 import { groupEndpointModels } from "~/utils/endpointModels";
+import { modelCatalogEntry, useModelCatalog } from "~/utils/modelCatalog";
 import {
   codexSettingsPayload,
   copyAgentClientSettings,
@@ -43,8 +44,53 @@ function catalogLanguageModel(
   return model && "reasoning_efforts" in model ? model : undefined;
 }
 
+export function validatePrelayModelSelection(
+  status: ReturnType<typeof useModelCatalog>["status"]["value"],
+  selectedModel: string,
+  endpointModelIds: string[],
+) {
+  if (status !== "ready") return "模型目录尚未加载完成，请稍后重试。";
+  const model = modelCatalogEntry(selectedModel);
+  if (
+    !selectedModel ||
+    !endpointModelIds.includes(selectedModel) ||
+    !model ||
+    !("reasoning_efforts" in model)
+  ) {
+    return "接入点包含目录外模型，无法保存。";
+  }
+  return null;
+}
+
+export async function saveWithAgentValidation(options: {
+  kind: "prelay" | "custom" | null;
+  status: ReturnType<typeof useModelCatalog>["status"]["value"];
+  selectedModel: string;
+  endpointModelIds: string[];
+  save: () => Promise<void>;
+}) {
+  if (options.kind === "prelay") {
+    const validationError = validatePrelayModelSelection(
+      options.status,
+      options.selectedModel,
+      options.endpointModelIds,
+    );
+    if (
+      validationError ||
+      options.endpointModelIds.some(
+        (modelId) => !catalogLanguageModel(modelCatalogEntry(modelId)),
+      )
+    ) {
+      return validationError ?? "接入点包含目录外模型，无法保存。";
+    }
+  }
+  await options.save();
+  return null;
+}
+
 export function useAgentSettings(options: AgentSettingsOptions) {
   const notifications = useNotification();
+  const { status: catalogStatus } = useModelCatalog();
   const configuration = reactive(createAgentConfiguration());
   const draft = reactive(createAgentConfiguration());
   const showSettings = ref(false);
@@ -143,6 +189,35 @@ export function useAgentSettings(options: AgentSettingsOptions) {
       client === "codexCli" || client === "chatgpt"
         ? codexConnection()
         : openCodeConnection();
+    if (connection?.kind === "prelay") {
+      const modelIds =
+        "models" in connection
+          ? (
+              (connection.models ?? []) as unknown as Array<{
+                modelName: string;
+              }>
+            ).map((model) => model.modelName)
+          : [draft.openCode.model];
+      const selectedModel =
+        client === "codexCli"
+          ? draft.codexCli.model
+          : client === "chatgpt"
+            ? draft.chatgpt.model
+            : draft.openCode.model;
+      const validationError = await saveWithAgentValidation({
+        kind: "prelay",
+        status: catalogStatus.value,
+        selectedModel,
+        endpointModelIds: modelIds,
+        save: async () => {},
+      });
+      if (validationError) {
+        notifications.danger(validationError, {
+          title: "无法保存智能体设置",
+        });
+        return false;
+      }
+    }
     await options.save({
       settings:
         client === "codexCli"

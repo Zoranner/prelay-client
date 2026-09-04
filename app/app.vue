@@ -8,7 +8,8 @@ import AppTitlebar from "~/components/shell/AppTitlebar.vue";
 import ClientUpdateDialog from "~/components/settings/ClientUpdateDialog.vue";
 import DesktopPreferencesDialog from "~/components/settings/DesktopPreferencesDialog.vue";
 import DashboardShell from "~/components/dashboard/DashboardShell.vue";
-import { setModelCatalog } from "~/utils/modelCatalog";
+import { setModelCatalog, setModelCatalogStatus } from "~/utils/modelCatalog";
+import { loadModelCatalogRequest } from "~/utils/modelCatalog";
 
 const managementApi = useRelayManagementApiStatus();
 const { invokeCommand } = useRelayCommand();
@@ -72,19 +73,10 @@ async function tryLoadModelCatalog(url = relayUrl.value) {
 
   modelCatalogUrl = url;
   const requestId = ++modelCatalogRequestId;
-  setModelCatalog();
-
-  try {
-    const catalog =
-      await invokeCommand<ProviderCatalogResponse>("catalog_models_get");
-    if (modelCatalogUrl === url && requestId === modelCatalogRequestId) {
-      setModelCatalog(catalog);
-    }
-  } catch {
-    if (modelCatalogUrl === url && requestId === modelCatalogRequestId) {
-      setModelCatalog();
-    }
-  }
+  await loadModelCatalogRequest(
+    () => invokeCommand<ProviderCatalogResponse>("catalog_models_get"),
+    () => modelCatalogUrl === url && requestId === modelCatalogRequestId,
+  );
 }
 
 function isDesktopRuntime() {

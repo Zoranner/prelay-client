@@ -1,6 +1,10 @@
-import type { EndpointModel } from "~/stores/relay";
+import type { EndpointModel, Provider } from "~/stores/relay";
 import type { CatalogModelResponse } from "~/stores/relay";
-import { modelCatalogEntry, modelCatalogLabel } from "~/utils/modelCatalog";
+import {
+  modelCatalogEntry,
+  modelCatalogLabel,
+  modelCatalogProviderModels,
+} from "~/utils/modelCatalog";
 
 export type EndpointModelGroup = {
   name: string;
@@ -11,6 +15,17 @@ export type EndpointModelGroup = {
 
 export type EndpointModelLike = Omit<EndpointModel, "model_name"> &
   Partial<Pick<EndpointModel, "model_name">>;
+
+export function catalogModelsForProvider(provider: Provider) {
+  const catalogIds = new Set(
+    modelCatalogProviderModels(provider.provider_type).map((model) => model.id),
+  );
+  return provider.models.filter(
+    (model) =>
+      catalogIds.has(model.model_name) &&
+      Boolean(modelCatalogEntry(model.model_name)),
+  );
+}
 
 export function groupEndpointModels(
   models: EndpointModelLike[],

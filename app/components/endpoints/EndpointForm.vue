@@ -2,10 +2,11 @@
 import { Button, Input, Popover, Select, useNotification } from "@stellar/ui";
 import type { EndpointModel, Provider, RelayEndpoint } from "~/stores/relay";
 import {
+  catalogModelsForProvider,
   groupEndpointModels,
   type EndpointModelGroup,
 } from "~/utils/endpointModels";
-import { modelCatalogLabel } from "~/utils/modelCatalog";
+import { modelCatalogEntry, modelCatalogLabel } from "~/utils/modelCatalog";
 
 const props = defineProps<{
   endpoint?: RelayEndpoint | null;
@@ -30,7 +31,8 @@ type ModelForm = {
   provider_id: string;
   upstream_model: string;
 };
-type EndpointModelDraft = Omit<EndpointModel, "model_name">;
+type EndpointModelDraft = Omit<EndpointModel, "model_name"> &
+  Pick<EndpointModel, "model_name">;
 
 const name = ref("");
 const protocol = ref("openai");
@@ -64,9 +66,7 @@ watch(
   (current) => {
     name.value = current?.name ?? "";
     protocol.value = current?.protocol ?? "openai";
-    models.value =
-      current?.models.map(({ model_name: _modelName, ...model }) => model) ??
-      [];
+    models.value = current?.models.map((model) => ({ ...model })) ?? [];
     newModelForm.value = emptyModelForm();
     newProviderForm.value = emptyModelForm();
     showAddModel.value = false;
@@ -82,10 +82,8 @@ function emptyModelForm(): ModelForm {
   return { provider_id: "", upstream_model: "" };
 }
 function modelsForProvider(providerId: string) {
-  return (
-    availableProviders.value.find((provider) => provider.id === providerId)
-      ?.models ?? []
-  );
+  const provider = availableProviders.value.find(({ id }) => id === providerId);
+  return provider ? catalogModelsForProvider(provider) : [];
 }
 
 function availableUpstreamModels(
@@ -168,6 +166,7 @@ function addMapping(form: ModelForm, fixedModelName?: string) {
     return false;
   }
   models.value.push({
+    model_name: fixedModelName ?? upstreamModel,
     provider_id: form.provider_id,
     upstream_model: upstreamModel,
   });
@@ -210,7 +209,12 @@ function submit() {
     notifications.danger("请填写接入点名称。", { title: "接入点配置不完整" });
     return;
   }
-  if (!models.value.length) {
+  if (
+    !models.value.length ||
+    models.value.some(
+      ({ upstream_model }) => !modelCatalogEntry(upstream_model),
+    )
+  ) {
     notifications.danger("请至少新增一个模型。", { title: "接入点配置不完整" });
     return;
   }

@@ -12,6 +12,11 @@ import {
   providerTemplates,
 } from "~/utils/providerTemplates";
 import {
+  modelCatalogEntry,
+  modelCatalogProviderModels,
+  useModelCatalog,
+} from "~/utils/modelCatalog";
+import {
   getProviderOperationFeedback,
   type ProviderOperationResult,
 } from "~/utils/providerOperations";
@@ -51,6 +56,7 @@ const allProtocols: UpstreamProtocol[] = [
 ];
 
 export function useProviderForm(options: ProviderFormOptions) {
+  const { status: catalogStatus } = useModelCatalog();
   const providerTemplateOptions = computed(() =>
     providerTemplates(options.catalogProviders()).map((option) => ({
       label: option.label,
@@ -69,10 +75,14 @@ export function useProviderForm(options: ProviderFormOptions) {
     ...imageGenerationModels.value,
   ]);
   const languageModelOptions = computed(() =>
-    providerModelOptions(languageModels.value),
+    providerModelOptions(languageModels.value).filter((option) =>
+      Boolean(option.model && "reasoning_efforts" in option.model),
+    ),
   );
   const imageGenerationModelOptions = computed(() =>
-    providerModelOptions(imageGenerationModels.value),
+    providerModelOptions(imageGenerationModels.value).filter((option) =>
+      Boolean(option.model && !("reasoning_efforts" in option.model)),
+    ),
   );
   const upstreamProtocols = ref<UpstreamProtocol[]>([]);
   const orderedUpstreamProtocols = computed(() =>
@@ -140,12 +150,31 @@ export function useProviderForm(options: ProviderFormOptions) {
     const savedModelIds =
       provider?.models.map((model) => model.model_name) ?? [];
     const imageModelIds = new Set(template?.imageGenerationModels ?? []);
+    const catalogModelIds = new Set(
+      modelCatalogProviderModels(providerType.value).map((model) => model.id),
+    );
+    const catalogReady = catalogStatus.value === "ready";
     languageModels.value = provider
-      ? savedModelIds.filter((id) => !imageModelIds.has(id))
-      : (template?.languageModels ?? []);
+      ? savedModelIds.filter(
+          (id) =>
+            !imageModelIds.has(id) &&
+            (!catalogReady || catalogModelIds.has(id)),
+        )
+      : (template?.languageModels ?? []).filter(
+          (id) =>
+            !catalogReady ||
+            (catalogModelIds.has(id) && Boolean(modelCatalogEntry(id))),
+        );
     imageGenerationModels.value = provider
-      ? savedModelIds.filter((id) => imageModelIds.has(id))
-      : (template?.imageGenerationModels ?? []);
+      ? savedModelIds.filter(
+          (id) =>
+            imageModelIds.has(id) && (!catalogReady || catalogModelIds.has(id)),
+        )
+      : (template?.imageGenerationModels ?? []).filter(
+          (id) =>
+            !catalogReady ||
+            (catalogModelIds.has(id) && Boolean(modelCatalogEntry(id))),
+        );
     upstreamProtocols.value = (
       provider?.capabilities?.upstream_protocols ??
       template?.protocols ??
@@ -180,9 +209,21 @@ export function useProviderForm(options: ProviderFormOptions) {
     if (!template) return;
     name.value = template.label;
     providerType.value = template.providerType;
+    const catalogModelIds = new Set(
+      modelCatalogProviderModels(providerType.value).map((model) => model.id),
+    );
     baseUrl.value = template.baseUrl;
-    languageModels.value = [...template.languageModels];
-    imageGenerationModels.value = [...template.imageGenerationModels];
+    const catalogReady = catalogStatus.value === "ready";
+    languageModels.value = [...template.languageModels].filter(
+      (id) =>
+        !catalogReady ||
+        (catalogModelIds.has(id) && Boolean(modelCatalogEntry(id))),
+    );
+    imageGenerationModels.value = [...template.imageGenerationModels].filter(
+      (id) =>
+        !catalogReady ||
+        (catalogModelIds.has(id) && Boolean(modelCatalogEntry(id))),
+    );
     upstreamProtocols.value = [...template.protocols];
     for (const protocol of allProtocols) {
       protocolBaseUrls[protocol] = template.protocolBaseUrls[protocol] ?? "";
@@ -230,6 +271,18 @@ export function useProviderForm(options: ProviderFormOptions) {
     }
     if (!provider && !apiKey.value.trim()) {
       notifications.danger("请填写上游 API Key。", { title: "连接配置不完整" });
+      return null;
+    }
+    if (catalogStatus.value !== "ready") {
+      notifications.danger("模型目录尚未加载完成，请稍后重试。", {
+        title: "无法保存供应商配置",
+      });
+      return null;
+    }
+    if (models.value.some((id) => !modelCatalogEntry(id))) {
+      notifications.danger("请选择目录中的模型。", {
+        title: "供应商配置不完整",
+      });
       return null;
     }
     const payload = {
