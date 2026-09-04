@@ -109,11 +109,14 @@ export function useAgentSettings(options: AgentSettingsOptions) {
     { value: customEndpointValue, label: "自定义" },
   ]);
   const modelOptions = computed(() =>
-    groupEndpointModels(selectedEndpoint.value?.models ?? []).map((group) => ({
-      value: group.name,
-      label: group.displayName,
-      catalogModel: catalogLanguageModel(group.catalogModel),
-    })),
+    groupEndpointModels(selectedEndpoint.value?.models ?? [])
+      .map((group) => catalogLanguageModel(group.catalogModel))
+      .filter((model): model is CatalogLanguageModelResponse => Boolean(model))
+      .map((model) => ({
+        value: model.id,
+        label: model.display_name,
+        catalogModel: model,
+      })),
   );
   const isCustomCodexEndpoint = computed(
     () => activeSettings.value.endpoint === customEndpointValue,
@@ -161,11 +164,11 @@ export function useAgentSettings(options: AgentSettingsOptions) {
         endpointName: endpoint.name,
         endpointToken: endpoint.token,
         relayUrl: options.bootstrap.value.relay_url,
-        models: groupEndpointModels(endpoint.models).map((group) => ({
-          modelName: group.name,
-          upstreamModel: group.mappings[0]?.model.upstream_model ?? group.name,
-          catalogModel: catalogLanguageModel(group.catalogModel),
-        })),
+        models: groupEndpointModels(endpoint.models)
+          .map((group) => catalogLanguageModel(group.catalogModel))
+          .filter(
+            (model): model is CatalogLanguageModelResponse => Boolean(model),
+          ),
       };
     }
     return null;
@@ -189,14 +192,20 @@ export function useAgentSettings(options: AgentSettingsOptions) {
       client === "codexCli" || client === "chatgpt"
         ? codexConnection()
         : openCodeConnection();
+    const request: AgentSettingsSaveRequest = {
+      settings:
+        client === "codexCli"
+          ? { client, settings: codexSettingsPayload(draft.codexCli) }
+          : client === "chatgpt"
+            ? { client, settings: codexSettingsPayload(draft.chatgpt) }
+            : { client, settings: openCodeSettingsPayload(draft.openCode) },
+      connection: connection ? { client, connection } : null,
+    };
+    let savedByValidation = false;
     if (connection?.kind === "prelay") {
       const modelIds =
         "models" in connection
-          ? (
-              (connection.models ?? []) as unknown as Array<{
-                modelName: string;
-              }>
-            ).map((model) => model.modelName)
+          ? connection.models.map((model) => model.id)
           : [draft.openCode.model];
       const selectedModel =
         client === "codexCli"
@@ -209,7 +218,10 @@ export function useAgentSettings(options: AgentSettingsOptions) {
         status: catalogStatus.value,
         selectedModel,
         endpointModelIds: modelIds,
-        save: async () => {},
+        save: async () => {
+          await options.save(request);
+          savedByValidation = true;
+        },
       });
       if (validationError) {
         notifications.danger(validationError, {
@@ -218,15 +230,7 @@ export function useAgentSettings(options: AgentSettingsOptions) {
         return false;
       }
     }
-    await options.save({
-      settings:
-        client === "codexCli"
-          ? { client, settings: codexSettingsPayload(draft.codexCli) }
-          : client === "chatgpt"
-            ? { client, settings: codexSettingsPayload(draft.chatgpt) }
-            : { client, settings: openCodeSettingsPayload(draft.openCode) },
-      connection: connection ? { client, connection } : null,
-    });
+    if (!savedByValidation) await options.save(request);
     copyAgentClientSettings(draft, configuration, client);
     close();
     notifications.success("设置已保存");

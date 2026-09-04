@@ -51,7 +51,8 @@ test("智能体工作区按客户端状态、内容与设置职责分层", () =>
   expect(settings).toContain("openCodeConnection");
   expect(settings).toContain("endpointToken");
   expect(settings).toContain("groupEndpointModels(endpoint.models)");
-  expect(settings).toContain("modelName: group.name");
+  expect(settings).not.toContain("modelName: group.name");
+  expect(settings).toContain("models: groupEndpointModels(endpoint.models)");
   expect(settings).toContain(
     "description: `${groupEndpointModels(endpoint.models).length} 个模型`",
   );
@@ -105,11 +106,13 @@ test("智能体模型选项使用目录显示名且连接携带目录对象", ()
     "utf8",
   );
 
-  expect(settings).toContain("label: group.displayName");
+  expect(settings).toContain("label: model.display_name");
   expect(settings).toContain("catalogLanguageModel(group.catalogModel)");
   expect(settings).toContain("catalogModel");
-  expect(settings).toContain("modelName: group.name");
-  expect(settings).toContain("upstreamModel:");
+  expect(settings).toContain("models: groupEndpointModels(endpoint.models)");
+  expect(settings).toContain("model.id");
+  expect(settings).not.toContain("modelName:");
+  expect(settings).not.toContain("upstreamModel:");
   expect(agentUtils).toContain("CatalogLanguageModelResponse");
   expect(codex).not.toContain("catalog_model");
   expect(codex).toContain('profile["slug"] = Value::String(model.id.clone())');
