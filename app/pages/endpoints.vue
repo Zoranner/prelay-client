@@ -15,7 +15,7 @@ type EndpointFormPayload = {
   id?: string;
   name: string;
   protocol: string;
-  models: EndpointModel[];
+  models: Array<Pick<EndpointModel, "provider_id" | "upstream_model">>;
 };
 
 const { pending, invokeCommand } = useRelayCommand();
@@ -54,13 +54,10 @@ async function saveEndpoint(payload: EndpointFormPayload) {
       input: {
         name: payload.name,
         protocol: payload.protocol,
-        models: payload.models.map(
-          ({ provider_id, upstream_model, model_name }) => ({
-            provider_id,
-            upstream_model,
-            model_name: model_name || null,
-          }),
-        ),
+        models: payload.models.map(({ provider_id, upstream_model }) => ({
+          provider_id,
+          upstream_model,
+        })),
       },
     });
     editingEndpoint.value = null;

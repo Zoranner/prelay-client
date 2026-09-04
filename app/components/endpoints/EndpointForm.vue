@@ -19,7 +19,7 @@ const emit = defineEmits<{
       id?: string;
       name: string;
       protocol: string;
-      models: EndpointModel[];
+      models: Array<Pick<EndpointModel, "provider_id" | "upstream_model">>;
     },
   ];
   cancel: [];
@@ -224,7 +224,6 @@ function submit() {
     models: models.value.map(({ provider_id, upstream_model }) => ({
       provider_id,
       upstream_model,
-      model_name: upstream_model,
     })),
   });
 }

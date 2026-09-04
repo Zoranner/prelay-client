@@ -19,6 +19,7 @@ test("接入点页面提供模型映射和 Token 重置", () => {
   expect(endpointPage).toContain('"endpoints_regenerate_token"');
   expect(endpointPage).not.toContain("https://relay.rd.kim");
   expect(endpointPage).toContain("upstream_model");
+  expect(endpointPage).not.toContain("model_name: model_name");
   expect(endpointPage).not.toContain("/proxy");
   expect(endpointPage).toContain("useConfirm");
   expect(endpointPage).toContain('title: "重置 API Token"');
@@ -41,6 +42,11 @@ test("接入点模型映射只允许选择已保存模型的供应商", () => {
 test("接入点不允许自定义对外模型名", () => {
   expect(endpointForm).not.toContain('v-model="newModelForm.model_name"');
   expect(endpointForm).not.toContain('label="对外模型名"');
+  expect(endpointForm).not.toContain("model_name: model.upstream_model");
+  expect(endpointForm).not.toContain("model_name: modelName");
+  expect(endpointForm).toContain(
+    'type EndpointModelDraft = Omit<EndpointModel, "model_name">',
+  );
   expect(endpointForm).toContain(
     "const modelName = fixedModelName ?? upstreamModel",
   );
@@ -137,7 +143,7 @@ test("接入点模型显示目录或服务端显示名并保留模型 ID", () =>
   expect(endpointForm).toContain("group.displayName");
   expect(endpointForm).toContain("modelCatalogLabel");
   expect(endpointForm).toContain("model.display_name");
-  expect(endpointForm).toContain("model_name: upstream_model");
+  expect(endpointForm).not.toContain("model_name: upstream_model");
   expect(endpointList).toContain("model.display_name");
   expect(endpointList).toContain("modelCatalogLabel");
 });
