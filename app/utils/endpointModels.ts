@@ -1,4 +1,4 @@
-import type { EndpointModel, Provider } from "~/stores/relay";
+import type { EndpointModel, Provider, ProviderModel } from "~/stores/relay";
 import type { CatalogModelResponse } from "~/stores/relay";
 import { modelCatalogEntry, modelCatalogLabel } from "~/utils/modelCatalog";
 
@@ -14,6 +14,24 @@ export type EndpointModelLike = Omit<EndpointModel, "model_name"> &
 
 export function endpointModelsForProvider(provider: Provider) {
   return provider.models;
+}
+
+export function availableEndpointModelsForProvider(
+  providerModels: ProviderModel[],
+  endpointModels: EndpointModelLike[],
+  providerId: string,
+  groupName?: string,
+) {
+  const usedUpstreamModels = new Set(
+    endpointModels
+      .filter((model) => model.provider_id === providerId)
+      .map((model) => model.upstream_model.trim()),
+  );
+  return providerModels.filter(
+    (model) =>
+      (!groupName || model.model_name === groupName) &&
+      !usedUpstreamModels.has(model.model_name),
+  );
 }
 
 export function groupEndpointModels(

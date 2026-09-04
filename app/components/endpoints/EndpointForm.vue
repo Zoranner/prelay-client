@@ -2,6 +2,7 @@
 import { Button, Input, Popover, Select, useNotification } from "@stellar/ui";
 import type { EndpointModel, Provider, RelayEndpoint } from "~/stores/relay";
 import {
+  availableEndpointModelsForProvider,
   endpointModelsForProvider,
   groupEndpointModels,
   type EndpointModelGroup,
@@ -90,15 +91,11 @@ function availableUpstreamModels(
   providerId: string,
   group?: EndpointModelGroup,
 ) {
-  const usedModelNames = new Set(
-    group?.mappings
-      .filter((mapping) => mapping.model.provider_id === providerId)
-      .map((mapping) => mapping.model.upstream_model) ?? [],
-  );
-  return modelsForProvider(providerId).filter(
-    (model) =>
-      (!group || model.model_name === group.name) &&
-      !usedModelNames.has(model.model_name),
+  return availableEndpointModelsForProvider(
+    modelsForProvider(providerId),
+    models.value,
+    providerId,
+    group?.name,
   );
 }
 

@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
 import {
+  availableEndpointModelsForProvider,
   endpointModelsForProvider,
   groupEndpointModels,
 } from "../app/utils/endpointModels";
@@ -72,6 +73,45 @@ test("接入点新增候选使用供应商已保存模型而不依赖客户端�
   });
 
   expect(models.map((model) => model.model_name)).toEqual(["provider-model-a"]);
+});
+
+test("接入点新增候选排除当前供应商已绑定模型但保留其他供应商候选", () => {
+  const providerModels = [
+    {
+      id: "provider-model-luna",
+      provider_id: "provider-a",
+      model_name: "gpt-5.6-luna",
+      created_at: "2026-09-04T00:00:00Z",
+    },
+    {
+      id: "provider-model-terra",
+      provider_id: "provider-a",
+      model_name: "gpt-5.6-terra",
+      created_at: "2026-09-04T00:00:00Z",
+    },
+  ];
+  const endpointModels = [
+    {
+      provider_id: "provider-a",
+      upstream_model: "gpt-5.6-terra",
+      model_name: "gpt-5.6-terra",
+    },
+  ];
+
+  expect(
+    availableEndpointModelsForProvider(
+      providerModels,
+      endpointModels,
+      "provider-a",
+    ).map((model) => model.model_name),
+  ).toEqual(["gpt-5.6-luna"]);
+  expect(
+    availableEndpointModelsForProvider(
+      providerModels,
+      endpointModels,
+      "provider-b",
+    ).map((model) => model.model_name),
+  ).toEqual(["gpt-5.6-luna", "gpt-5.6-terra"]);
 });
 
 test("未命名对外模型以其上游模型名作为组名", () => {

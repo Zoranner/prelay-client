@@ -79,8 +79,8 @@ test("接入点模型从列表上下文新增而非底部统一编辑器", () =>
 
 test("接入点模型分组新增供应商时排除已绑定的上游模型", () => {
   expect(endpointForm).toContain("function availableUpstreamModels");
-  expect(endpointForm).toContain("mapping.model.provider_id === providerId");
-  expect(endpointForm).toContain("mapping.model.upstream_model");
+  expect(endpointForm).toContain("availableEndpointModelsForProvider");
+  expect(endpointForm).toContain("group?.name");
   expect(endpointForm).toMatch(
     /:options="\s*upstreamModelOptions\(newProviderForm\.provider_id, group\)\s*"/,
   );
