@@ -35,3 +35,13 @@ fn registers_the_authenticated_provider_catalog_command() {
     assert!(command.contains("pub async fn catalog_providers_list("));
     assert!(command.contains(".get(\"/api/catalog/providers\")"));
 }
+
+#[test]
+fn registers_the_complete_authenticated_catalog_command() {
+    let application = source_file("src/app/mod.rs");
+    let command = source_file("src/commands/providers.rs");
+
+    assert!(application.contains("crate::commands::providers::catalog_models_get"));
+    assert!(command.contains("pub async fn catalog_models_get("));
+    assert!(command.contains(".get(\"/api/catalog\")"));
+}
