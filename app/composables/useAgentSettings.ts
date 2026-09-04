@@ -29,6 +29,21 @@ type AgentSettingsOptions = {
   save: (request: AgentSettingsSaveRequest) => Promise<unknown>;
 };
 
+type CodexConnectionDraft =
+  | {
+      kind: "prelay";
+      endpointId: string;
+      endpointName: string;
+      endpointToken: string;
+      relayUrl: string;
+      models: CatalogLanguageModelResponse[];
+    }
+  | {
+      kind: "custom";
+      baseUrl: string;
+      token: string;
+    };
+
 function normalizeBaseUrl(url: string) {
   return url.trim().replace(/\/+$/, "");
 }
@@ -143,7 +158,7 @@ export function useAgentSettings(options: AgentSettingsOptions) {
     close();
   }
 
-  function codexConnection() {
+  function codexConnection(): CodexConnectionDraft | null {
     const codex =
       options.activeClient.value === "codexCli"
         ? draft.codexCli
