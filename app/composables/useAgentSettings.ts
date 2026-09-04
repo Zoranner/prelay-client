@@ -181,8 +181,8 @@ export function useAgentSettings(options: AgentSettingsOptions) {
         relayUrl: options.bootstrap.value.relay_url,
         models: groupEndpointModels(endpoint.models)
           .map((group) => catalogLanguageModel(group.catalogModel))
-          .filter(
-            (model): model is CatalogLanguageModelResponse => Boolean(model),
+          .filter((model): model is CatalogLanguageModelResponse =>
+            Boolean(model),
           ),
       };
     }
@@ -225,10 +225,9 @@ export function useAgentSettings(options: AgentSettingsOptions) {
       const modelIds =
         client === "openCode"
           ? [draft.openCode.model]
-          : (connection as Extract<
-                CodexConnectionDraft,
-                { kind: "prelay" }
-              >).models.map((model) => model.id);
+          : (
+              connection as Extract<CodexConnectionDraft, { kind: "prelay" }>
+            ).models.map((model) => model.id);
       const selectedModel =
         client === "codexCli"
           ? draft.codexCli.model

@@ -116,7 +116,5 @@ test("智能体模型选项使用目录显示名且连接携带目录对象", ()
   expect(agentUtils).toContain("CatalogLanguageModelResponse");
   expect(codex).not.toContain("catalog_model");
   expect(codex).toContain('profile["slug"] = Value::String(model.id.clone())');
-  expect(settingsMod).toContain(
-    "models: Vec<CatalogLanguageModelResponse>",
-  );
+  expect(settingsMod).toContain("models: Vec<CatalogLanguageModelResponse>");
 });

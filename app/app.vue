@@ -8,7 +8,7 @@ import AppTitlebar from "~/components/shell/AppTitlebar.vue";
 import ClientUpdateDialog from "~/components/settings/ClientUpdateDialog.vue";
 import DesktopPreferencesDialog from "~/components/settings/DesktopPreferencesDialog.vue";
 import DashboardShell from "~/components/dashboard/DashboardShell.vue";
-import { setModelCatalog, setModelCatalogStatus } from "~/utils/modelCatalog";
+import { setModelCatalog } from "~/utils/modelCatalog";
 import { loadModelCatalogRequest } from "~/utils/modelCatalog";
 
 const managementApi = useRelayManagementApiStatus();
