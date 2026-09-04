@@ -16,12 +16,27 @@ let resizeObserver: ResizeObserver | undefined;
 let echarts: typeof import("echarts") | undefined;
 let disposed = false;
 
+function formatHourBucket(date: Date, includeDate: boolean) {
+  const parts = new Intl.DateTimeFormat("zh-CN", {
+    ...(includeDate ? { month: "numeric", day: "numeric" } : {}),
+    hour: "2-digit",
+    hour12: false,
+  }).formatToParts(date);
+  const value = (type: Intl.DateTimeFormatPartTypes) =>
+    parts.find((part) => part.type === type)?.value ?? "";
+  const hour = `${value("hour")}:00`;
+  return includeDate ? `${value("month")}/${value("day")} ${hour}` : hour;
+}
+
 function formatBucket(bucket: string) {
   const date = parseTimelineBucket(bucket);
   if (!date) return bucket;
 
   if (props.range === "today" || props.range === "yesterday") {
-    return new Intl.DateTimeFormat("zh-CN", { hour: "2-digit" }).format(date);
+    return formatHourBucket(date, false);
+  }
+  if (props.range === "this_week" || props.range === "last_week") {
+    return formatHourBucket(date, true);
   }
   if (["this_year", "last_year", "all"].includes(props.range)) {
     return new Intl.DateTimeFormat("zh-CN", {

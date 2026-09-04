@@ -187,6 +187,23 @@ test("仪表盘趋势图将输出堆叠在输入之上", () => {
   );
 });
 
+test("仪表盘周趋势显示小时刻度", () => {
+  const chart = readFileSync(
+    new URL(
+      "../app/components/dashboard/TokenUsageTrendChart.vue",
+      import.meta.url,
+    ),
+    "utf8",
+  );
+
+  expect(chart).toContain(
+    'props.range === "this_week" || props.range === "last_week"',
+  );
+  expect(chart).toContain("formatToParts");
+  expect(chart).toContain("hour12: false");
+  expect(chart).toContain('`${value("month")}/${value("day")} ${hour}`');
+});
+
 test("桌面和网页标题栏复用 Prelay 图标资产", () => {
   const tauriConfig = JSON.parse(
     readFileSync(
