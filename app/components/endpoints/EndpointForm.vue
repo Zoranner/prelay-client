@@ -30,10 +30,11 @@ type ModelForm = {
   provider_id: string;
   upstream_model: string;
 };
+type EndpointModelDraft = Omit<EndpointModel, "model_name">;
 
 const name = ref("");
 const protocol = ref("openai");
-const models = ref<EndpointModel[]>([]);
+const models = ref<EndpointModelDraft[]>([]);
 const newModelForm = ref<ModelForm>(emptyModelForm());
 const newProviderForm = ref<ModelForm>(emptyModelForm());
 const showAddModel = ref(false);
@@ -64,10 +65,8 @@ watch(
     name.value = current?.name ?? "";
     protocol.value = current?.protocol ?? "openai";
     models.value =
-      current?.models.map((model) => ({
-        ...model,
-        model_name: model.upstream_model,
-      })) ?? [];
+      current?.models.map(({ model_name: _modelName, ...model }) => model) ??
+      [];
     newModelForm.value = emptyModelForm();
     newProviderForm.value = emptyModelForm();
     showAddModel.value = false;
@@ -134,7 +133,6 @@ function selectProvider(form: ModelForm, group?: EndpointModelGroup) {
 
 function addMapping(form: ModelForm, fixedModelName?: string) {
   const upstreamModel = form.upstream_model.trim();
-  const modelName = fixedModelName ?? upstreamModel;
   if (!form.provider_id || !upstreamModel) {
     notifications.danger("请选择供应商和上游模型。", {
       title: "模型配置不完整",
@@ -172,7 +170,6 @@ function addMapping(form: ModelForm, fixedModelName?: string) {
   models.value.push({
     provider_id: form.provider_id,
     upstream_model: upstreamModel,
-    model_name: modelName,
   });
   return true;
 }

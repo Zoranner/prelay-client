@@ -6,15 +6,18 @@ export type EndpointModelGroup = {
   name: string;
   displayName: string;
   catalogModel: CatalogModelResponse | undefined;
-  mappings: Array<{ model: EndpointModel; index: number }>;
+  mappings: Array<{ model: EndpointModelLike; index: number }>;
 };
 
+export type EndpointModelLike = Omit<EndpointModel, "model_name"> &
+  Partial<Pick<EndpointModel, "model_name">>;
+
 export function groupEndpointModels(
-  models: EndpointModel[],
+  models: EndpointModelLike[],
 ): EndpointModelGroup[] {
   const groups = new Map<string, EndpointModelGroup>();
   models.forEach((model, index) => {
-    const name = model.model_name.trim() || model.upstream_model.trim();
+    const name = model.model_name?.trim() || model.upstream_model.trim();
     const group = groups.get(name) ?? {
       name,
       displayName: model.display_name?.trim() || modelCatalogLabel(name),

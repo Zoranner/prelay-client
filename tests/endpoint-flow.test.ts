@@ -42,14 +42,11 @@ test("接入点模型映射只允许选择已保存模型的供应商", () => {
 test("接入点不允许自定义对外模型名", () => {
   expect(endpointForm).not.toContain('v-model="newModelForm.model_name"');
   expect(endpointForm).not.toContain('label="对外模型名"');
-  expect(endpointForm).not.toContain("model_name: model.upstream_model");
   expect(endpointForm).not.toContain("model_name: modelName");
   expect(endpointForm).toContain(
     'type EndpointModelDraft = Omit<EndpointModel, "model_name">',
   );
-  expect(endpointForm).toContain(
-    "const modelName = fixedModelName ?? upstreamModel",
-  );
+  expect(endpointForm).not.toContain("const modelName =");
 });
 
 test("接入点模型列表按对外模型分组展示供应商候选", () => {
