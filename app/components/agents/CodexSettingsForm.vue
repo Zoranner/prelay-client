@@ -2,6 +2,7 @@
 import { Input, RadioGroup, Select, Toggle } from "@stellar/ui";
 import type { CatalogLanguageModelResponse } from "~/stores/relay";
 import type { CodexSettingsDraft } from "~/utils/agentSettings";
+import { reasoningEffortOptions } from "~/utils/modelReasoning";
 
 type SelectOption = {
   value: string;
@@ -21,12 +22,17 @@ const props = defineProps<{
 const isCustomEndpoint = computed(
   () => model.value.endpoint === props.customEndpointValue,
 );
-const effortOptions = [
-  { value: "low", label: "低" },
-  { value: "medium", label: "中" },
-  { value: "high", label: "高" },
-  { value: "xhigh", label: "很高" },
-];
+const currentCatalogModel = computed(
+  () =>
+    props.modelOptions.find((option) => option.value === model.value.model)
+      ?.catalogModel,
+);
+const effortOptions = computed(() =>
+  reasoningEffortOptions(currentCatalogModel.value, isCustomEndpoint.value),
+);
+const reasoningDisabled = computed(
+  () => !isCustomEndpoint.value && effortOptions.value.length === 0,
+);
 const personalityOptions = [
   { value: "pragmatic", label: "务实" },
   { value: "friendly", label: "友好" },
@@ -105,6 +111,7 @@ watch(
         <RadioGroup
           v-model="model.reasoningEffort"
           :options="effortOptions"
+          :disabled="reasoningDisabled"
           size="small"
           variant="button"
         />

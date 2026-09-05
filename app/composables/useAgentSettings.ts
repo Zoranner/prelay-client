@@ -15,8 +15,10 @@ import {
   copyAgentClientSettings,
   createAgentConfiguration,
   openCodeSettingsPayload,
+  type CodexSettingsDraft,
   type AgentSettingsSaveRequest,
 } from "~/utils/agentSettings";
+import { normalizeReasoningEffort } from "~/utils/modelReasoning";
 
 export const customEndpointValue = "__custom__";
 
@@ -63,6 +65,7 @@ export function validatePrelayModelSelection(
   status: ReturnType<typeof useModelCatalog>["status"]["value"],
   selectedModel: string,
   endpointModelIds: string[],
+  reasoningEffort = "",
 ) {
   if (status !== "ready") return "模型目录尚未加载完成，请稍后重试。";
   const model = modelCatalogEntry(selectedModel);
@@ -74,6 +77,12 @@ export function validatePrelayModelSelection(
   ) {
     return "接入点包含目录外模型，无法保存。";
   }
+  if (
+    reasoningEffort.trim() &&
+    !model.reasoning_efforts?.includes(reasoningEffort.trim())
+  ) {
+    return "当前模型不支持所选推理强度，无法保存。";
+  }
   return null;
 }
 
@@ -82,6 +91,7 @@ export async function saveWithAgentValidation(options: {
   status: ReturnType<typeof useModelCatalog>["status"]["value"];
   selectedModel: string;
   endpointModelIds: string[];
+  reasoningEffort?: string;
   save: () => Promise<void>;
 }) {
   if (options.kind === "prelay") {
@@ -89,6 +99,7 @@ export async function saveWithAgentValidation(options: {
       options.status,
       options.selectedModel,
       options.endpointModelIds,
+      options.reasoningEffort,
     );
     if (
       validationError ||
@@ -138,6 +149,33 @@ export function useAgentSettings(options: AgentSettingsOptions) {
   );
   const dirty = computed(
     () => JSON.stringify(draft) !== JSON.stringify(configuration),
+  );
+
+  function normalizeCodexDraftReasoning(target: CodexSettingsDraft) {
+    if (target.endpoint === customEndpointValue) return;
+    const selected = modelOptions.value.find(
+      (option) => option.value === target.model,
+    )?.catalogModel;
+    if (selected && "reasoning_efforts" in selected) {
+      target.reasoningEffort = normalizeReasoningEffort(
+        target.reasoningEffort,
+        selected,
+      );
+    }
+  }
+
+  watch(
+    [
+      () => draft.codexCli.endpoint,
+      () => draft.codexCli.model,
+      () => draft.chatgpt.endpoint,
+      () => draft.chatgpt.model,
+      modelOptions,
+    ],
+    () => {
+      normalizeCodexDraftReasoning(draft.codexCli);
+      normalizeCodexDraftReasoning(draft.chatgpt);
+    },
   );
 
   function open(installed: boolean) {
@@ -239,6 +277,12 @@ export function useAgentSettings(options: AgentSettingsOptions) {
         status: catalogStatus.value,
         selectedModel,
         endpointModelIds: modelIds,
+        reasoningEffort:
+          client === "codexCli"
+            ? draft.codexCli.reasoningEffort
+            : client === "chatgpt"
+              ? draft.chatgpt.reasoningEffort
+              : undefined,
         save: async () => {
           await options.save(request);
           savedByValidation = true;
