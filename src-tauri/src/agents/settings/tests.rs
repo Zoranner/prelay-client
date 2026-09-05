@@ -53,7 +53,6 @@ fn saves_prelay_connection_for_initial_codex_config_without_provider_entries() {
     fs::write(
         codex_root.join("config.toml"),
         r#"
-model_reasoning_effort = "high"
 personality = "pragmatic"
 sandbox_mode = "workspace-write"
 disable_response_storage = true
@@ -148,14 +147,23 @@ fn saves_every_prelay_model_alias_to_the_codex_catalog() {
     assert_eq!(catalog["models"].as_array().unwrap().len(), 2);
     assert_eq!(catalog["models"][0]["slug"], "team-flash");
     assert_eq!(catalog["models"][1]["slug"], "minimax-main");
-    assert_eq!(catalog["models"][0]["id"], "team-flash");
     assert_eq!(catalog["models"][0]["display_name"], "Team Flash");
-    assert_eq!(catalog["models"][0]["reasoning_efforts"][0], "low");
+    assert_eq!(catalog["models"][0]["shell_type"], "shell_command");
+    assert_eq!(catalog["models"][0]["visibility"], "public");
+    assert_eq!(catalog["models"][0]["priority"], 1);
+    assert_eq!(catalog["models"][0]["support_verbosity"], true);
+    assert_eq!(
+        catalog["models"][0]["supported_reasoning_levels"][0]["effort"],
+        "low"
+    );
+    assert_eq!(catalog["models"][0]["default_reasoning_level"], "high");
     assert_eq!(catalog["models"][0]["context_window"], 131072);
     assert_eq!(
         catalog["models"][0]["base_instructions"],
         "Use the team policy."
     );
+    assert!(catalog["models"][0].get("id").is_none());
+    assert!(catalog["models"][0].get("reasoning_efforts").is_none());
     assert!(catalog["models"][0].get("apply_patch_tool_type").is_none());
     assert!(catalog["models"][0].get("prefer_websockets").is_none());
 
@@ -171,6 +179,56 @@ fn saves_every_prelay_model_alias_to_the_codex_catalog() {
                 .as_str()
         )
     );
+}
+
+#[test]
+fn omits_a_default_reasoning_level_that_is_not_supported() {
+    let directory = tempdir().unwrap();
+    let codex_root = directory.path().join(".codex");
+    fs::create_dir_all(&codex_root).unwrap();
+    fs::write(codex_root.join("config.toml"), "").unwrap();
+
+    let mut model = catalog_model("no-reasoning", "No Reasoning");
+    model.reasoning_efforts = Some(Vec::new());
+    model.default_reasoning_effort = Some("max".to_string());
+    model.shell_type = None;
+    model.supports_parallel_tool_calls = None;
+    model.support_verbosity = None;
+    model.truncation_policy = None;
+    let connection = CodexConnection::Prelay {
+        endpoint_id: "endpoint-id".to_string(),
+        endpoint_name: "Endpoint 1".to_string(),
+        relay_url: "https://relay.example.test".to_string(),
+        endpoint_token: "endpoint-token".to_string(),
+        models: vec![model],
+    };
+
+    save_user_settings(
+        directory.path(),
+        &AgentSettings::CodexCli(CodexSettings {
+            model: Some("no-reasoning".to_string()),
+            reasoning_effort: None,
+            ..Default::default()
+        }),
+        Some(&AgentConnection::CodexCli(connection)),
+    )
+    .unwrap();
+
+    let catalog: serde_json::Value =
+        serde_json::from_str(&fs::read_to_string(codex_root.join("models.json")).unwrap()).unwrap();
+    assert_eq!(
+        catalog["models"][0]["supported_reasoning_levels"],
+        json!([])
+    );
+    assert_eq!(catalog["models"][0]["shell_type"], "shell_command");
+    assert!(catalog["models"][0].get("truncation_policy").is_none());
+    assert!(catalog["models"][0]
+        .get("supports_parallel_tool_calls")
+        .is_none());
+    assert!(catalog["models"][0].get("support_verbosity").is_none());
+    assert!(catalog["models"][0]
+        .get("default_reasoning_level")
+        .is_none());
 }
 
 #[test]
@@ -201,20 +259,6 @@ fn rejects_a_default_model_that_is_not_mapped_by_the_prelay_endpoint() {
 
     assert_eq!(error, "默认模型不属于所选接入点。");
     assert!(!codex_root.join("models.json").exists());
-}
-
-#[test]
-fn rejects_prelay_model_without_required_catalog_fields() {
-    let error = serde_json::from_value::<CodexConnection>(json!({
-        "kind": "prelay",
-        "endpointId": "endpoint-id",
-        "endpointName": "Endpoint 1",
-        "relayUrl": "https://relay.example.test",
-        "endpointToken": "endpoint-token",
-        "models": [{ "id": "team-flash" }]
-    }))
-    .unwrap_err();
-    assert!(error.to_string().contains("display_name"));
 }
 
 #[test]

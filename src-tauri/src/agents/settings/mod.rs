@@ -1,6 +1,8 @@
 use std::path::Path;
 
 use prelay_protocol::CatalogLanguageModelResponse;
+
+mod codex_catalog;
 use serde::{Deserialize, Serialize};
 
 use super::AgentClient;
@@ -11,6 +13,8 @@ mod opencode;
 
 #[cfg(test)]
 mod tests;
+#[cfg(test)]
+mod validation_tests;
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase", tag = "client", content = "settings")]
@@ -108,7 +112,7 @@ impl Default for CodexSettings {
             base_url: None,
             custom_token: None,
             model: None,
-            reasoning_effort: Some("high".to_string()),
+            reasoning_effort: None,
             personality: Some("pragmatic".to_string()),
             web_search: Some(true),
             sandbox: Some("workspace-write".to_string()),

@@ -1,7 +1,9 @@
 use std::path::Path;
 
-use serde_json::{json, Value};
+use serde_json::json;
 use toml_edit::{value, DocumentMut, Item, Table};
+
+use super::codex_catalog::codex_model_profile;
 
 use super::{
     document::{
@@ -107,6 +109,13 @@ fn apply_codex_connection(
     match connection {
         CodexConnection::Prelay { models, .. } => {
             validate_prelay_default_model(model, models)?;
+            validate_prelay_reasoning_effort(
+                model,
+                document
+                    .get("model_reasoning_effort")
+                    .and_then(Item::as_str),
+                models,
+            )?;
             let path = write_prelay_model_catalog(home, models)?;
             set_item(
                 document,
@@ -161,6 +170,32 @@ fn apply_codex_connection(
     Ok(())
 }
 
+fn validate_prelay_reasoning_effort(
+    model: Option<&str>,
+    reasoning_effort: Option<&str>,
+    models: &[CatalogLanguageModelResponse],
+) -> Result<(), String> {
+    let Some(reasoning_effort) = reasoning_effort.filter(|value| !value.trim().is_empty()) else {
+        return Ok(());
+    };
+
+    let model = model.map(str::trim).filter(|value| !value.is_empty());
+    let Some(model) = model.and_then(|model| models.iter().find(|item| item.id == model)) else {
+        return Err("默认模型不属于所选接入点。".to_string());
+    };
+    let supported = model
+        .reasoning_efforts
+        .as_deref()
+        .unwrap_or_default()
+        .iter()
+        .any(|effort| effort == reasoning_effort);
+    if supported {
+        Ok(())
+    } else {
+        Err("推理强度不属于所选模型支持的档位。".to_string())
+    }
+}
+
 fn validate_prelay_default_model(
     model: Option<&str>,
     models: &[CatalogLanguageModelResponse],
@@ -190,30 +225,13 @@ fn write_prelay_model_catalog(
 ) -> Result<std::path::PathBuf, String> {
     let catalog = models
         .iter()
-        .map(|model| {
-            let mut profile = serde_json::to_value(model)
-                .map_err(|error| format!("Codex 模型档案无法序列化: {error}"))?;
-            remove_null_fields(&mut profile);
-            profile["slug"] = Value::String(model.id.clone());
-            Ok::<Value, String>(profile)
-        })
+        .map(codex_model_profile)
         .collect::<Result<Vec<_>, String>>()?;
     let contents = serde_json::to_vec_pretty(&json!({ "models": catalog }))
         .map_err(|error| format!("Codex 模型目录无法序列化: {error}"))?;
     let path = home.join(".codex").join("models.json");
     write_text(&path, &contents)?;
     Ok(path)
-}
-
-fn remove_null_fields(value: &mut Value) {
-    match value {
-        Value::Object(object) => {
-            object.retain(|_, value| !value.is_null());
-            object.values_mut().for_each(remove_null_fields);
-        }
-        Value::Array(values) => values.iter_mut().for_each(remove_null_fields),
-        Value::Null | Value::Bool(_) | Value::Number(_) | Value::String(_) => {}
-    }
 }
 
 fn write_codex_auth_token(home: &Path, token: &str) -> Result<(), String> {
