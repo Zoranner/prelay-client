@@ -271,7 +271,10 @@ fn custom_connection_does_not_create_or_clear_model_catalog() {
         "model_catalog_json = \"existing.json\"\n",
     )
     .unwrap();
-    let settings = CodexSettings::default();
+    let settings = CodexSettings {
+        reasoning_effort: Some("medium".to_string()),
+        ..Default::default()
+    };
     let connection = CodexConnection::Custom {
         base_url: "https://custom.example.test/v1".to_string(),
         token: "custom-token".to_string(),
@@ -287,6 +290,7 @@ fn custom_connection_does_not_create_or_clear_model_catalog() {
     let config: toml::Value =
         toml::from_str(&fs::read_to_string(codex_root.join("config.toml")).unwrap()).unwrap();
     assert_eq!(config["model_catalog_json"].as_str(), Some("existing.json"));
+    assert_eq!(config["model_reasoning_effort"].as_str(), Some("medium"));
     assert!(!codex_root.join("models.json").exists());
 }
 

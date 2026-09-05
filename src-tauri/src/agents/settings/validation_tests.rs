@@ -38,6 +38,11 @@ fn accepts_a_reasoning_effort_declared_by_the_selected_prelay_model() {
 fn rejects_an_unsupported_reasoning_effort_before_writing_files() {
     let directory = tempdir().unwrap();
     let codex_root = prepare_codex_root(directory.path(), "model = \"before\"\n");
+    fs::write(
+        codex_root.join("models.json"),
+        "{\"models\":[{\"slug\":\"before\"}]}\n",
+    )
+    .unwrap();
     let connection = prelay_connection(vec![catalog_model("team", vec!["low", "high"])]);
     let settings = CodexSettings {
         model: Some("team".to_string()),
@@ -57,7 +62,10 @@ fn rejects_an_unsupported_reasoning_effort_before_writing_files() {
         fs::read_to_string(codex_root.join("config.toml")).unwrap(),
         "model = \"before\"\n"
     );
-    assert!(!codex_root.join("models.json").exists());
+    assert_eq!(
+        fs::read_to_string(codex_root.join("models.json")).unwrap(),
+        "{\"models\":[{\"slug\":\"before\"}]}\n"
+    );
 }
 
 #[test]

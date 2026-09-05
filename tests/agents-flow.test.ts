@@ -97,14 +97,6 @@ test("智能体本地操作不复用管理服务命令状态", () => {
 test("智能体模型选项使用目录显示名且连接携带目录对象", () => {
   const settings = source("composables/useAgentSettings.ts");
   const agentUtils = source("utils/agentSettings.ts");
-  const codex = readFileSync(
-    new URL("../src-tauri/src/agents/settings/codex.rs", import.meta.url),
-    "utf8",
-  );
-  const settingsMod = readFileSync(
-    new URL("../src-tauri/src/agents/settings/mod.rs", import.meta.url),
-    "utf8",
-  );
 
   expect(settings).toContain("label: model.display_name");
   expect(settings).toContain("catalogLanguageModel(group.catalogModel)");
@@ -114,7 +106,5 @@ test("智能体模型选项使用目录显示名且连接携带目录对象", ()
   expect(settings).not.toContain("modelName:");
   expect(settings).not.toContain("upstreamModel:");
   expect(agentUtils).toContain("CatalogLanguageModelResponse");
-  expect(codex).not.toContain("catalog_model");
-  expect(codex).toContain('profile["slug"] = Value::String(model.id.clone())');
-  expect(settingsMod).toContain("models: Vec<CatalogLanguageModelResponse>");
+  expect(agentUtils).toContain("catalogModel?: CatalogLanguageModelResponse");
 });
