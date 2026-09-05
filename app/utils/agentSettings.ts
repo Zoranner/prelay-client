@@ -61,7 +61,7 @@ function createCodexSettingsDraft(): CodexSettingsDraft {
     customBaseUrl: "",
     customToken: "",
     model: "",
-    reasoningEffort: "high",
+    reasoningEffort: "",
     personality: "pragmatic",
     webSearch: true,
     sandbox: "workspace-write",
@@ -114,7 +114,16 @@ export function copyAgentClientSettings(
 export function codexSettingsPayload(
   settings: CodexSettingsDraft | ChatGptSettingsDraft,
 ) {
-  const { customToken, ...payload } = settings;
+  const { customToken, reasoningEffort, ...payload } = settings;
+
+  if (reasoningEffort.trim() !== "") {
+    return {
+      ...payload,
+      reasoningEffort,
+      features: { ...payload.features },
+    };
+  }
+
   return { ...payload, features: { ...payload.features } };
 }
 

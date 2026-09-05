@@ -1,6 +1,10 @@
 import { describe, expect, test } from "bun:test";
 import type { CatalogLanguageModelResponse } from "~/stores/relay";
 import {
+  codexSettingsPayload,
+  createAgentConfiguration,
+} from "~/utils/agentSettings";
+import {
   normalizeReasoningEffort,
   reasoningEffortOptions,
 } from "~/utils/modelReasoning";
@@ -40,6 +44,36 @@ function model(
 }
 
 describe("reasoning effort adapter", () => {
+  test("leaves new Codex and ChatGPT drafts on the catalog default", () => {
+    const configuration = createAgentConfiguration();
+
+    expect(configuration.codexCli.reasoningEffort).toBe("");
+    expect(configuration.chatgpt.reasoningEffort).toBe("");
+  });
+
+  test("omits an empty reasoning override from the payload", () => {
+    const configuration = createAgentConfiguration();
+
+    expect(codexSettingsPayload(configuration.codexCli)).not.toHaveProperty(
+      "reasoningEffort",
+    );
+
+    configuration.codexCli.reasoningEffort = "  \t";
+    expect(codexSettingsPayload(configuration.codexCli)).not.toHaveProperty(
+      "reasoningEffort",
+    );
+  });
+
+  test("preserves an explicit max reasoning override in the payload", () => {
+    const configuration = createAgentConfiguration();
+    configuration.codexCli.reasoningEffort = "max";
+
+    expect(codexSettingsPayload(configuration.codexCli)).toHaveProperty(
+      "reasoningEffort",
+      "max",
+    );
+  });
+
   test("keeps all six catalog options in server order", () => {
     expect(
       reasoningEffortOptions(
