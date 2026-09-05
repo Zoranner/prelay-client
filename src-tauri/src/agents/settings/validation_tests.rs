@@ -3,7 +3,10 @@ use std::fs;
 use prelay_protocol::CatalogLanguageModelResponse;
 use tempfile::tempdir;
 
-use super::{save_user_settings, AgentConnection, AgentSettings, CodexConnection, CodexSettings};
+use super::{
+    save_user_settings, tests::assert_no_null_values, AgentConnection, AgentSettings,
+    CodexConnection, CodexSettings,
+};
 
 #[test]
 fn default_settings_use_the_model_catalog_default_reasoning_effort() {
@@ -31,7 +34,9 @@ fn accepts_a_reasoning_effort_declared_by_the_selected_prelay_model() {
     let config: toml::Value =
         toml::from_str(&fs::read_to_string(codex_root.join("config.toml")).unwrap()).unwrap();
     assert_eq!(config["model_reasoning_effort"].as_str(), Some("max"));
-    assert!(codex_root.join("models.json").is_file());
+    let catalog: serde_json::Value =
+        serde_json::from_str(&fs::read_to_string(codex_root.join("models.json")).unwrap()).unwrap();
+    assert_no_null_values(&catalog);
 }
 
 #[test]

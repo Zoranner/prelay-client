@@ -144,6 +144,7 @@ fn saves_every_prelay_model_alias_to_the_codex_catalog() {
 
     let catalog: serde_json::Value =
         serde_json::from_str(&fs::read_to_string(codex_root.join("models.json")).unwrap()).unwrap();
+    assert_no_null_values(&catalog);
     assert_eq!(catalog["models"].as_array().unwrap().len(), 2);
     assert_eq!(catalog["models"][0]["slug"], "team-flash");
     assert_eq!(catalog["models"][1]["slug"], "minimax-main");
@@ -216,6 +217,7 @@ fn omits_a_default_reasoning_level_that_is_not_supported() {
 
     let catalog: serde_json::Value =
         serde_json::from_str(&fs::read_to_string(codex_root.join("models.json")).unwrap()).unwrap();
+    assert_no_null_values(&catalog);
     assert_eq!(
         catalog["models"][0]["supported_reasoning_levels"],
         json!([])
@@ -322,6 +324,25 @@ fn failed_catalog_write_does_not_write_config() {
         fs::read_to_string(codex_root.join("config.toml")).unwrap(),
         "model = \"before\"\n"
     );
+}
+
+pub(crate) fn assert_no_null_values(value: &serde_json::Value) {
+    match value {
+        serde_json::Value::Null => panic!("models.json contains a null value"),
+        serde_json::Value::Array(values) => {
+            for value in values {
+                assert_no_null_values(value);
+            }
+        }
+        serde_json::Value::Object(values) => {
+            for value in values.values() {
+                assert_no_null_values(value);
+            }
+        }
+        serde_json::Value::Bool(_)
+        | serde_json::Value::Number(_)
+        | serde_json::Value::String(_) => {}
+    }
 }
 
 fn catalog_model(id: &str, display_name: &str) -> CatalogLanguageModelResponse {
