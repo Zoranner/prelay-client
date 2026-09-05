@@ -4,7 +4,7 @@ use prelay_protocol::CatalogLanguageModelResponse;
 use tempfile::tempdir;
 
 use super::{
-    save_user_settings, tests::assert_no_null_values, AgentConnection, AgentSettings,
+    save_user_settings, test_helpers::assert_no_null_values, AgentConnection, AgentSettings,
     CodexConnection, CodexSettings,
 };
 

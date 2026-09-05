@@ -12,6 +12,10 @@ mod document;
 mod opencode;
 
 #[cfg(test)]
+mod catalog_tests;
+#[cfg(test)]
+mod test_helpers;
+#[cfg(test)]
 mod tests;
 #[cfg(test)]
 mod validation_tests;

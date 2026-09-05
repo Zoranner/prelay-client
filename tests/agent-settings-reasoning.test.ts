@@ -67,3 +67,25 @@ test("Prelay 保存拒绝当前模型不支持的推理覆盖且不调用保存"
   expect(spacedResult).toContain("推理强度");
   expect(saves).toBe(0);
 });
+
+test("Prelay 保存将纯空白推理覆盖视为目录默认且调用保存", async () => {
+  setModelCatalog({
+    language_models: [model("chat-model", ["low", "high"])],
+    image_generation_models: [],
+    providers: [],
+  });
+  let saves = 0;
+  const result = await saveWithAgentValidation({
+    kind: "prelay",
+    status: "ready",
+    selectedModel: "chat-model",
+    endpointModelIds: ["chat-model"],
+    reasoningEffort: "  \t ",
+    save: async () => {
+      saves += 1;
+    },
+  });
+
+  expect(result).toBeNull();
+  expect(saves).toBe(1);
+});
