@@ -20,3 +20,8 @@ Completed and committed as a focused client change.
 ## Concerns
 
 - Full client Rust checks were not run in this task because the Rust files contain pre-existing unrelated working-tree changes owned by other tasks.
+
+## Review fix
+
+- Reasoning override validation now checks the raw non-empty value instead of trimming before catalog membership lookup, keeping validation consistent with the value written to the payload.
+- Added a regression assertion that `" high "` is rejected without invoking save.

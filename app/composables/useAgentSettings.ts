@@ -78,8 +78,8 @@ export function validatePrelayModelSelection(
     return "接入点包含目录外模型，无法保存。";
   }
   if (
-    reasoningEffort.trim() &&
-    !model.reasoning_efforts?.includes(reasoningEffort.trim())
+    reasoningEffort !== "" &&
+    !model.reasoning_efforts?.includes(reasoningEffort)
   ) {
     return "当前模型不支持所选推理强度，无法保存。";
   }

@@ -52,4 +52,18 @@ test("Prelay 保存拒绝当前模型不支持的推理覆盖且不调用保存"
 
   expect(result).toContain("推理强度");
   expect(saves).toBe(0);
+
+  const spacedResult = await saveWithAgentValidation({
+    kind: "prelay",
+    status: "ready",
+    selectedModel: "chat-model",
+    endpointModelIds: ["chat-model"],
+    reasoningEffort: " high ",
+    save: async () => {
+      saves += 1;
+    },
+  });
+
+  expect(spacedResult).toContain("推理强度");
+  expect(saves).toBe(0);
 });
