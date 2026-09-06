@@ -31,7 +31,8 @@ export function reasoningEffortOptions(
   model: CatalogLanguageModelResponse | undefined,
   custom: boolean,
 ): ReasoningEffortOption[] {
-  if (custom) return genericReasoningEffortOptions.map((option) => ({ ...option }));
+  if (custom)
+    return genericReasoningEffortOptions.map((option) => ({ ...option }));
 
   const efforts = model?.reasoning_efforts ?? [];
   if (efforts.length === 0) return [];

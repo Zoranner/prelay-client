@@ -108,12 +108,14 @@ describe("reasoning effort adapter", () => {
   });
 
   test("uses the established generic options for custom connections", () => {
-    expect(reasoningEffortOptions(model(["none", "max"], "max"), true)).toEqual([
-      { value: "low", label: "低" },
-      { value: "medium", label: "中" },
-      { value: "high", label: "高" },
-      { value: "xhigh", label: "很高" },
-    ]);
+    expect(reasoningEffortOptions(model(["none", "max"], "max"), true)).toEqual(
+      [
+        { value: "low", label: "低" },
+        { value: "medium", label: "中" },
+        { value: "high", label: "高" },
+        { value: "xhigh", label: "很高" },
+      ],
+    );
   });
 
   test("preserves supported values and clears unsupported overrides", () => {
