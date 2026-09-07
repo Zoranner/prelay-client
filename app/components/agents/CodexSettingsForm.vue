@@ -2,7 +2,10 @@
 import { Input, RadioGroup, Select, Toggle } from "@stellar/ui";
 import type { CatalogLanguageModelResponse } from "~/stores/relay";
 import type { CodexSettingsDraft } from "~/utils/agentSettings";
-import { reasoningEffortOptions } from "~/utils/modelReasoning";
+import {
+  defaultReasoningEffort,
+  reasoningEffortOptions,
+} from "~/utils/modelReasoning";
 
 type SelectOption = {
   value: string;
@@ -65,6 +68,14 @@ function updateNumber(
   model.value[key] = Number(value);
 }
 
+function updateModel(value: string | number) {
+  const modelId = String(value);
+  model.value.model = modelId;
+  model.value.reasoningEffort = defaultReasoningEffort(
+    props.modelOptions.find((option) => option.value === modelId)?.catalogModel,
+  );
+}
+
 watch(
   () => model.value.endpoint,
   (endpoint, previous) => {
@@ -100,9 +111,10 @@ watch(
       </template>
       <Select
         v-else
-        v-model="model.model"
+        :model-value="model.model"
         label="默认模型"
         :options="modelOptions"
+        @update:model-value="updateModel"
       />
     </div>
     <div class="agent-settings__rows">

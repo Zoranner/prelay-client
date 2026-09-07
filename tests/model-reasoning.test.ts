@@ -44,7 +44,7 @@ function model(
 }
 
 describe("reasoning effort adapter", () => {
-  test("leaves new Codex and ChatGPT drafts on the catalog default", () => {
+  test("leaves new Codex and ChatGPT drafts unset before a model is selected", () => {
     const configuration = createAgentConfiguration();
 
     expect(configuration.codexCli.reasoningEffort).toBe("");
@@ -74,14 +74,13 @@ describe("reasoning effort adapter", () => {
     );
   });
 
-  test("keeps all six catalog options in server order", () => {
+  test("keeps all catalog options in server order without a follow-default option", () => {
     expect(
       reasoningEffortOptions(
         model(["none", "minimal", "low", "medium", "high", "max"], "high"),
         false,
       ),
     ).toEqual([
-      { value: "", label: "跟随模型默认（high）" },
       { value: "none", label: "无" },
       { value: "minimal", label: "极低" },
       { value: "low", label: "低" },
@@ -95,7 +94,6 @@ describe("reasoning effort adapter", () => {
     expect(
       reasoningEffortOptions(model(["low", "medium", "high"], "high"), false),
     ).toEqual([
-      { value: "", label: "跟随模型默认（high）" },
       { value: "low", label: "低" },
       { value: "medium", label: "中" },
       { value: "high", label: "高" },
@@ -118,12 +116,21 @@ describe("reasoning effort adapter", () => {
     );
   });
 
-  test("preserves supported values and clears unsupported overrides", () => {
+  test("preserves supported values and falls back for unsupported overrides", () => {
     const catalogModel = model(["minimal", "high", "max"], "high");
 
     expect(normalizeReasoningEffort("max", catalogModel)).toBe("max");
-    expect(normalizeReasoningEffort("medium", catalogModel)).toBe("");
-    expect(normalizeReasoningEffort("", catalogModel)).toBe("");
+    expect(normalizeReasoningEffort("medium", catalogModel)).toBe("high");
+    expect(normalizeReasoningEffort("", catalogModel)).toBe("high");
     expect(normalizeReasoningEffort("high", undefined)).toBe("");
+  });
+
+  test("uses the catalog default for an empty or unsupported selection", () => {
+    const catalogModel = model(["low", "medium", "high"], "medium");
+
+    expect(normalizeReasoningEffort("", catalogModel)).toBe("medium");
+    expect(normalizeReasoningEffort("max", catalogModel)).toBe("medium");
+    expect(normalizeReasoningEffort("high", catalogModel)).toBe("high");
+    expect(normalizeReasoningEffort("", model(["low"], null))).toBe("");
   });
 });

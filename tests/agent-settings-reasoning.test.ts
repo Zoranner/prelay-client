@@ -22,13 +22,13 @@ test("切换目录模型时保留支持的覆盖并清除不支持的覆盖", ()
   expect(normalizeReasoningEffort("low", previous)).toBe("low");
 });
 
-test("无推理档位时禁用控制，目录默认值使用空覆盖表示", () => {
+test("无推理档位时禁用控制，目录选项不包含跟随默认", () => {
   expect(reasoningEffortOptions(model("none", []), false)).toEqual([]);
   expect(
     reasoningEffortOptions(model("default", ["medium"]), false)[0],
   ).toEqual({
-    value: "",
-    label: "跟随模型默认（未指定）",
+    value: "medium",
+    label: "中",
   });
 });
 

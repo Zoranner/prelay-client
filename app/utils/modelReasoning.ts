@@ -37,20 +37,28 @@ export function reasoningEffortOptions(
   const efforts = model?.reasoning_efforts ?? [];
   if (efforts.length === 0) return [];
 
-  const defaultEffort = model?.default_reasoning_effort ?? "未指定";
-  return [
-    { value: "", label: `跟随模型默认（${defaultEffort}）` },
-    ...efforts.map((value) => ({
+  return efforts.map((value) => ({
       value,
       label: reasoningEffortLabel(value),
-    })),
-  ];
+    }));
+}
+
+export function defaultReasoningEffort(
+  model: CatalogLanguageModelResponse | undefined,
+): string {
+  const defaultEffort = model?.default_reasoning_effort;
+  return defaultEffort && model.reasoning_efforts?.includes(defaultEffort)
+    ? defaultEffort
+    : "";
 }
 
 export function normalizeReasoningEffort(
   value: string,
   model: CatalogLanguageModelResponse | undefined,
 ): string {
-  if (!value) return "";
-  return model?.reasoning_efforts?.includes(value) ? value : "";
+  const normalized = value.trim();
+  if (normalized && model?.reasoning_efforts?.includes(normalized)) {
+    return normalized;
+  }
+  return defaultReasoningEffort(model);
 }
