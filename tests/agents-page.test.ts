@@ -38,6 +38,23 @@ test("智能体页面只编排路由级状态，展示和设置由领域组件�
   expect(drawer).toContain("agent-settings-form");
 });
 
+test("进入智能体页面时默认选中客户端列表第一项", () => {
+  const page = source("pages/agents.vue");
+
+  expect(page).toMatch(
+    /const activeWorkspace = ref<AgentWorkspace>\(\s+agentClients\.value\[0\]\?\.\s*client \?\? "chatgpt",\s+\);/,
+  );
+  expect(page).toContain(
+    'const fallback = agentClients.value[0]?.client ?? "chatgpt";',
+  );
+  expect(page).not.toContain(
+    'const activeWorkspace = ref<AgentWorkspace>("codexCli");',
+  );
+  expect(page).not.toContain(
+    'const fallback =\n        clientStatuses.value.find((status) => status.installed)?.client ??\n        "codexCli";',
+  );
+});
+
 test("接入点目录或服务地址晚于本机配置返回时重新反推智能体接入点", () => {
   const settings = source("composables/useAgentSettings.ts");
 

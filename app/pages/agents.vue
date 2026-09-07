@@ -39,8 +39,26 @@ const {
   settingsLoading: agentSettingsLoading,
 } = agentWorkspace;
 const endpoints = ref<RelayEndpoint[]>([]);
-const activeWorkspace = ref<AgentWorkspace>("codexCli");
-const lastActiveClient = ref<AgentClient>("codexCli");
+const agentClients = computed(() =>
+  sortAgentClients(
+    agentClientDefinitions.map((definition) => {
+      const status = clientStatuses.value.find(
+        ({ client }) => client === definition.client,
+      );
+      return {
+        ...definition,
+        installed: clientStatusesLoaded.value && Boolean(status?.installed),
+        version: clientStatusesLoaded.value ? (status?.version ?? "-") : "-",
+      };
+    }),
+  ),
+);
+const activeWorkspace = ref<AgentWorkspace>(
+  agentClients.value[0]?.client ?? "chatgpt",
+);
+const lastActiveClient = ref<AgentClient>(
+  agentClients.value[0]?.client ?? "chatgpt",
+);
 const activeClient = computed<AgentClient>(() =>
   activeWorkspace.value === "extensions"
     ? lastActiveClient.value
@@ -94,20 +112,6 @@ const activeRules = computed({
   },
 });
 
-const agentClients = computed(() =>
-  sortAgentClients(
-    agentClientDefinitions.map((definition) => {
-      const status = clientStatuses.value.find(
-        ({ client }) => client === definition.client,
-      );
-      return {
-        ...definition,
-        installed: clientStatusesLoaded.value && Boolean(status?.installed),
-        version: clientStatusesLoaded.value ? (status?.version ?? "-") : "-",
-      };
-    }),
-  ),
-);
 const sectionOptions: Array<{
   value: AgentSection;
   label: string;
@@ -309,9 +313,7 @@ watch(
   clientStatuses,
   () => {
     if (activeWorkspace.value !== "extensions" && !activeClientDetected.value) {
-      const fallback =
-        clientStatuses.value.find((status) => status.installed)?.client ??
-        "codexCli";
+      const fallback = agentClients.value[0]?.client ?? "chatgpt";
       lastActiveClient.value = fallback;
       activeWorkspace.value = fallback;
     }
