@@ -38,9 +38,9 @@ export function reasoningEffortOptions(
   if (efforts.length === 0) return [];
 
   return efforts.map((value) => ({
-      value,
-      label: reasoningEffortLabel(value),
-    }));
+    value,
+    label: reasoningEffortLabel(value),
+  }));
 }
 
 export function defaultReasoningEffort(

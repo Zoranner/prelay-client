@@ -1,4 +1,5 @@
 use std::{
+    ffi::{OsStr, OsString},
     path::{Path, PathBuf},
     process::Command,
     time::{SystemTime, UNIX_EPOCH},
@@ -135,7 +136,9 @@ pub async fn client_update_install(
             "client update installer is unavailable",
         ));
     }
-    Command::new(installer_path)
+    let launch = installer_launch(&installer_path)?;
+    Command::new(launch.executable)
+        .args(launch.arguments)
         .spawn()
         .map_err(|error| ClientError::new("client_update_install_failed", error.to_string()))?;
     app.exit(0);
@@ -159,6 +162,36 @@ fn current_update_target() -> Option<ClientUpdateTarget> {
         platform: "windows".to_string(),
         architecture: architecture.to_string(),
     })
+}
+
+struct InstallerLaunch {
+    executable: PathBuf,
+    arguments: Vec<OsString>,
+}
+
+fn installer_launch(installer_path: &Path) -> Result<InstallerLaunch, ClientError> {
+    let extension = installer_path.extension().and_then(OsStr::to_str);
+    if extension.is_some_and(|value| value.eq_ignore_ascii_case("msi")) {
+        return Ok(InstallerLaunch {
+            executable: PathBuf::from("msiexec.exe"),
+            arguments: vec![
+                OsString::from("/i"),
+                installer_path.as_os_str().to_os_string(),
+                OsString::from("/passive"),
+                OsString::from("/norestart"),
+            ],
+        });
+    }
+    if extension.is_some_and(|value| value.eq_ignore_ascii_case("exe")) {
+        return Ok(InstallerLaunch {
+            executable: installer_path.to_path_buf(),
+            arguments: vec![OsString::from("/S")],
+        });
+    }
+    Err(ClientError::new(
+        "invalid_client_update",
+        "client update package is invalid",
+    ))
 }
 
 fn installer_path(
@@ -249,8 +282,39 @@ fn parse_version(value: &str) -> Option<[u64; 3]> {
 
 #[cfg(test)]
 mod tests {
-    use super::{installer_path, is_newer_version};
+    use super::{installer_launch, installer_path, is_newer_version};
     use prelay_protocol::ClientUpdateTarget;
+    use std::ffi::OsString;
+
+    #[test]
+    fn launches_nsis_installers_silently() {
+        let installer =
+            std::path::PathBuf::from("cache/updates/windows/x64/0.2.0/Prelay_0.2.0_x64-setup.exe");
+
+        let launch = installer_launch(&installer).unwrap();
+
+        assert_eq!(launch.executable, installer);
+        assert_eq!(launch.arguments, vec![OsString::from("/S")]);
+    }
+
+    #[test]
+    fn launches_msi_installers_with_quiet_upgrade_arguments() {
+        let installer =
+            std::path::PathBuf::from("cache/updates/windows/x64/0.2.0/Prelay_0.2.0_x64.msi");
+
+        let launch = installer_launch(&installer).unwrap();
+
+        assert_eq!(launch.executable, std::path::PathBuf::from("msiexec.exe"));
+        assert_eq!(
+            launch.arguments,
+            vec![
+                OsString::from("/i"),
+                installer.into_os_string(),
+                OsString::from("/passive"),
+                OsString::from("/norestart"),
+            ]
+        );
+    }
 
     #[test]
     fn compares_release_versions_and_rejects_unsafe_file_names() {
