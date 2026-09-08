@@ -56,6 +56,15 @@ function managementBaseUrl(relayUrl: string) {
   return normalized.endsWith("/v1") ? normalized : `${normalized}/v1`;
 }
 
+export function claudeCodeBaseUrlMatchesRelay(
+  baseUrl: string,
+  relayUrl: string,
+) {
+  const withoutVersionPath = (value: string) =>
+    normalizeBaseUrl(value).replace(/\/v1$/, "");
+  return withoutVersionPath(baseUrl) === withoutVersionPath(relayUrl);
+}
+
 function catalogLanguageModel(
   model: CatalogModelResponse | undefined,
 ): CatalogLanguageModelResponse | undefined {
@@ -127,14 +136,19 @@ export function useAgentSettings(options: AgentSettingsOptions) {
       (endpoint) => endpoint.id === activeSettings.value.endpoint,
     ),
   );
-  const endpointOptions = computed(() => [
-    ...options.endpoints.value.map((endpoint) => ({
+  function endpointOptionsForClient(client: AgentClient) {
+    const endpointOptions = options.endpoints.value.map((endpoint) => ({
       value: endpoint.id,
       label: endpoint.name,
       description: `${groupEndpointModels(endpoint.models).length} 个模型`,
-    })),
-    { value: customEndpointValue, label: "自定义" },
-  ]);
+    }));
+    return client === "claudeCode"
+      ? endpointOptions
+      : [...endpointOptions, { value: customEndpointValue, label: "自定义" }];
+  }
+  const endpointOptions = computed(() =>
+    endpointOptionsForClient(options.activeClient.value),
+  );
   const modelOptions = computed(() =>
     groupEndpointModels(selectedEndpoint.value?.models ?? [])
       .map((group) => catalogLanguageModel(group.catalogModel))
@@ -361,10 +375,19 @@ export function useAgentSettings(options: AgentSettingsOptions) {
         : configuration.claudeCode;
     Object.assign(target, settings);
     const endpoint =
-      managementUrl && baseUrl && normalizeBaseUrl(baseUrl) === managementUrl
+      value.client === "claudeCode" &&
+      options.bootstrap.value?.relay_url &&
+      baseUrl &&
+      claudeCodeBaseUrlMatchesRelay(baseUrl, options.bootstrap.value.relay_url)
         ? options.endpoints.value.find((item) => item.token === endpointToken)
-        : undefined;
-    target.endpoint = endpoint?.id ?? customEndpointValue;
+        : managementUrl &&
+            baseUrl &&
+            normalizeBaseUrl(baseUrl) === managementUrl
+          ? options.endpoints.value.find((item) => item.token === endpointToken)
+          : undefined;
+    target.endpoint =
+      endpoint?.id ??
+      (value.client === "claudeCode" ? "" : customEndpointValue);
     copyAgentClientSettings(configuration, draft, value.client);
   }
 

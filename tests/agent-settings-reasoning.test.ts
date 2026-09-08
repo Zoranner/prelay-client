@@ -4,7 +4,10 @@ import {
   normalizeReasoningEffort,
   reasoningEffortOptions,
 } from "../app/utils/modelReasoning";
-import { saveWithAgentValidation } from "../app/composables/useAgentSettings";
+import {
+  claudeCodeBaseUrlMatchesRelay,
+  saveWithAgentValidation,
+} from "../app/composables/useAgentSettings";
 import { setModelCatalog } from "../app/utils/modelCatalog";
 
 const model = (
@@ -88,4 +91,13 @@ test("Prelay 保存将纯空白推理覆盖视为目录默认且调用保存", a
 
   expect(result).toBeNull();
   expect(saves).toBe(1);
+});
+
+test("Claude Code 保存后的服务根地址可以匹配当前服务地址", () => {
+  expect(
+    claudeCodeBaseUrlMatchesRelay(
+      "https://relay.example.test",
+      " https://relay.example.test/ ",
+    ),
+  ).toBe(true);
 });

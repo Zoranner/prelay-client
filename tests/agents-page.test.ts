@@ -58,6 +58,7 @@ test("接入点目录或服务地址晚于本机配置返回时重新反推智�
   const settings = source("composables/useAgentSettings.ts");
 
   expect(settings).toContain("() => options.settings.value.claudeCode");
+  expect(settings).toContain("endpointOptionsForClient");
   expect(settings).toContain("watch(");
   expect(settings).toContain("() => options.settings.value.claudeCode");
   expect(settings).toContain("if (codexCli) hydrate(codexCli);");
