@@ -1,4 +1,5 @@
 mod chatgpt;
+pub(crate) mod claude_code;
 mod codex_cli;
 pub(crate) mod opencode;
 
@@ -25,6 +26,7 @@ pub fn integration(client: AgentClient) -> &'static dyn AgentIntegration {
     match client {
         AgentClient::CodexCli => &codex_cli::CODEX_CLI,
         AgentClient::ChatGpt => &chatgpt::CHATGPT,
+        AgentClient::ClaudeCode => &claude_code::CLAUDE_CODE,
         AgentClient::OpenCode => &opencode::OPENCODE,
     }
 }

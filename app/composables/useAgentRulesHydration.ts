@@ -11,10 +11,11 @@ export function useAgentRulesHydration(options: AgentRulesHydrationOptions) {
     [
       () => options.settings.value.codexCli,
       () => options.settings.value.chatgpt,
+      () => options.settings.value.claudeCode,
       () => options.settings.value.openCode,
     ],
-    ([codexCli, chatgpt, openCode]) => {
-      for (const settings of [codexCli, chatgpt, openCode]) {
+    ([codexCli, chatgpt, claudeCode, openCode]) => {
+      for (const settings of [codexCli, chatgpt, claudeCode, openCode]) {
         if (!settings) continue;
         options.hydrate(
           settings.client,

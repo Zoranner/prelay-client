@@ -7,6 +7,7 @@ use serde::{Deserialize, Serialize};
 
 use super::AgentClient;
 
+mod claude_code;
 mod codex;
 mod document;
 mod opencode;
@@ -26,6 +27,7 @@ pub enum AgentSettings {
     CodexCli(CodexSettings),
     #[serde(rename = "chatgpt")]
     ChatGpt(ChatGptSettings),
+    ClaudeCode(ClaudeCodeSettings),
     OpenCode(OpenCodeSettings),
 }
 
@@ -63,11 +65,22 @@ pub enum OpenCodeConnection {
 }
 
 #[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+#[serde(tag = "kind")]
+pub enum ClaudeCodeConnection {
+    Prelay {
+        relay_url: String,
+        endpoint_token: String,
+    },
+}
+
+#[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase", tag = "client", content = "connection")]
 pub enum AgentConnection {
     CodexCli(CodexConnection),
     #[serde(rename = "chatgpt")]
     ChatGpt(CodexConnection),
+    ClaudeCode(ClaudeCodeConnection),
     OpenCode(OpenCodeConnection),
 }
 
@@ -167,11 +180,27 @@ pub struct OpenCodeSettings {
     pub rules: Option<String>,
 }
 
+#[derive(Debug, Clone, Default, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ClaudeCodeSettings {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub base_url: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub endpoint_token: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub model: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub rules: Option<String>,
+}
+
 pub fn read_user_settings(home: &Path, client: AgentClient) -> AgentSettings {
     match client {
         AgentClient::CodexCli => AgentSettings::CodexCli(codex::read_codex_settings(home)),
         AgentClient::ChatGpt => {
             AgentSettings::ChatGpt(ChatGptSettings(codex::read_codex_settings(home)))
+        }
+        AgentClient::ClaudeCode => {
+            AgentSettings::ClaudeCode(claude_code::read_claude_code_settings(home))
         }
         AgentClient::OpenCode => AgentSettings::OpenCode(opencode::read_opencode_settings(home)),
     }
@@ -194,6 +223,12 @@ pub fn save_user_settings(
         }
         (AgentSettings::ChatGpt(settings), Some(AgentConnection::ChatGpt(connection))) => {
             codex::save_codex_settings(home, &settings.0, Some(connection))
+        }
+        (AgentSettings::ClaudeCode(settings), None) => {
+            claude_code::save_claude_code_settings(home, settings, None)
+        }
+        (AgentSettings::ClaudeCode(settings), Some(AgentConnection::ClaudeCode(connection))) => {
+            claude_code::save_claude_code_settings(home, settings, Some(connection))
         }
         (AgentSettings::OpenCode(settings), None) => {
             opencode::save_opencode_settings(home, settings, None)

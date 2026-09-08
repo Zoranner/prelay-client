@@ -13,6 +13,7 @@ test("Skill 联动全部智能体", () => {
   expect(linkedAgentsForExtension("skill")).toEqual([
     "codexCli",
     "chatgpt",
+    "claudeCode",
     "openCode",
   ]);
 });

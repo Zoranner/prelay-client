@@ -4,6 +4,7 @@ import { clientSupportsRules } from "~/utils/agentClient";
 import {
   codexSettingsPayload,
   openCodeSettingsPayload,
+  claudeCodeSettingsPayload,
   type AgentConfiguration,
   type AgentSettingsSaveRequest,
 } from "~/utils/agentSettings";
@@ -16,12 +17,18 @@ type AgentRulesOptions = {
 
 export function useAgentRules(options: AgentRulesOptions) {
   const notifications = useNotification();
-  const draft = reactive({ codexCli: "", chatgpt: "", openCode: "" });
+  const draft = reactive({
+    codexCli: "",
+    chatgpt: "",
+    claudeCode: "",
+    openCode: "",
+  });
   const saving = ref(false);
   const dirty = computed(
     () =>
       draft.codexCli !== options.configuration.codexCli.rules ||
       draft.chatgpt !== options.configuration.chatgpt.rules ||
+      draft.claudeCode !== options.configuration.claudeCode.rules ||
       draft.openCode !== options.configuration.openCode.rules,
   );
   let loaded = false;
@@ -59,10 +66,15 @@ export function useAgentRules(options: AgentRulesOptions) {
                 ...options.configuration.chatgpt,
                 rules: draft.chatgpt,
               })
-            : openCodeSettingsPayload({
-                ...options.configuration.openCode,
-                rules: draft.openCode,
-              });
+            : client === "claudeCode"
+              ? claudeCodeSettingsPayload({
+                  ...options.configuration.claudeCode,
+                  rules: draft.claudeCode,
+                })
+              : openCodeSettingsPayload({
+                  ...options.configuration.openCode,
+                  rules: draft.openCode,
+                });
       await options.save({ settings: { client, settings }, connection: null });
       options.configuration[client].rules = draft[client];
       notifications.success("规则已保存");
@@ -84,6 +96,7 @@ export function useAgentRules(options: AgentRulesOptions) {
     if (timer) clearTimeout(timer);
     replace("codexCli", options.configuration.codexCli.rules);
     replace("chatgpt", options.configuration.chatgpt.rules);
+    replace("claudeCode", options.configuration.claudeCode.rules);
     replace("openCode", options.configuration.openCode.rules);
   }
 
@@ -102,6 +115,10 @@ export function useAgentRules(options: AgentRulesOptions) {
   watch(
     () => draft.chatgpt,
     () => schedule("chatgpt"),
+  );
+  watch(
+    () => draft.claudeCode,
+    () => schedule("claudeCode"),
   );
   watch(
     () => draft.openCode,

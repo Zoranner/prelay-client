@@ -6,8 +6,50 @@ use crate::agents::AgentClient;
 
 use super::{
     read_user_settings, save_user_settings, AgentConnection, AgentSettings, ChatGptSettings,
-    CodexConnection, CodexSettings, OpenCodeConnection, OpenCodeSettings,
+    ClaudeCodeConnection, ClaudeCodeSettings, CodexConnection, CodexSettings, OpenCodeConnection,
+    OpenCodeSettings,
 };
+
+#[test]
+fn saves_claude_code_prelay_settings_without_replacing_other_environment_values() {
+    let directory = tempdir().unwrap();
+    let claude_root = directory.path().join(".claude");
+    fs::create_dir_all(&claude_root).unwrap();
+    fs::write(
+        claude_root.join("settings.json"),
+        r#"{"env":{"OTHER_SETTING":"keep-me"}}"#,
+    )
+    .unwrap();
+
+    save_user_settings(
+        directory.path(),
+        &AgentSettings::ClaudeCode(ClaudeCodeSettings {
+            model: Some("claude-sonnet".to_string()),
+            rules: Some("遵守项目规则。".to_string()),
+            ..Default::default()
+        }),
+        Some(&AgentConnection::ClaudeCode(ClaudeCodeConnection::Prelay {
+            relay_url: "https://relay.example.test/".to_string(),
+            endpoint_token: "endpoint-token".to_string(),
+        })),
+    )
+    .unwrap();
+
+    let config: serde_json::Value =
+        serde_json::from_str(&fs::read_to_string(claude_root.join("settings.json")).unwrap())
+            .unwrap();
+    assert_eq!(config["env"]["OTHER_SETTING"], "keep-me");
+    assert_eq!(
+        config["env"]["ANTHROPIC_BASE_URL"],
+        "https://relay.example.test"
+    );
+    assert_eq!(config["env"]["ANTHROPIC_AUTH_TOKEN"], "endpoint-token");
+    assert_eq!(config["env"]["ANTHROPIC_MODEL"], "claude-sonnet");
+    assert_eq!(
+        fs::read_to_string(claude_root.join("CLAUDE.md")).unwrap(),
+        "遵守项目规则。"
+    );
+}
 
 #[test]
 fn chatgpt_settings_read_and_write_the_codex_configuration() {

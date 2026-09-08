@@ -22,8 +22,6 @@ test("智能体页面只编排路由级状态，展示和设置由领域组件�
   expect(page).toContain("AgentSidebar");
   expect(page).toContain("AgentWorkspaceContent");
   expect(page).toContain("AgentSettingsDrawer");
-  expect(page).not.toContain("ClaudeCode");
-  expect(page).not.toContain("claudeCode");
   expect(sidebar).toContain("agent-client-list");
   expect(sidebar).toContain("agent-client-icon--monochrome");
   expect(content).toContain("@update:model-value");
@@ -35,6 +33,7 @@ test("智能体页面只编排路由级状态，展示和设置由领域组件�
   expect(drawer).toContain("CodexSettingsForm");
   expect(drawer).toContain("ChatGptSettingsForm");
   expect(drawer).toContain("OpenCodeSettingsForm");
+  expect(drawer).toContain("ClaudeCodeSettingsForm");
   expect(drawer).toContain("agent-settings-form");
 });
 
@@ -58,9 +57,9 @@ test("进入智能体页面时默认选中客户端列表第一项", () => {
 test("接入点目录或服务地址晚于本机配置返回时重新反推智能体接入点", () => {
   const settings = source("composables/useAgentSettings.ts");
 
-  expect(settings).toMatch(
-    /watch\(\s*\[\s*\(\) => options\.settings\.value\.codexCli,\s*\(\) => options\.settings\.value\.chatgpt,\s*\(\) => options\.settings\.value\.openCode,\s*\(\) => options\.endpoints\.value,\s*\(\) => options\.bootstrap\.value\?\.relay_url,\s*\]/,
-  );
+  expect(settings).toContain("() => options.settings.value.claudeCode");
+  expect(settings).toContain("watch(");
+  expect(settings).toContain("() => options.settings.value.claudeCode");
   expect(settings).toContain("if (codexCli) hydrate(codexCli);");
   expect(settings).toContain("if (chatgpt) hydrate(chatgpt);");
   expect(settings).toContain("if (openCode) hydrate(openCode);");

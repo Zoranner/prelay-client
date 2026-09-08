@@ -25,8 +25,6 @@ test("智能体工作区按客户端状态、内容与设置职责分层", () =>
   expect(page).toContain('@click="refreshAgentClients"');
   expect(page).toContain("agentWorkspace.refreshClient(activeClient.value)");
   expect(page).not.toContain('"agents_list"');
-  expect(page).not.toContain("claudeCode");
-  expect(page).not.toContain("ClaudeCode");
   expect(workspace).toContain('"agents_status"');
   expect(workspace).toContain('"agent_items_get"');
   expect(workspace).toContain('"agent_settings_get"');
@@ -49,6 +47,7 @@ test("智能体工作区按客户端状态、内容与设置职责分层", () =>
 
   expect(settings).toContain("codexConnection");
   expect(settings).toContain("openCodeConnection");
+  expect(settings).toContain("claudeCodeConnection");
   expect(settings).toContain("endpointToken");
   expect(settings).toContain("groupEndpointModels(endpoint.models)");
   expect(settings).not.toContain("modelName: group.name");
@@ -60,9 +59,7 @@ test("智能体工作区按客户端状态、内容与设置职责分层", () =>
     "endpoint.models.map(({ model_name, upstream_model })",
   );
   expect(settings).toContain("copyAgentClientSettings(configuration, draft");
-  expect(rules).toContain(
-    'const draft = reactive({ codexCli: "", chatgpt: "", openCode: "" })',
-  );
+  expect(rules).toContain('claudeCode: "",');
   expect(rules).toContain(
     "function replace(client: AgentClient, rules: string)",
   );

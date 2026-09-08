@@ -53,6 +53,10 @@ pub(crate) fn opencode_configuration_path(home: &Path) -> PathBuf {
     integrations::opencode::configuration_path(home)
 }
 
+pub(crate) fn claude_code_configuration_path(home: &Path) -> PathBuf {
+    integrations::claude_code::configuration_path(home)
+}
+
 pub(crate) fn scan_user_items_with_installation(
     home: &Path,
     is_installed: impl Fn(AgentClient) -> bool,

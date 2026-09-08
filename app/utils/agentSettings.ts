@@ -38,10 +38,13 @@ export type OpenCodeSettingsDraft = {
   rules: string;
 };
 
+export type ClaudeCodeSettingsDraft = OpenCodeSettingsDraft;
+
 export type AgentConfiguration = {
   codexCli: CodexSettingsDraft;
   chatgpt: ChatGptSettingsDraft;
   openCode: OpenCodeSettingsDraft;
+  claudeCode: ClaudeCodeSettingsDraft;
 };
 
 export type AgentSettingsSaveRequest = {
@@ -90,6 +93,11 @@ export function createAgentConfiguration(): AgentConfiguration {
       model: "",
       rules: "",
     },
+    claudeCode: {
+      endpoint: "",
+      model: "",
+      rules: "",
+    },
   };
 }
 
@@ -106,8 +114,10 @@ export function copyAgentClientSettings(
     Object.assign(target.chatgpt, source.chatgpt, {
       features: { ...source.chatgpt.features },
     });
-  } else {
+  } else if (client === "openCode") {
     Object.assign(target.openCode, source.openCode);
+  } else {
+    Object.assign(target.claudeCode, source.claudeCode);
   }
 }
 
@@ -128,5 +138,9 @@ export function codexSettingsPayload(
 }
 
 export function openCodeSettingsPayload(settings: OpenCodeSettingsDraft) {
+  return { ...settings };
+}
+
+export function claudeCodeSettingsPayload(settings: ClaudeCodeSettingsDraft) {
   return { ...settings };
 }

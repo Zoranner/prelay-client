@@ -5,6 +5,7 @@ import type { AgentConfiguration } from "~/utils/agentSettings";
 import ChatGptSettingsForm from "~/components/agents/ChatGptSettingsForm.vue";
 import CodexSettingsForm from "~/components/agents/CodexSettingsForm.vue";
 import OpenCodeSettingsForm from "~/components/agents/OpenCodeSettingsForm.vue";
+import ClaudeCodeSettingsForm from "~/components/agents/ClaudeCodeSettingsForm.vue";
 
 type SelectOption = { description?: string; label: string; value: string };
 
@@ -54,6 +55,12 @@ const emit = defineEmits<{
         :endpoint-options="endpointOptions"
         :model-options="modelOptions"
         :custom-endpoint-value="customEndpointValue"
+      />
+      <ClaudeCodeSettingsForm
+        v-else-if="activeClient === 'claudeCode'"
+        v-model="draft.claudeCode"
+        :endpoint-options="endpointOptions"
+        :model-options="modelOptions"
       />
       <OpenCodeSettingsForm
         v-else

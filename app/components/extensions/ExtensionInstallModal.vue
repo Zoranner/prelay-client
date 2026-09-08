@@ -38,6 +38,11 @@ const clientOptions = computed(() => [
     label: "OpenCode",
     disabled: !detected.value.has("openCode"),
   },
+  {
+    value: "claudeCode",
+    label: "Claude Code",
+    disabled: !detected.value.has("claudeCode"),
+  },
 ]);
 
 function selectClients(values: AgentClient[]) {

@@ -28,5 +28,13 @@ test("智能体客户端按独立安装形态保留产品与图标身份", () =>
       monochrome: true,
       sections: ["rules", "mcp", "skill"],
     },
+    {
+      client: "claudeCode",
+      label: "Claude Code",
+      icon: expect.stringContaining("claudecode.svg"),
+      configurable: true,
+      monochrome: true,
+      sections: ["rules", "skill"],
+    },
   ]);
 });

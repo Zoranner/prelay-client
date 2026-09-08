@@ -10,6 +10,7 @@ function emptyClientFlags() {
   return {
     codexCli: false,
     chatgpt: false,
+    claudeCode: false,
     openCode: false,
   } satisfies Record<AgentClient, boolean>;
 }
