@@ -1,7 +1,8 @@
 use prelay_protocol::{
     CatalogProviderResponse, CreateProviderRequest, ProviderCapabilityOverrides,
-    ProviderCatalogResponse, ProviderOperationRequest, ProviderOperationResponse, ProviderResponse,
-    UpdateProviderRequest,
+    ProviderCatalogResponse, ProviderListItemResponse, ProviderOperationRequest,
+    ProviderOperationResponse, ProviderResponse, ProviderSharingResponse, ProviderUsageResponse,
+    UpdateProviderRequest, UpdateProviderSharingRequest,
 };
 use serde::{Deserialize, Serialize};
 use tauri::State;
@@ -18,13 +19,12 @@ pub struct ProviderSaveInput {
     pub base_url: String,
     pub api_key: String,
     pub capabilities: Option<ProviderCapabilityOverrides>,
-    pub models: Vec<String>,
 }
 
 #[tauri::command]
 pub async fn providers_list(
     state: State<'_, NativeState>,
-) -> Result<Vec<ProviderResponse>, ClientError> {
+) -> Result<Vec<ProviderListItemResponse>, ClientError> {
     authenticated_api(&state).await?.get("/api/providers").await
 }
 
@@ -60,7 +60,6 @@ pub async fn providers_save(
                 base_url: Some(input.base_url),
                 api_key: non_empty(input.api_key),
                 capabilities: input.capabilities,
-                models: Some(input.models),
             };
             client
                 .patch(&format!("/api/providers/{provider_id}"), &input)
@@ -79,7 +78,6 @@ pub async fn providers_save(
                 base_url: input.base_url,
                 api_key,
                 capabilities: input.capabilities,
-                models: input.models,
             };
             client.post("/api/providers", &input).await
         }
@@ -119,6 +117,41 @@ pub async fn providers_test_protocol(
     authenticated_api(&state)
         .await?
         .post("/api/providers/test-protocol", &input)
+        .await
+}
+
+#[tauri::command]
+pub async fn providers_sharing_get(
+    state: State<'_, NativeState>,
+    provider_id: String,
+) -> Result<ProviderSharingResponse, ClientError> {
+    authenticated_api(&state)
+        .await?
+        .get(&format!("/api/providers/{provider_id}/sharing"))
+        .await
+}
+
+#[tauri::command]
+pub async fn providers_sharing_save(
+    state: State<'_, NativeState>,
+    provider_id: String,
+    input: UpdateProviderSharingRequest,
+) -> Result<ProviderSharingResponse, ClientError> {
+    authenticated_api(&state)
+        .await?
+        .patch(&format!("/api/providers/{provider_id}/sharing"), &input)
+        .await
+}
+
+#[tauri::command]
+pub async fn providers_usage_get(
+    state: State<'_, NativeState>,
+    provider_id: String,
+    range: String,
+) -> Result<ProviderUsageResponse, ClientError> {
+    authenticated_api(&state)
+        .await?
+        .get(&format!("/api/providers/{provider_id}/usage?range={range}"))
         .await
 }
 

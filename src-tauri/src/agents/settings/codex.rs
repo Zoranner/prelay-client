@@ -85,10 +85,6 @@ pub(super) fn save_codex_settings(
             CodexConnection::Prelay { endpoint_token, .. } => {
                 write_codex_auth_token(home, endpoint_token)?;
             }
-            CodexConnection::Custom { token, .. } if !token.trim().is_empty() => {
-                write_codex_auth_token(home, token)?;
-            }
-            CodexConnection::Custom { .. } => {}
         }
     }
     write_text(
@@ -123,7 +119,6 @@ fn apply_codex_connection(
                 Some(&path.to_string_lossy().replace('\\', "/")),
             );
         }
-        CodexConnection::Custom { .. } => {}
     }
     let provider_id = document
         .as_table()
@@ -157,10 +152,6 @@ fn apply_codex_connection(
         } => {
             provider["name"] = value(endpoint_name);
             provider["base_url"] = value(prelay_base_url(relay_url));
-        }
-        CodexConnection::Custom { base_url, .. } => {
-            provider["name"] = value("Custom");
-            provider["base_url"] = value(base_url.trim());
         }
     }
     provider["requires_openai_auth"] = value(true);

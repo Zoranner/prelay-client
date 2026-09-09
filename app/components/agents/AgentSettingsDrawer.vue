@@ -12,7 +12,6 @@ type SelectOption = { description?: string; label: string; value: string };
 defineProps<{
   activeClient: AgentClient;
   blocked: boolean;
-  customEndpointValue: string;
   endpointOptions: SelectOption[];
   modelOptions: SelectOption[];
   pending: boolean;
@@ -46,7 +45,6 @@ const emit = defineEmits<{
         :visible="visible"
         :endpoint-options="endpointOptions"
         :model-options="modelOptions"
-        :custom-endpoint-value="customEndpointValue"
       />
       <ChatGptSettingsForm
         v-else-if="activeClient === 'chatgpt'"
@@ -54,7 +52,6 @@ const emit = defineEmits<{
         :visible="visible"
         :endpoint-options="endpointOptions"
         :model-options="modelOptions"
-        :custom-endpoint-value="customEndpointValue"
       />
       <ClaudeCodeSettingsForm
         v-else-if="activeClient === 'claudeCode'"

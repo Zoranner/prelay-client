@@ -5,6 +5,7 @@ import {
   groupEndpointModels,
 } from "../app/utils/endpointModels";
 import { modelCatalogEntry, setModelCatalog } from "../app/utils/modelCatalog";
+import { readFileSync } from "node:fs";
 
 test("接入点按对外模型 ID 归组并保留全部供应商路由", () => {
   const catalogModel = {
@@ -50,8 +51,28 @@ test("接入点按对外模型 ID 归组并保留全部供应商路由", () => {
   expect(groups[0]?.mappings.map((mapping) => mapping.index)).toEqual([0, 1]);
 });
 
-test("接入点新增候选使用供应商已保存模型而不依赖客户端目录", () => {
-  setModelCatalog(undefined);
+test("接入点新增候选使用供应商目录模型", () => {
+  setModelCatalog({
+    language_models: [
+      {
+        id: "provider-model-a",
+        display_name: "Provider Model A",
+      } as never,
+    ],
+    image_generation_models: [],
+    providers: [
+      {
+        id: "legacy-provider",
+        name: "Provider A",
+        auth_scheme: "bearer",
+        base_url: "https://example.test",
+        protocols: ["chat_completions"],
+        protocol_base_urls: [],
+        language_models: ["provider-model-a"],
+        image_generation_models: [],
+      },
+    ],
+  });
   const models = endpointModelsForProvider({
     id: "provider-a",
     name: "Provider A",
@@ -61,14 +82,6 @@ test("接入点新增候选使用供应商已保存模型而不依赖客户端�
     api_key_masked: "********",
     capabilities: {},
     upstream_protocols: ["openai"],
-    models: [
-      {
-        id: "provider-model-a",
-        provider_id: "provider-a",
-        model_name: "provider-model-a",
-        created_at: "2026-09-04T00:00:00Z",
-      },
-    ],
     created_at: "2026-09-04T00:00:00Z",
   });
 
@@ -156,4 +169,17 @@ test("接入点归组优先使用服务端模型显示名", () => {
   ]);
 
   expect(group.displayName).toBe("服务端显示名");
+});
+
+test("共享 Provider 选项保留原始 ID并标记只读来源", () => {
+  const source = readFileSync(
+    new URL("../app/utils/endpointModels.ts", import.meta.url),
+    "utf8",
+  );
+
+  expect(source).toContain("export function providerOptionLabel");
+  expect(source).toContain("owner_display_name");
+  expect(source).toContain("const readOnly = provider.can_manage === false");
+  expect(source).toContain("read_only: readOnly");
+  expect(source).toContain("provider.id");
 });

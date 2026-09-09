@@ -111,3 +111,46 @@ test("供应商表单不提供模型发现失败或手工添加提示", () => {
   expect(form).not.toContain("模型列表暂不可用");
   expect(form).not.toContain("可手工添加模型后保存供应商");
 });
+
+test("供应商保存命令不再发送模型副本", () => {
+  const page = readFileSync(
+    new URL("../app/pages/providers.vue", import.meta.url),
+    "utf8",
+  );
+  const command = readFileSync(
+    new URL("../src-tauri/src/commands/providers.rs", import.meta.url),
+    "utf8",
+  );
+
+  expect(page).not.toContain("models: payload.models");
+  expect(command).not.toContain("pub models: Vec<String>");
+  expect(command).not.toContain("models: Some(input.models)");
+  expect(command).not.toContain("models: input.models");
+});
+
+test("共享供应商前端类型只保留可见元数据和统计展示字段", () => {
+  const relay = readFileSync(
+    new URL("../app/stores/relay.ts", import.meta.url),
+    "utf8",
+  );
+
+  expect(relay).toContain(
+    'export type ProviderVisibility = "private" | "selected" | "all";',
+  );
+  expect(relay).toContain("export interface ProviderListItem");
+  expect(relay).toContain("owner_identity_id: string;");
+  expect(relay).toContain("owner_display_name: string;");
+  expect(relay).toContain("can_manage: boolean;");
+  expect(relay).toContain("export interface ProviderSharing");
+  expect(relay).toContain("selected_identity_ids: string[];");
+  expect(relay).toContain("export interface ProviderUsage");
+  expect(relay).toContain("export interface ProviderUsageUser");
+  expect(relay).toContain("export interface IdentityDirectoryEntry");
+
+  const listItem = relay.slice(
+    relay.indexOf("export interface ProviderListItem"),
+    relay.indexOf("export interface ProviderSharing"),
+  );
+  expect(listItem).not.toContain("api_key");
+  expect(listItem).not.toContain("credential");
+});

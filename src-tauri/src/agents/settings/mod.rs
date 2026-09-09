@@ -47,10 +47,6 @@ pub enum CodexConnection {
         endpoint_token: String,
         models: Vec<CatalogLanguageModelResponse>,
     },
-    Custom {
-        base_url: String,
-        token: String,
-    },
 }
 
 #[derive(Debug, Clone, Deserialize)]

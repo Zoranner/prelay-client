@@ -18,6 +18,9 @@ export type RelayCommand =
   | "providers_delete"
   | "providers_ping"
   | "providers_test_protocol"
+  | "providers_sharing_get"
+  | "providers_sharing_save"
+  | "providers_usage_get"
   | "endpoints_list"
   | "endpoints_save"
   | "endpoints_delete"
@@ -28,6 +31,7 @@ export type RelayCommand =
   | "stats_models"
   | "stats_providers"
   | "stats_leaderboard"
+  | "identity_directory_list"
   | "credential_rotate";
 
 export interface CommandState {

@@ -6,14 +6,6 @@ export interface BootstrapState {
   has_device_credential: boolean;
 }
 
-export interface ProviderModel {
-  id: string;
-  provider_id: string;
-  model_name: string;
-  display_name?: string;
-  created_at: string;
-}
-
 export type UpstreamProtocol =
   "responses" | "openai" | "anthropic" | "images_generations";
 
@@ -128,12 +120,68 @@ export interface Provider {
   name: string;
   provider_type: string;
   base_url: string;
-  api_key: string;
-  api_key_masked: string;
+  api_key?: string;
+  api_key_masked?: string;
   capabilities: ProviderCapabilities;
   upstream_protocols: string[];
-  models: ProviderModel[];
   created_at: string;
+}
+
+export interface ProviderCredentialFields {
+  api_key: string;
+  api_key_masked: string;
+}
+
+export type ProviderVisibility = "private" | "selected" | "all";
+
+export interface ProviderListItem {
+  id: string;
+  name: string;
+  provider_type: string;
+  base_url: string;
+  capabilities: ProviderCapabilities;
+  upstream_protocols: string[];
+  owner_identity_id: string;
+  owner_display_name: string;
+  visibility: ProviderVisibility;
+  can_manage: boolean;
+  created_at: string;
+  usage?: ProviderUsage;
+}
+
+export interface ProviderSharing {
+  visibility: ProviderVisibility;
+  selected_identity_ids: string[];
+  can_manage: boolean;
+}
+
+export interface ProviderSharingInput {
+  visibility: ProviderVisibility;
+  identity_ids: string[];
+}
+
+export interface ProviderUsage {
+  total_requests: number;
+  input_tokens: number;
+  output_tokens: number;
+  total_tokens: number;
+  latest_used_at: string | null;
+  users: ProviderUsageUser[];
+}
+
+export interface ProviderUsageUser {
+  identity_id: string;
+  display_name: string;
+  request_count: number;
+  input_tokens: number;
+  output_tokens: number;
+  total_tokens: number;
+  latest_used_at: string | null;
+}
+
+export interface IdentityDirectoryEntry {
+  identity_id: string;
+  display_name: string;
 }
 
 export interface EndpointModel {
@@ -300,7 +348,6 @@ export interface ExtensionCatalogSnapshot {
 export type CodexSettings = Partial<{
   endpointName: string;
   baseUrl: string;
-  customToken: string;
   model: string;
   reasoningEffort: string;
   personality: string;

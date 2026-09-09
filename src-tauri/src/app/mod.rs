@@ -30,6 +30,9 @@ pub fn run() {
             crate::commands::providers::providers_delete,
             crate::commands::providers::providers_ping,
             crate::commands::providers::providers_test_protocol,
+            crate::commands::providers::providers_sharing_get,
+            crate::commands::providers::providers_sharing_save,
+            crate::commands::providers::providers_usage_get,
             crate::commands::endpoints::endpoints_list,
             crate::commands::endpoints::endpoints_save,
             crate::commands::endpoints::endpoints_delete,
@@ -48,6 +51,7 @@ pub fn run() {
             crate::commands::stats::stats_models,
             crate::commands::stats::stats_providers,
             crate::commands::stats::stats_leaderboard,
+            crate::commands::identity::identity_directory_list,
             crate::commands::identity::credential_rotate
         ])
         .setup(|app| {

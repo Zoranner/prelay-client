@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { setModelCatalog } from "../app/utils/modelCatalog";
 import { providerModelOptions } from "../app/utils/providerTemplates";
 
@@ -9,6 +9,17 @@ const providerSource = [
 ]
   .map((path) => readFileSync(new URL(path, import.meta.url), "utf8"))
   .join("\n");
+const providerListSource = readFileSync(
+  new URL("../app/components/providers/ProviderList.vue", import.meta.url),
+  "utf8",
+);
+const providerSharingDrawerUrl = new URL(
+  "../app/components/providers/ProviderSharingDrawer.vue",
+  import.meta.url,
+);
+const providerSharingDrawerSource = existsSync(providerSharingDrawerUrl)
+  ? readFileSync(providerSharingDrawerUrl, "utf8")
+  : "";
 
 test("保存供应商后立即清除只用于请求的密钥输入", () => {
   expect(providerSource).toContain('apiKey.value = ""');
@@ -109,6 +120,63 @@ test("供应商表格使用组件库表格，并通过供应商 ID 执行 Ping",
   expect(page).toContain(':loading="loadingProviders"');
 });
 
+test("供应商列表展示创建人、共享状态和使用统计摘要", () => {
+  expect(providerListSource).toContain('key: "owner"');
+  expect(providerListSource).toContain('key: "visibility"');
+  expect(providerListSource).toContain('key: "usage"');
+  expect(providerListSource).toContain("owner_display_name");
+  expect(providerListSource).toContain("visibilityLabel");
+  expect(providerListSource).toContain("total_requests");
+  expect(providerListSource).toContain("input_tokens");
+  expect(providerListSource).toContain("output_tokens");
+});
+
+test("非创建人供应商禁用编辑、删除、Ping 和协议测试", () => {
+  const page = pageSource();
+
+  expect(providerListSource).toContain(':disabled="!row.can_manage"');
+  expect(providerListSource).toContain("@click.stop=\"emit('share', row)\"");
+  expect(page).toContain(
+    ':can-edit="editingProvider ? editingProvider.can_manage : true"',
+  );
+  expect(page).toContain(
+    ':can-test="editingProvider ? editingProvider.can_manage : true"',
+  );
+  expect(providerSharingDrawerSource).toContain("can_manage");
+});
+
+test("供应商分享抽屉支持三种范围、身份选择和完整使用明细", () => {
+  expect(providerSharingDrawerSource).toContain('value: "private"');
+  expect(providerSharingDrawerSource).toContain('value: "selected"');
+  expect(providerSharingDrawerSource).toContain('value: "all"');
+  expect(providerSharingDrawerSource).toContain("multiple");
+  expect(providerSharingDrawerSource).toContain("selected_identity_ids");
+  expect(providerSharingDrawerSource).toContain("total_requests");
+  expect(providerSharingDrawerSource).toContain("input_tokens");
+  expect(providerSharingDrawerSource).toContain("output_tokens");
+  expect(providerSharingDrawerSource).toContain("total_tokens");
+  expect(providerSharingDrawerSource).toContain("latest_used_at");
+  expect(providerSharingDrawerSource).toContain("request_count");
+  expect(providerSharingDrawerSource).toContain("users");
+  expect(providerSharingDrawerSource).toContain("save-sharing");
+});
+
+test("供应商页面通过 Tauri commands 管理分享、统计和撤销后的刷新", () => {
+  const page = pageSource();
+
+  expect(page).toContain(
+    'invokeCommand<ProviderSharing>("providers_sharing_get"',
+  );
+  expect(page).toContain(
+    'invokeCommand<IdentityDirectoryEntry[]>("identity_directory_list")',
+  );
+  expect(page).toContain('invokeCommand<ProviderUsage>("providers_usage_get"');
+  expect(page).toContain('"providers_sharing_save"');
+  expect(page).toContain("await loadProviders()");
+  expect(page).toContain("<ProviderSharingDrawer");
+  expect(page).toContain("@save-sharing");
+});
+
 test("供应商页不重复显示已经进入全局通知的命令错误", () => {
   expect(pageSource()).not.toContain(
     'v-if="error" class="notice notice--danger"',
@@ -179,6 +247,98 @@ test("供应商模型清单与接入点使用同一类列表工作流", () => {
   expect(providerSource).not.toContain(
     "border-top: 1px solid var(--st-border-divider);",
   );
+});
+
+test("供应商模型清单来自目录而不是供应商保存副本", () => {
+  const relay = readFileSync(
+    new URL("../app/stores/relay.ts", import.meta.url),
+    "utf8",
+  );
+  const form = readFileSync(
+    new URL("../app/composables/useProviderForm.ts", import.meta.url),
+    "utf8",
+  );
+  const page = pageSource();
+
+  expect(relay).not.toContain("models: ProviderModel[]");
+  expect(form).toContain(
+    "const catalogModels = modelCatalogProviderModels(providerType)",
+  );
+  expect(form).not.toContain("provider?.models.map");
+  expect(page).not.toContain("models: payload.models");
+});
+
+test("供应商分享命令通过已认证管理 API 使用协议 DTO", () => {
+  const command = readFileSync(
+    new URL("../src-tauri/src/commands/providers.rs", import.meta.url),
+    "utf8",
+  );
+  const application = readFileSync(
+    new URL("../src-tauri/src/app/mod.rs", import.meta.url),
+    "utf8",
+  );
+  const relayCommand = readFileSync(
+    new URL("../app/composables/useRelayCommand.ts", import.meta.url),
+    "utf8",
+  );
+
+  expect(command).toContain("pub async fn providers_sharing_get(");
+  expect(command).toContain(
+    '.get(&format!("/api/providers/{provider_id}/sharing"))',
+  );
+  expect(command).toContain("pub async fn providers_sharing_save(");
+  expect(command).toContain(
+    '.patch(&format!("/api/providers/{provider_id}/sharing"), &input)',
+  );
+  expect(command).toContain("UpdateProviderSharingRequest");
+  expect(command).toContain("ProviderSharingResponse");
+  expect(command).toContain("pub async fn providers_usage_get(");
+  expect(command).toContain(
+    '"/api/providers/{provider_id}/usage?range={range}"',
+  );
+  expect(command).toContain("ProviderUsageResponse");
+  expect(command).toContain("authenticated_api(&state)");
+
+  expect(application).toContain(
+    "crate::commands::providers::providers_sharing_get",
+  );
+  expect(application).toContain(
+    "crate::commands::providers::providers_sharing_save",
+  );
+  expect(application).toContain(
+    "crate::commands::providers::providers_usage_get",
+  );
+  expect(relayCommand).toContain('"providers_sharing_get"');
+  expect(relayCommand).toContain('"providers_sharing_save"');
+  expect(relayCommand).toContain('"providers_usage_get"');
+});
+
+test("身份目录命令只读取非敏感展示字段", () => {
+  const command = readFileSync(
+    new URL("../src-tauri/src/commands/identity.rs", import.meta.url),
+    "utf8",
+  );
+  const application = readFileSync(
+    new URL("../src-tauri/src/app/mod.rs", import.meta.url),
+    "utf8",
+  );
+  const relayCommand = readFileSync(
+    new URL("../app/composables/useRelayCommand.ts", import.meta.url),
+    "utf8",
+  );
+
+  expect(command).toContain("pub async fn identity_directory_list(");
+  expect(command).toContain('.get("/api/identities")');
+  expect(command).toContain("IdentityDirectoryEntry");
+  expect(command).toContain("authenticated_api(&state)");
+  const directoryCommand = command.slice(
+    command.indexOf("pub async fn identity_directory_list("),
+  );
+  expect(directoryCommand).not.toContain("credential");
+  expect(application).toContain(
+    "crate::commands::identity::identity_directory_list",
+  );
+  expect(relayCommand).toContain('"identity_directory_list"');
 });
 
 test("供应商表单允许覆盖各协议 Base URL", () => {

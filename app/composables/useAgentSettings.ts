@@ -21,8 +21,6 @@ import {
 } from "~/utils/agentSettings";
 import { normalizeReasoningEffort } from "~/utils/modelReasoning";
 
-export const customEndpointValue = "__custom__";
-
 type AgentSettingsOptions = {
   activeClient: Readonly<Ref<AgentClient>>;
   bootstrap: Readonly<Ref<BootstrapState | null>>;
@@ -32,20 +30,14 @@ type AgentSettingsOptions = {
   save: (request: AgentSettingsSaveRequest) => Promise<unknown>;
 };
 
-type CodexConnectionDraft =
-  | {
-      kind: "prelay";
-      endpointId: string;
-      endpointName: string;
-      endpointToken: string;
-      relayUrl: string;
-      models: CatalogLanguageModelResponse[];
-    }
-  | {
-      kind: "custom";
-      baseUrl: string;
-      token: string;
-    };
+type CodexConnectionDraft = {
+  kind: "prelay";
+  endpointId: string;
+  endpointName: string;
+  endpointToken: string;
+  relayUrl: string;
+  models: CatalogLanguageModelResponse[];
+};
 
 function normalizeBaseUrl(url: string) {
   return url.trim().replace(/\/+$/, "");
@@ -97,7 +89,7 @@ export function validatePrelayModelSelection(
 }
 
 export async function saveWithAgentValidation(options: {
-  kind: "prelay" | "custom" | null;
+  kind: "prelay" | null;
   status: ReturnType<typeof useModelCatalog>["status"]["value"];
   selectedModel: string;
   endpointModelIds: string[];
@@ -136,19 +128,15 @@ export function useAgentSettings(options: AgentSettingsOptions) {
       (endpoint) => endpoint.id === activeSettings.value.endpoint,
     ),
   );
-  function endpointOptionsForClient(client: AgentClient) {
+  function endpointOptionsForClient() {
     const endpointOptions = options.endpoints.value.map((endpoint) => ({
       value: endpoint.id,
       label: endpoint.name,
       description: `${groupEndpointModels(endpoint.models).length} 个模型`,
     }));
-    return client === "claudeCode"
-      ? endpointOptions
-      : [...endpointOptions, { value: customEndpointValue, label: "自定义" }];
+    return endpointOptions;
   }
-  const endpointOptions = computed(() =>
-    endpointOptionsForClient(options.activeClient.value),
-  );
+  const endpointOptions = computed(() => endpointOptionsForClient());
   const modelOptions = computed(() =>
     groupEndpointModels(selectedEndpoint.value?.models ?? [])
       .map((group) => catalogLanguageModel(group.catalogModel))
@@ -159,15 +147,11 @@ export function useAgentSettings(options: AgentSettingsOptions) {
         catalogModel: model,
       })),
   );
-  const isCustomCodexEndpoint = computed(
-    () => activeSettings.value.endpoint === customEndpointValue,
-  );
   const dirty = computed(
     () => JSON.stringify(draft) !== JSON.stringify(configuration),
   );
 
   function normalizeCodexDraftReasoning(target: CodexSettingsDraft) {
-    if (target.endpoint === customEndpointValue) return;
     const selected = modelOptions.value.find(
       (option) => option.value === target.model,
     )?.catalogModel;
@@ -213,18 +197,6 @@ export function useAgentSettings(options: AgentSettingsOptions) {
   }
 
   function codexConnection(): CodexConnectionDraft | null {
-    const codex =
-      options.activeClient.value === "codexCli"
-        ? draft.codexCli
-        : draft.chatgpt;
-    const customBaseUrl = codex.customBaseUrl.trim();
-    if (isCustomCodexEndpoint.value && customBaseUrl) {
-      return {
-        kind: "custom",
-        baseUrl: customBaseUrl,
-        token: codex.customToken,
-      };
-    }
     const endpoint = selectedEndpoint.value;
     if (endpoint && options.bootstrap.value?.relay_url) {
       return {
@@ -352,18 +324,15 @@ export function useAgentSettings(options: AgentSettingsOptions) {
       ? managementBaseUrl(options.bootstrap.value.relay_url)
       : null;
     if (value.client === "codexCli" || value.client === "chatgpt") {
-      const { endpointName, baseUrl, customToken, ...settings } =
-        value.settings;
+      const { endpointName, baseUrl, ...settings } = value.settings;
       const target = configuration[value.client];
       Object.assign(target, settings);
       Object.assign(target.features, value.settings.features);
-      target.customBaseUrl = baseUrl ?? "";
       const endpoint =
         managementUrl && baseUrl && normalizeBaseUrl(baseUrl) === managementUrl
           ? options.endpoints.value.find((item) => item.name === endpointName)
           : undefined;
-      target.endpoint = endpoint?.id ?? customEndpointValue;
-      target.customToken = endpoint ? "" : (customToken ?? "");
+      target.endpoint = endpoint?.id ?? "";
       copyAgentClientSettings(configuration, draft, value.client);
       return;
     }
@@ -385,9 +354,7 @@ export function useAgentSettings(options: AgentSettingsOptions) {
             normalizeBaseUrl(baseUrl) === managementUrl
           ? options.endpoints.value.find((item) => item.token === endpointToken)
           : undefined;
-    target.endpoint =
-      endpoint?.id ??
-      (value.client === "claudeCode" ? "" : customEndpointValue);
+    target.endpoint = endpoint?.id ?? endpoint?.id ?? "";
     copyAgentClientSettings(configuration, draft, value.client);
   }
 
@@ -411,7 +378,6 @@ export function useAgentSettings(options: AgentSettingsOptions) {
 
   return {
     configuration,
-    customEndpointValue,
     dirty,
     discard,
     draft,

@@ -12,6 +12,8 @@ const props = defineProps<{
   provider?: Provider | null;
   catalogProviders: CatalogProvider[];
   pending?: boolean;
+  canEdit?: boolean;
+  canTest?: boolean;
   testProtocol: (
     input: ProviderOperationInput,
   ) => Promise<ProviderOperationResult>;
@@ -26,7 +28,6 @@ const emit = defineEmits<{
       base_url: string;
       api_key: string;
       capabilities: ProviderFormPayload["capabilities"];
-      models: ProviderFormPayload["models"];
     },
   ];
   cancel: [];
@@ -56,6 +57,7 @@ const {
 });
 
 function submit() {
+  if (props.canEdit === false) return;
   const payload = createPayload();
   if (payload) emit("save", payload);
 }
@@ -70,17 +72,29 @@ function submit() {
           v-model="providerTemplate"
           label="供应商"
           :options="providerTemplateOptions"
+          :disabled="canEdit === false || pending"
           @change="selectProviderTemplate"
         />
-        <Input v-model="name" label="名称" autocomplete="off" />
+        <Input
+          v-model="name"
+          label="名称"
+          autocomplete="off"
+          :disabled="canEdit === false || pending"
+        />
         <FormField label="API Key">
           <Input
             v-model="apiKey"
             type="password"
             placeholder="填写上游 API Key"
+            :disabled="canEdit === false || pending"
           />
         </FormField>
-        <Input v-model="baseUrl" label="Base URL" type="url" />
+        <Input
+          v-model="baseUrl"
+          label="Base URL"
+          type="url"
+          :disabled="canEdit === false || pending"
+        />
         <div class="protocol-urls" aria-label="支持协议">
           <div
             v-for="protocol in orderedUpstreamProtocols"
@@ -91,6 +105,7 @@ function submit() {
             <Input
               v-model="protocolBaseUrls[protocol]"
               :placeholder="baseUrl || '填写协议地址'"
+              :disabled="canEdit === false || pending"
             />
             <Button
               v-if="protocol !== 'images_generations'"
@@ -99,7 +114,7 @@ function submit() {
               icon="ph:flask"
               aria-label="测试协议"
               title="测试协议"
-              :disabled="pending"
+              :disabled="canEdit === false || canTest === false || pending"
               @click="requestProtocolTest(protocol)"
             />
           </div>

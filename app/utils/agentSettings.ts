@@ -8,8 +8,6 @@ type AgentConnectionModel = {
 
 export type CodexSettingsDraft = {
   endpoint: string;
-  customBaseUrl: string;
-  customToken: string;
   model: string;
   reasoningEffort: string;
   personality: string;
@@ -61,8 +59,6 @@ export type AgentSettingsSaveRequest = {
 function createCodexSettingsDraft(): CodexSettingsDraft {
   return {
     endpoint: "",
-    customBaseUrl: "",
-    customToken: "",
     model: "",
     reasoningEffort: "",
     personality: "pragmatic",
@@ -124,7 +120,7 @@ export function copyAgentClientSettings(
 export function codexSettingsPayload(
   settings: CodexSettingsDraft | ChatGptSettingsDraft,
 ) {
-  const { customToken, reasoningEffort, ...payload } = settings;
+  const { reasoningEffort, ...payload } = settings;
 
   if (reasoningEffort.trim() !== "") {
     return {

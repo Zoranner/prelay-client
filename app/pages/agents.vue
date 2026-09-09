@@ -85,7 +85,6 @@ const agentSettings = useAgentSettings({
 const {
   close: closeSettings,
   configuration: agentConfiguration,
-  customEndpointValue,
   dirty: settingsDirty,
   discard: discardSettingsDraft,
   draft: settingsDraft,
@@ -399,7 +398,6 @@ onBeforeUnmount(() => {
     v-model:draft="settingsDraft"
     :active-client="activeClient"
     :blocked="pending || settingsDirty"
-    :custom-endpoint-value="customEndpointValue"
     :endpoint-options="endpointOptions"
     :model-options="modelOptions"
     :pending="pending"

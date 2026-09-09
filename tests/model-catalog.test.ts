@@ -118,14 +118,14 @@ test("实际目录请求协调器报告 loading、error 并丢弃过期响应", 
   expect(catalog.status.value).toBe("error");
 });
 
-test("目录不可用时阻止 Prelay 智能体保存但不阻止自定义连接", () => {
+test("目录不可用时阻止 Prelay 智能体保存且不保留自定义连接", () => {
   const settings = source("composables/useAgentSettings.ts");
   expect(settings).toContain("validatePrelayModelSelection");
   expect(settings).toContain("目录尚未加载完成");
   expect(settings).toContain("modelCatalogEntry");
   expect(settings).toContain("catalogLanguageModel");
   expect(settings).toContain("return null");
-  expect(settings).toContain('kind: "custom"');
+  expect(settings).not.toContain('kind: "custom"');
 });
 
 test("Prelay 模型校验覆盖目录状态、接入点归属和语言模型类型", () => {
@@ -170,7 +170,7 @@ test("Prelay 模型校验覆盖目录状态、接入点归属和语言模型类�
   ).toBe("legacy-public-id");
 });
 
-test("实际智能体保存门禁阻断 Prelay、放行 Custom 并在 ready 时只保存一次", async () => {
+test("实际智能体保存门禁只允许目录可用的 Prelay 保存", async () => {
   let saves = 0;
   const save = async () => {
     saves += 1;
@@ -187,17 +187,6 @@ test("实际智能体保存门禁阻断 Prelay、放行 Custom 并在 ready 时�
   ).toContain("尚未加载");
   expect(saves).toBe(0);
 
-  expect(
-    await saveWithAgentValidation({
-      kind: "custom",
-      status: "error",
-      selectedModel: "custom-model",
-      endpointModelIds: [],
-      save,
-    }),
-  ).toBeNull();
-  expect(saves).toBe(1);
-
   setModelCatalog({
     language_models: [{ id: "chat-model", reasoning_efforts: [] } as never],
     image_generation_models: [],
@@ -212,15 +201,17 @@ test("实际智能体保存门禁阻断 Prelay、放行 Custom 并在 ready 时�
       save,
     }),
   ).toBeNull();
-  expect(saves).toBe(2);
+  expect(saves).toBe(1);
 });
 
-test("Provider 模型选项使用目录，Endpoint 模型选项使用供应商已保存模型", () => {
+test("Provider 和 Endpoint 模型选项都使用目录", () => {
   const provider = source("composables/useProviderForm.ts");
   const endpoint = source("components/endpoints/EndpointForm.vue");
   const endpointModels = source("utils/endpointModels.ts");
   expect(provider).toContain("modelCatalogProviderModels");
   expect(provider).not.toContain("providers_discover_models");
-  expect(endpointModels).toContain("return provider.models");
+  expect(endpointModels).toContain(
+    "modelCatalogProviderModels(provider.provider_type)",
+  );
   expect(endpoint).not.toContain('label="对外模型名"');
 });

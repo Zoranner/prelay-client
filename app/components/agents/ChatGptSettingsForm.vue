@@ -15,7 +15,6 @@ defineProps<{
   visible: boolean;
   endpointOptions: SelectOption[];
   modelOptions: SelectOption[];
-  customEndpointValue: string;
 }>();
 </script>
 
@@ -25,6 +24,5 @@ defineProps<{
     :visible="visible"
     :endpoint-options="endpointOptions"
     :model-options="modelOptions"
-    :custom-endpoint-value="customEndpointValue"
   />
 </template>

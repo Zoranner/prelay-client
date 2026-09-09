@@ -6,13 +6,13 @@ import type {
   UpstreamProtocol,
 } from "~/stores/relay";
 import {
+  type ProviderTemplate,
   protocolLabel,
   providerModelOptions,
   providerTemplateForType,
   providerTemplates,
 } from "~/utils/providerTemplates";
 import {
-  modelCatalogEntry,
   modelCatalogProviderModels,
   useModelCatalog,
 } from "~/utils/modelCatalog";
@@ -36,7 +36,6 @@ export type ProviderFormPayload = {
   base_url: string;
   api_key: string;
   capabilities: ProviderCapabilities;
-  models: string[];
 };
 
 type ProviderFormOptions = {
@@ -109,6 +108,24 @@ export function useProviderForm(options: ProviderFormOptions) {
   const notifications = useNotification();
   let initialDraft = "";
 
+  function catalogModelIds(providerType: string, template?: ProviderTemplate) {
+    const catalogModels = modelCatalogProviderModels(providerType);
+    if (catalogStatus.value !== "ready") {
+      return {
+        language: template?.languageModels ?? [],
+        image: template?.imageGenerationModels ?? [],
+      };
+    }
+    return {
+      language: catalogModels
+        .filter((model) => "reasoning_efforts" in model)
+        .map((model) => model.id),
+      image: catalogModels
+        .filter((model) => !("reasoning_efforts" in model))
+        .map((model) => model.id),
+    };
+  }
+
   function serializeDraft() {
     return JSON.stringify({
       name: name.value,
@@ -147,34 +164,9 @@ export function useProviderForm(options: ProviderFormOptions) {
       provider?.provider_type ?? template?.providerType ?? "";
     baseUrl.value = provider?.base_url ?? template?.baseUrl ?? "";
     apiKey.value = provider?.api_key ?? "";
-    const savedModelIds =
-      provider?.models.map((model) => model.model_name) ?? [];
-    const imageModelIds = new Set(template?.imageGenerationModels ?? []);
-    const catalogModelIds = new Set(
-      modelCatalogProviderModels(providerType.value).map((model) => model.id),
-    );
-    const catalogReady = catalogStatus.value === "ready";
-    languageModels.value = provider
-      ? savedModelIds.filter(
-          (id) =>
-            !imageModelIds.has(id) &&
-            (!catalogReady || catalogModelIds.has(id)),
-        )
-      : (template?.languageModels ?? []).filter(
-          (id) =>
-            !catalogReady ||
-            (catalogModelIds.has(id) && Boolean(modelCatalogEntry(id))),
-        );
-    imageGenerationModels.value = provider
-      ? savedModelIds.filter(
-          (id) =>
-            imageModelIds.has(id) && (!catalogReady || catalogModelIds.has(id)),
-        )
-      : (template?.imageGenerationModels ?? []).filter(
-          (id) =>
-            !catalogReady ||
-            (catalogModelIds.has(id) && Boolean(modelCatalogEntry(id))),
-        );
+    const modelIds = catalogModelIds(providerType.value, template);
+    languageModels.value = modelIds.language;
+    imageGenerationModels.value = modelIds.image;
     upstreamProtocols.value = (
       provider?.capabilities?.upstream_protocols ??
       template?.protocols ??
@@ -209,21 +201,10 @@ export function useProviderForm(options: ProviderFormOptions) {
     if (!template) return;
     name.value = template.label;
     providerType.value = template.providerType;
-    const catalogModelIds = new Set(
-      modelCatalogProviderModels(providerType.value).map((model) => model.id),
-    );
     baseUrl.value = template.baseUrl;
-    const catalogReady = catalogStatus.value === "ready";
-    languageModels.value = [...template.languageModels].filter(
-      (id) =>
-        !catalogReady ||
-        (catalogModelIds.has(id) && Boolean(modelCatalogEntry(id))),
-    );
-    imageGenerationModels.value = [...template.imageGenerationModels].filter(
-      (id) =>
-        !catalogReady ||
-        (catalogModelIds.has(id) && Boolean(modelCatalogEntry(id))),
-    );
+    const modelIds = catalogModelIds(providerType.value, template);
+    languageModels.value = modelIds.language;
+    imageGenerationModels.value = modelIds.image;
     upstreamProtocols.value = [...template.protocols];
     for (const protocol of allProtocols) {
       protocolBaseUrls[protocol] = template.protocolBaseUrls[protocol] ?? "";
@@ -279,12 +260,6 @@ export function useProviderForm(options: ProviderFormOptions) {
       });
       return null;
     }
-    if (models.value.some((id) => !modelCatalogEntry(id))) {
-      notifications.danger("请选择目录中的模型。", {
-        title: "供应商配置不完整",
-      });
-      return null;
-    }
     const payload = {
       ...(provider ? { id: provider.id } : {}),
       name: name.value.trim(),
@@ -310,7 +285,6 @@ export function useProviderForm(options: ProviderFormOptions) {
         max_context_tokens: maxContextTokens.value,
         max_output_tokens: maxOutputTokens.value,
       },
-      models: models.value,
     };
     apiKey.value = "";
     return payload;

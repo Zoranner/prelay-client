@@ -1,20 +1,26 @@
 <script setup lang="ts">
 import { Button, Input, Popover, Select, useNotification } from "@stellar/ui";
-import type { EndpointModel, Provider, RelayEndpoint } from "~/stores/relay";
+import type {
+  EndpointModel,
+  ProviderListItem,
+  RelayEndpoint,
+} from "~/stores/relay";
 import {
   availableEndpointModelsForProvider,
   endpointModelsForProvider,
   groupEndpointModels,
+  providerOptionLabel,
   type EndpointModelGroup,
 } from "~/utils/endpointModels";
-import { modelCatalogLabel } from "~/utils/modelCatalog";
-
+import {
+  modelCatalogLabel,
+  modelCatalogProviderModels,
+} from "~/utils/modelCatalog";
 const props = defineProps<{
   endpoint?: RelayEndpoint | null;
-  providers: Provider[];
+  providers: ProviderListItem[];
   pending?: boolean;
 }>();
-
 const emit = defineEmits<{
   save: [
     payload: {
@@ -27,14 +33,12 @@ const emit = defineEmits<{
   cancel: [];
   "dirty-change": [dirty: boolean];
 }>();
-
 type ModelForm = {
   provider_id: string;
   upstream_model: string;
 };
 type EndpointModelDraft = Omit<EndpointModel, "model_name"> &
   Pick<EndpointModel, "model_name">;
-
 const name = ref("");
 const protocol = ref("openai");
 const models = ref<EndpointModelDraft[]>([]);
@@ -44,14 +48,15 @@ const showAddModel = ref(false);
 const activeProviderGroup = ref<string | null>(null);
 const notifications = useNotification();
 const availableProviders = computed(() =>
-  props.providers.filter((provider) => provider.models.length > 0),
+  props.providers.filter(
+    (provider) => modelCatalogProviderModels(provider.provider_type).length > 0,
+  ),
 );
 const modelGroups = computed(() => groupEndpointModels(models.value));
 const providerOptions = computed(() => [
   { label: "选择供应商", value: "" },
   ...availableProviders.value.map((provider) => ({
-    label: provider.name,
-    value: provider.id,
+    ...providerOptionLabel(provider),
   })),
 ]);
 let initialDraft = "";
@@ -78,7 +83,6 @@ watch(
   { immediate: true },
 );
 watch(serializeDraft, (draft) => emit("dirty-change", draft !== initialDraft));
-
 function emptyModelForm(): ModelForm {
   return { provider_id: "", upstream_model: "" };
 }
@@ -101,6 +105,11 @@ function availableUpstreamModels(
 
 function providerForModel(model: Pick<EndpointModel, "provider_id">) {
   return props.providers.find((provider) => provider.id === model.provider_id);
+}
+
+function providerSourceLabel(provider: ProviderListItem | undefined) {
+  if (!provider || provider.can_manage !== false) return "";
+  return `共享自 ${provider.owner_display_name || "其他身份"} · 只读`;
 }
 
 function upstreamModelOptions(providerId: string, group?: EndpointModelGroup) {
@@ -335,7 +344,8 @@ function submit() {
             class="model-row"
           >
             <small
-              >{{ providerForModel(mapping.model)?.name ?? "已删除供应商" }} /
+              >{{ providerForModel(mapping.model)?.name ?? "已删除供应商" }}
+              {{ providerSourceLabel(providerForModel(mapping.model)) }} /
               {{
                 mapping.model.display_name?.trim() ||
                 modelCatalogLabel(

@@ -19,23 +19,17 @@ const props = defineProps<{
   visible: boolean;
   endpointOptions: SelectOption[];
   modelOptions: SelectOption[];
-  customEndpointValue: string;
 }>();
 
-const isCustomEndpoint = computed(
-  () => model.value.endpoint === props.customEndpointValue,
-);
 const currentCatalogModel = computed(
   () =>
     props.modelOptions.find((option) => option.value === model.value.model)
       ?.catalogModel,
 );
 const effortOptions = computed(() =>
-  reasoningEffortOptions(currentCatalogModel.value, isCustomEndpoint.value),
+  reasoningEffortOptions(currentCatalogModel.value, false),
 );
-const reasoningDisabled = computed(
-  () => !isCustomEndpoint.value && effortOptions.value.length === 0,
-);
+const reasoningDisabled = computed(() => effortOptions.value.length === 0);
 const personalityOptions = [
   { value: "pragmatic", label: "务实" },
   { value: "friendly", label: "友好" },
@@ -75,20 +69,6 @@ function updateModel(value: string | number) {
     props.modelOptions.find((option) => option.value === modelId)?.catalogModel,
   );
 }
-
-watch(
-  () => model.value.endpoint,
-  (endpoint, previous) => {
-    if (
-      props.visible &&
-      endpoint === props.customEndpointValue &&
-      previous !== props.customEndpointValue
-    ) {
-      model.value.customBaseUrl = "";
-      model.value.customToken = "";
-    }
-  },
-);
 </script>
 
 <template>
@@ -100,17 +80,7 @@ watch(
         label="接入点"
         :options="endpointOptions"
       />
-      <template v-if="isCustomEndpoint">
-        <Input v-model="model.model" label="默认模型" />
-        <Input
-          v-model="model.customBaseUrl"
-          label="Base URL"
-          placeholder="https://api.example.com/v1"
-        />
-        <Input v-model="model.customToken" label="Token" />
-      </template>
       <Select
-        v-else
         :model-value="model.model"
         label="默认模型"
         :options="modelOptions"

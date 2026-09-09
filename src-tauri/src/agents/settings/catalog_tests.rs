@@ -160,39 +160,6 @@ fn rejects_a_default_model_that_is_not_mapped_by_the_prelay_endpoint() {
 }
 
 #[test]
-fn custom_connection_does_not_create_or_clear_model_catalog() {
-    let directory = tempdir().unwrap();
-    let codex_root = directory.path().join(".codex");
-    fs::create_dir_all(&codex_root).unwrap();
-    fs::write(
-        codex_root.join("config.toml"),
-        "model_catalog_json = \"existing.json\"\n",
-    )
-    .unwrap();
-    let settings = CodexSettings {
-        reasoning_effort: Some("medium".to_string()),
-        ..Default::default()
-    };
-    let connection = CodexConnection::Custom {
-        base_url: "https://custom.example.test/v1".to_string(),
-        token: "custom-token".to_string(),
-    };
-
-    save_user_settings(
-        directory.path(),
-        &AgentSettings::CodexCli(settings),
-        Some(&AgentConnection::CodexCli(connection)),
-    )
-    .unwrap();
-
-    let config: toml::Value =
-        toml::from_str(&fs::read_to_string(codex_root.join("config.toml")).unwrap()).unwrap();
-    assert_eq!(config["model_catalog_json"].as_str(), Some("existing.json"));
-    assert_eq!(config["model_reasoning_effort"].as_str(), Some("medium"));
-    assert!(!codex_root.join("models.json").exists());
-}
-
-#[test]
 fn failed_catalog_write_does_not_write_config() {
     let directory = tempdir().unwrap();
     let codex_root = directory.path().join(".codex");

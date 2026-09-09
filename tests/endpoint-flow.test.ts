@@ -32,9 +32,46 @@ test("接入点页面提供模型映射和 Token 重置", () => {
   expect(endpointPage).not.toContain("if (!confirm(`删除接入点“${item.name}”");
 });
 
-test("接入点模型映射只允许选择已保存模型的供应商", () => {
+test("接入点 Provider 选项包含共享来源和创建人信息", () => {
+  const endpointModels = readFileSync(
+    new URL("../app/utils/endpointModels.ts", import.meta.url),
+    "utf8",
+  );
+  expect(endpointModels).toContain("owner_display_name");
+  expect(endpointModels).toContain("read_only");
+  expect(endpointForm).toContain("共享自");
+  expect(endpointForm).toContain("providerOptions");
+});
+
+test("接入点引用共享 Provider 时保存 payload 仍只有原始 ID 和上游模型", () => {
+  const endpointModels = readFileSync(
+    new URL("../app/utils/endpointModels.ts", import.meta.url),
+    "utf8",
+  );
+  expect(endpointForm).toContain("provider.id");
+  expect(endpointModels).toContain("value: provider.id");
+  expect(endpointPage).toContain(
+    "models: payload.models.map(({ provider_id, upstream_model }) =>",
+  );
+  expect(endpointPage).not.toContain("owner_display_name");
+  expect(endpointPage).not.toContain("api_key");
+  expect(endpointPage).not.toContain("read_only");
+});
+
+test("接入点重新加载时移除已撤销的共享 Provider，并保留服务端错误", () => {
+  expect(endpointPage).toContain(
+    'invokeCommand<ProviderListItem[]>("providers_list")',
+  );
+  expect(endpointPage).toContain("await load()");
+  expect(endpointPage).toContain("catch {");
+  expect(endpointPage).toContain("The command composable exposes the error");
+});
+
+test("接入点模型映射只允许选择目录中有模型的供应商", () => {
   expect(endpointForm).toContain("availableProviders");
-  expect(endpointForm).toContain("provider.models.length > 0");
+  expect(endpointForm).toContain(
+    "modelCatalogProviderModels(provider.provider_type)",
+  );
   expect(endpointForm).toContain("function modelsForProvider");
   expect(endpointForm).toContain("providerOptions");
 });

@@ -48,6 +48,9 @@ test("智能体工作区按客户端状态、内容与设置职责分层", () =>
   expect(settings).toContain("codexConnection");
   expect(settings).toContain("openCodeConnection");
   expect(settings).toContain("claudeCodeConnection");
+  expect(settings).not.toContain('kind: "custom"');
+  expect(settings).not.toContain("customBaseUrl");
+  expect(settings).not.toContain("customToken");
   expect(settings).toContain("endpointToken");
   expect(settings).toContain("groupEndpointModels(endpoint.models)");
   expect(settings).not.toContain("modelName: group.name");

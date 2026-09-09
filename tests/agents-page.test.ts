@@ -99,8 +99,7 @@ test("Codex 设置表单独立承载连接、执行和运行环境字段", () =>
   expect(form).toContain("工作区网络访问");
   expect(form).toContain("Shell 环境继承");
   expect(form).toContain("Windows 沙箱");
-  expect(form).toContain("customToken");
+  expect(form).not.toContain("customToken");
   expect(form).not.toContain('type="password"');
-  expect(form).toContain("watch(");
-  expect(form).toContain('customBaseUrl = ""');
+  expect(form).not.toContain("customBaseUrl");
 });

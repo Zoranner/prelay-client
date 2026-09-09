@@ -154,32 +154,6 @@ sandbox = "unelevated"
 }
 
 #[test]
-fn saves_codex_settings_when_auth_json_is_empty() {
-    let directory = tempdir().unwrap();
-    let codex_root = directory.path().join(".codex");
-    fs::create_dir_all(&codex_root).unwrap();
-    fs::write(codex_root.join("config.toml"), "").unwrap();
-    fs::write(codex_root.join("auth.json"), "").unwrap();
-
-    let settings = read_user_settings(directory.path(), AgentClient::CodexCli);
-    let connection = CodexConnection::Custom {
-        base_url: "https://relay.example.test/v1".to_string(),
-        token: "endpoint-token".to_string(),
-    };
-    save_user_settings(
-        directory.path(),
-        &settings,
-        Some(&AgentConnection::CodexCli(connection)),
-    )
-    .unwrap();
-
-    let auth: serde_json::Value =
-        serde_json::from_str(&fs::read_to_string(codex_root.join("auth.json")).unwrap()).unwrap();
-    assert_eq!(auth["OPENAI_API_KEY"], "endpoint-token");
-    assert!(codex_root.join("config.toml").is_file());
-}
-
-#[test]
 fn saves_opencode_prelay_provider_without_replacing_other_configuration() {
     let directory = tempdir().unwrap();
     let config_directory = directory.path().join(".config").join("opencode");

@@ -15,10 +15,10 @@
 
 提交的目录分层和客户端适配边界基本清晰，Claude Code 已进入前端类型、Tauri 客户端发现、设置读写、规则和 Skill 目标链路，现有自动化门禁也全部通过。
 
-本轮已修复设置回填和自定义接入点两个问题：
+本轮已修复设置回填问题，并将所有智能体统一为仅使用 Prelay 接入点：
 
 - Claude Code 使用服务根地址匹配已保存的 Prelay 接入点。
-- Claude Code 不再显示不可用的“自定义”接入点选项。
+- Codex、ChatGPT、Claude Code 和 OpenCode 均不再显示“自定义”接入点选项。
 
 ## 检查情况
 
@@ -44,25 +44,22 @@
 - 影响是用户看到的设置状态与实际 `settings.json` 不一致；后续再次保存还可能进入错误的自定义分支。
 - 建议将 Claude Code 的地址规范化逻辑与 Codex/OpenCode 分开，或统一明确“存储根地址”和“管理 API `/v1` 地址”的语义，并为“保存后重新 hydrate”增加回归测试。
 
-### “自定义”接入点对 Claude Code 不可用
+### 所有智能体不再提供自定义接入点
 
 - **级别**：高
 - **当前状态**：已修复。
 - **问题定性**：界面选项、前端连接模型和 Tauri 写入能力不一致。
-- 修复前所有智能体的 `endpointOptions` 都包含 `__custom__`/“自定义”。
-- Claude Code 表单只提供接入点和默认模型，没有自定义 Base URL 或 Token 输入，见 `app/components/agents/ClaudeCodeSettingsForm.vue:21-28`。
-- Claude Code 的连接函数只处理已选 Prelay Endpoint，选中自定义时返回 `null`，见 `app/composables/useAgentSettings.ts:248-262`。
-- Tauri 的 Claude Code 连接类型也只有 `Prelay`，见 `src-tauri/src/agents/settings/mod.rs:64-72`。
-- 用户可以在 UI 中选择“自定义”，但无法提供必要参数；保存时只会写模型和规则，不能建立新的自定义 Claude Code 连接，也不会明确报错。
-- 当前采用按客户端能力过滤，Claude Code 只显示已配置的 Prelay 接入点。
+- 修复前 Codex、ChatGPT、Claude Code 和 OpenCode 共用包含 `__custom__`/“自定义”的接入点选项。
+- 当前所有智能体均只显示已配置的 Prelay 接入点，前端不再生成自定义连接。
+- Codex 的 Tauri `CodexConnection` 也只保留 `Prelay`，避免客户端继续写入自定义 Base URL 或 Token。
 
 ## 整改优先级建议
 
 ### 先修正设置契约
 
 - 明确 Claude Code Base URL 的存储格式，修正 hydrate 比较逻辑。
-- 明确是否支持 Custom connection，并让 UI 选项、DTO、Tauri 写入和测试保持同一契约。
-- 增加保存、重新读取、再次保存的完整回归测试，至少覆盖 Prelay 和 Custom 两种路径。
+- 将所有智能体的 UI、DTO、Tauri 写入和测试统一到 Prelay 接入点契约。
+- 保留对旧本地自定义配置的读取兼容，但不再提供新的自定义保存路径。
 
 ### 修正后的扩展结论
 

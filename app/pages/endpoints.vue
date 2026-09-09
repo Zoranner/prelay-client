@@ -3,7 +3,7 @@ import {
   useRelayStore,
   type BootstrapState,
   type EndpointModel,
-  type Provider,
+  type ProviderListItem,
   type RelayEndpoint,
 } from "~/stores/relay";
 import { Button, Drawer, useConfirm, useNotification } from "@stellar/ui";
@@ -23,7 +23,7 @@ const { confirm: confirmAction } = useConfirm();
 const notifications = useNotification();
 const workspaceExit = useWorkspaceExitGuard();
 const { bootstrap, setBootstrap } = useRelayStore();
-const providers = ref<Provider[]>([]);
+const providers = ref<ProviderListItem[]>([]);
 const endpoints = ref<RelayEndpoint[]>([]);
 const editingEndpoint = ref<RelayEndpoint | null>(null);
 const showForm = ref(false);
@@ -33,7 +33,7 @@ let exitRegistration: ReturnType<typeof workspaceExit.register> | undefined;
 async function load() {
   try {
     const [providerList, endpointList, bootstrapState] = await Promise.all([
-      invokeCommand<Provider[]>("providers_list"),
+      invokeCommand<ProviderListItem[]>("providers_list"),
       invokeCommand<RelayEndpoint[]>("endpoints_list"),
       bootstrap.value
         ? Promise.resolve(bootstrap.value)
@@ -65,7 +65,7 @@ async function saveEndpoint(payload: EndpointFormPayload) {
     await load();
     notifications.success("接入点已保存");
   } catch {
-    // The command composable exposes the error to this view.
+    await load();
   }
 }
 

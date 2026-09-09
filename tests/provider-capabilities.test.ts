@@ -54,7 +54,6 @@ const provider = (overrides: Partial<Provider> = {}): Provider => ({
     max_context_tokens: 128000,
     max_output_tokens: 8192,
   },
-  models: [],
   created_at: "2026-08-18T00:00:00Z",
   ...overrides,
 });
