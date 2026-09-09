@@ -244,7 +244,7 @@ function submit() {
           <span>{{ modelGroups.length }} 个</span>
           <Popover
             v-model="showAddModel"
-            position="bottom"
+            position="auto"
             align="right"
             size="large"
             @update:model-value="setModelPopover"
@@ -291,7 +291,7 @@ function submit() {
               <small>{{ group.mappings.length }} 个供应商</small>
               <Popover
                 :model-value="activeProviderGroup === group.name"
-                position="bottom"
+                position="auto"
                 align="right"
                 size="large"
                 @update:model-value="setProviderPopover(group.name, $event)"
