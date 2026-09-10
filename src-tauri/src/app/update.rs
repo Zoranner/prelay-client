@@ -185,7 +185,8 @@ fn installer_launch(installer_path: &Path) -> Result<InstallerLaunch, ClientErro
     if extension.is_some_and(|value| value.eq_ignore_ascii_case("exe")) {
         return Ok(InstallerLaunch {
             executable: installer_path.to_path_buf(),
-            arguments: vec![OsString::from("/S")],
+            // 静默安装只在带 /R 时由安装程序重新启动客户端，否则更新完成后应用保持关闭。
+            arguments: vec![OsString::from("/S"), OsString::from("/R")],
         });
     }
     Err(ClientError::new(
@@ -287,14 +288,17 @@ mod tests {
     use std::ffi::OsString;
 
     #[test]
-    fn launches_nsis_installers_silently() {
+    fn launches_nsis_installers_silently_and_restarts_the_client() {
         let installer =
             std::path::PathBuf::from("cache/updates/windows/x64/0.2.0/Prelay_0.2.0_x64-setup.exe");
 
         let launch = installer_launch(&installer).unwrap();
 
         assert_eq!(launch.executable, installer);
-        assert_eq!(launch.arguments, vec![OsString::from("/S")]);
+        assert_eq!(
+            launch.arguments,
+            vec![OsString::from("/S"), OsString::from("/R")]
+        );
     }
 
     #[test]
