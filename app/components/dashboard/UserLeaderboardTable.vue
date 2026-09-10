@@ -1,23 +1,14 @@
 <script setup lang="ts">
 import { Avatar, Card } from "@stellar/ui";
-import { Avatar as DiceBearAvatar, Style } from "@dicebear/core";
-import cutouts from "@dicebear/styles/cutouts.json";
 
 import type { UserLeaderboardEntry } from "~/stores/relay";
+import { identityAvatarSrc } from "~/utils/identityAvatar";
 
 type UserLeaderboardRow = UserLeaderboardEntry & Record<string, unknown>;
 
 defineProps<{
   rows: UserLeaderboardRow[];
 }>();
-
-const cutoutsStyle = new Style(cutouts);
-
-function avatarSrc(row: UserLeaderboardEntry) {
-  return new DiceBearAvatar(cutoutsStyle, {
-    seed: row.identity_id,
-  }).toDataUri();
-}
 
 function formatTokens(value: number) {
   if (value >= 1_000_000) return `${(value / 1_000_000).toFixed(1)}M`;
@@ -41,7 +32,7 @@ function formatTokens(value: number) {
         >
           <Avatar
             class="leaderboard-avatar"
-            :src="avatarSrc(row)"
+            :src="identityAvatarSrc(row.identity_id)"
             :alt="row.display_name"
             size="large"
             shape="circle"

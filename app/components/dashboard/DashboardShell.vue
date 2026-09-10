@@ -1,8 +1,7 @@
 <script setup lang="ts">
-import { Avatar as DiceBearAvatar, Style } from "@dicebear/core";
-import cutouts from "@dicebear/styles/cutouts.json";
 import { Avatar, Sidebar, SidebarItem } from "@stellar/ui";
 import DashboardStatusbar from "~/components/dashboard/DashboardStatusbar.vue";
+import { identityAvatarSrc } from "~/utils/identityAvatar";
 import { type BootstrapState, useRelayStore } from "~/stores/relay";
 
 defineProps<{
@@ -20,11 +19,8 @@ const navigation = [
   { label: "活动", path: "/stats", icon: "ph:chart-line-up" },
 ];
 const displayName = computed(() => bootstrap.value?.display_name ?? "当前用户");
-const cutoutsStyle = new Style(cutouts);
 const avatarSrc = computed(() =>
-  new DiceBearAvatar(cutoutsStyle, {
-    seed: bootstrap.value?.identity_id ?? "current-user",
-  }).toDataUri(),
+  identityAvatarSrc(bootstrap.value?.identity_id ?? "current-user"),
 );
 
 onMounted(async () => {

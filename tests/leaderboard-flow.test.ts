@@ -40,12 +40,11 @@ test("仪表盘通过 Tauri 展示全用户活动排行榜", () => {
   expect(table).toContain("justify-self: end");
   expect(table).not.toContain("rows.length");
   expect(table).not.toContain(" 人");
-  expect(table).toContain("import { Avatar as DiceBearAvatar, Style }");
   expect(table).toContain(
-    'import cutouts from "@dicebear/styles/cutouts.json"',
+    'import { identityAvatarSrc } from "~/utils/identityAvatar"',
   );
   expect(table).toContain("identity_id");
-  expect(table).toContain(':src="avatarSrc(row)"');
+  expect(table).toContain(':src="identityAvatarSrc(row.identity_id)"');
   expect(table).not.toContain('class="leaderboard-avatar-wrap"');
   expect(table).not.toContain("position: absolute");
   expect(table).toContain("grid-template-columns: 40px minmax(0, 1fr) 24px");

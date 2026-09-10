@@ -1,12 +1,13 @@
 <script setup lang="ts">
-import { Avatar as DiceBearAvatar, Style } from "@dicebear/core";
-import cutouts from "@dicebear/styles/cutouts.json";
 import { Avatar, Badge, Button, Table, Tag } from "@stellar/ui";
 import type { IdentityDirectoryEntry, ProviderListItem } from "~/stores/relay";
+import ProviderVisibilityScope from "~/components/providers/ProviderVisibilityScope.vue";
+import { identityAvatarSrc } from "~/utils/identityAvatar";
 import { providerProtocolOptions } from "~/utils/providerCapabilities";
 import { protocolLabel, protocolTagPalette } from "~/utils/providerTemplates";
 
-type ProviderRow = ProviderListItem & Record<string, unknown>;
+type ProviderRow = ProviderListItem &
+  Record<string, unknown> & { ping: ReturnType<typeof pingStatus> };
 
 const props = defineProps<{
   loading?: boolean;
@@ -21,8 +22,6 @@ const props = defineProps<{
     }
   >;
 }>();
-const cutoutsStyle = new Style(cutouts);
-const maxScopeAvatars = 3;
 const emit = defineEmits<{
   edit: [provider: ProviderListItem];
   ping: [provider: ProviderListItem];
@@ -44,8 +43,6 @@ const columns = [
     fixed: "right" as const,
   },
 ];
-const rows = computed<ProviderRow[]>(() => props.providers as ProviderRow[]);
-
 function pingStatus(providerId: string) {
   const state = props.pingStates[providerId];
   if (state?.checking) return { label: "检查中", semantic: "info" as const };
@@ -60,51 +57,12 @@ function pingStatus(providerId: string) {
   return { label: "未检查", semantic: undefined };
 }
 
-function avatarSrc(identityId: string) {
-  return new DiceBearAvatar(cutoutsStyle, {
-    seed: identityId,
-  }).toDataUri();
-}
-
-function ownerEntry(row: ProviderListItem): IdentityDirectoryEntry {
-  return {
-    identity_id: row.owner_identity_id,
-    display_name: row.owner_display_name,
-  };
-}
-
-function visibleEntries(row: ProviderListItem): IdentityDirectoryEntry[] {
-  const owner = ownerEntry(row);
-  if (row.visibility !== "selected") return [owner];
-  const selected = row.selected_identity_ids.map((identityId) => {
-    return (
-      props.identities.find((entry) => entry.identity_id === identityId) ?? {
-        identity_id: identityId,
-        display_name: identityId,
-      }
-    );
-  });
-  return [owner, ...selected];
-}
-
-function scopeStack(row: ProviderListItem) {
-  if (row.visibility === "all") {
-    return { entries: [ownerEntry(row)], overflow: 0 };
-  }
-  const entries = visibleEntries(row);
-  return {
-    entries: entries.slice(0, maxScopeAvatars),
-    overflow: Math.max(0, entries.length - maxScopeAvatars),
-  };
-}
-
-function scopeTitle(row: ProviderListItem) {
-  if (row.visibility === "all") return "全部身份可见";
-  const names = visibleEntries(row).map((entry) => entry.display_name);
-  return row.visibility === "private"
-    ? `仅 ${names[0] ?? row.owner_identity_id} 可见`
-    : `可见：${names.join("、")}`;
-}
+const rows = computed<ProviderRow[]>(() =>
+  props.providers.map((provider) => ({
+    ...provider,
+    ping: pingStatus(provider.id),
+  })),
+);
 </script>
 
 <template>
@@ -128,7 +86,7 @@ function scopeTitle(row: ProviderListItem) {
       <div class="owner-entry">
         <Avatar
           class="owner-avatar"
-          :src="avatarSrc(row.owner_identity_id)"
+          :src="identityAvatarSrc(row.owner_identity_id)"
           :alt="row.owner_display_name"
           size="small"
           shape="circle"
@@ -151,26 +109,12 @@ function scopeTitle(row: ProviderListItem) {
       </div>
     </template>
     <template #cell-visibility="{ row }">
-      <div class="visibility-scope" :title="scopeTitle(row)">
-        <Avatar
-          v-for="entry in scopeStack(row).entries"
-          :key="entry.identity_id"
-          class="scope-avatar"
-          :src="avatarSrc(entry.identity_id)"
-          :alt="entry.display_name"
-          size="small"
-          shape="circle"
-        />
-        <span v-if="scopeStack(row).overflow > 0" class="scope-overflow">
-          +{{ scopeStack(row).overflow }}
-        </span>
-        <span v-else-if="row.visibility === 'all'" class="scope-all">全部</span>
-      </div>
+      <ProviderVisibilityScope :provider="row" :identities="identities" />
     </template>
     <template #cell-status="{ row }">
-      <Badge :semantic="pingStatus(row.id).semantic" variant="soft">{{
-        pingStatus(row.id).label
-      }}</Badge>
+      <Badge :semantic="row.ping.semantic" variant="soft">
+        {{ row.ping.label }}
+      </Badge>
     </template>
     <template #cell-actions="{ row }">
       <div class="actions">
@@ -178,7 +122,7 @@ function scopeTitle(row: ProviderListItem) {
           square
           size="small"
           icon="ph:heartbeat"
-          :disabled="pingStatus(row.id).label === '检查中'"
+          :disabled="row.ping.label === '检查中'"
           :aria-label="`测试 ${row.name || row.provider_type}`"
           title="测试连接"
           @click.stop="emit('ping', row)"
@@ -239,42 +183,6 @@ function scopeTitle(row: ProviderListItem) {
 .owner-avatar,
 .scope-avatar {
   flex-shrink: 0;
-}
-
-.visibility-scope {
-  display: flex;
-  min-width: 0;
-  align-items: center;
-}
-
-.visibility-scope > :not(:first-child) {
-  margin-left: -8px;
-}
-
-.scope-avatar,
-.scope-overflow,
-.scope-all {
-  box-shadow: 0 0 0 2px var(--st-bg-surface);
-}
-
-.scope-overflow,
-.scope-all {
-  display: inline-flex;
-  height: 24px;
-  padding: 0 7px;
-  flex-shrink: 0;
-  align-items: center;
-  color: var(--st-text-secondary);
-  background: var(--st-bg-elevated);
-  border: 1px solid var(--st-border-divider);
-  border-radius: 999px;
-  font-size: 11px;
-  font-weight: 600;
-  line-height: 1;
-}
-
-.scope-overflow {
-  font-family: var(--font-family-mono);
 }
 
 .provider-name > span {

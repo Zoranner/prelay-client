@@ -240,15 +240,20 @@ test("仪表盘头像使用 DiceBear Cutouts 预设", () => {
     new URL("../app/components/dashboard/DashboardShell.vue", import.meta.url),
     "utf8",
   );
+  const avatar = readFileSync(
+    new URL("../app/utils/identityAvatar.ts", import.meta.url),
+    "utf8",
+  );
 
   expect(packageJson.dependencies["@dicebear/core"]).toBe("10.5.0");
   expect(packageJson.dependencies["@dicebear/styles"]).toBe("10.5.0");
   expect(packageJson.dependencies["@dicebear/identicon"]).toBeUndefined();
-  expect(shell).toContain(
+  expect(avatar).toContain(
     'import cutouts from "@dicebear/styles/cutouts.json"',
   );
-  expect(shell).toContain("new Style(cutouts)");
-  expect(shell).toContain("new DiceBearAvatar(cutoutsStyle");
+  expect(avatar).toContain("new Style(cutouts)");
+  expect(avatar).toContain("new DiceBearAvatar(cutoutsStyle");
+  expect(shell).toContain("identityAvatarSrc");
   expect(shell).toContain("bootstrap.value?.identity_id");
 });
 

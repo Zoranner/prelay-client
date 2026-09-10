@@ -109,7 +109,7 @@ test("供应商表格使用组件库表格，并通过供应商 ID 执行 Ping",
   expect(page).not.toMatch(/providers_ping[\\s\\S]{0,180}api_key/);
   expect(page).toContain("await loadProviders()");
   expect(list).toContain("<Table");
-  expect(list).toContain("pingStatus(row.id)");
+  expect(list).toContain("pingStatus(provider.id)");
   expect(page).toContain("@ping");
   expect(list).toContain("emit('ping', row)");
   expect(list).not.toContain("PROVIDER_TEMPLATE_GROUPS");
@@ -126,13 +126,8 @@ test("供应商列表用头像展示创建人和可见范围，不展示使用�
   expect(providerListSource).toContain('key: "visibility"');
   expect(providerListSource).toContain("owner_display_name");
   expect(providerListSource).toContain('title: "可见范围"');
-  expect(providerListSource).toContain(
-    'import cutouts from "@dicebear/styles/cutouts.json"',
-  );
-  expect(providerListSource).toContain("new DiceBearAvatar(cutoutsStyle");
-  expect(providerListSource).toContain("selected_identity_ids");
-  expect(providerListSource).toContain("scope-avatar");
-  expect(providerListSource).toContain("visibility-scope");
+  expect(providerListSource).toContain("ProviderVisibilityScope");
+  expect(providerListSource).toContain("identityAvatarSrc");
   expect(providerListSource).not.toContain('key: "models"');
   expect(providerListSource).not.toContain("modelCatalogProviderModels");
   expect(providerListSource).not.toContain("待新增");
@@ -149,7 +144,7 @@ test("非创建人供应商保留连通性测试，禁用编辑、删除和协�
 
   expect(providerListSource).toContain(':disabled="!row.can_manage"');
   expect(providerListSource).toContain(
-    `:disabled="pingStatus(row.id).label === '检查中'"`,
+    `:disabled="row.ping.label === '检查中'"`,
   );
   expect(page).not.toContain("if (!provider.can_manage) return;");
   expect(page).toContain(
