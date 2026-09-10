@@ -3,9 +3,34 @@ import {
   availableEndpointModelsForProvider,
   endpointModelsForProvider,
   groupEndpointModels,
+  moveEndpointMapping,
 } from "../app/utils/endpointModels";
 import { modelCatalogEntry, setModelCatalog } from "../app/utils/modelCatalog";
 import { readFileSync } from "node:fs";
+
+test("接入点候选顺序只在同一模型分组内上下调整", () => {
+  const models = [
+    { provider_id: "a", upstream_model: "luna", model_name: "luna" },
+    { provider_id: "b", upstream_model: "terra", model_name: "terra" },
+    { provider_id: "c", upstream_model: "luna-2026-08", model_name: "luna" },
+  ];
+
+  expect(
+    moveEndpointMapping(models, 2, -1).map((model) => model.provider_id),
+  ).toEqual(["c", "b", "a"]);
+  expect(
+    moveEndpointMapping(models, 0, 1).map((model) => model.provider_id),
+  ).toEqual(["c", "b", "a"]);
+  expect(
+    moveEndpointMapping(models, 0, -1).map((model) => model.provider_id),
+  ).toEqual(["a", "b", "c"]);
+  expect(
+    moveEndpointMapping(models, 2, 1).map((model) => model.provider_id),
+  ).toEqual(["a", "b", "c"]);
+  expect(
+    moveEndpointMapping(models, 1, 1).map((model) => model.provider_id),
+  ).toEqual(["a", "b", "c"]);
+});
 
 test("接入点按对外模型 ID 归组并保留全部供应商路由", () => {
   const catalogModel = {

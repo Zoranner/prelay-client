@@ -10,6 +10,7 @@ import {
   checkEndpointMapping,
   endpointModelsForProvider,
   groupEndpointModels,
+  moveEndpointMapping,
   providerOptionLabel,
   type EndpointModelGroup,
 } from "~/utils/endpointModels";
@@ -17,6 +18,7 @@ import {
   modelCatalogLabel,
   modelCatalogProviderModels,
 } from "~/utils/modelCatalog";
+import EndpointModelRow from "~/components/endpoints/EndpointModelRow.vue";
 const props = defineProps<{
   endpoint?: RelayEndpoint | null;
   providers: ProviderListItem[];
@@ -188,6 +190,14 @@ function removeModel(index: number) {
   models.value.splice(index, 1);
 }
 
+function mappingPosition(group: EndpointModelGroup, index: number) {
+  return group.mappings.findIndex((mapping) => mapping.index === index);
+}
+
+function moveMapping(index: number, delta: number) {
+  models.value = moveEndpointMapping(models.value, index, delta);
+}
+
 function submit() {
   if (!name.value.trim()) {
     notifications.error("请填写接入点名称。", { title: "接入点配置不完整" });
@@ -322,35 +332,27 @@ function submit() {
               </Popover>
             </div>
           </div>
-          <div
+          <EndpointModelRow
             v-for="mapping in group.mappings"
             :key="
               mapping.model.id ??
               `${mapping.model.provider_id}-${mapping.model.upstream_model}-${mapping.index}`
             "
-            class="model-row"
-          >
-            <small
-              >{{ providerForModel(mapping.model)?.name ?? "已删除供应商" }}
-              {{ providerSourceLabel(providerForModel(mapping.model)) }} /
-              {{
-                mapping.model.display_name?.trim() ||
-                modelCatalogLabel(
-                  mapping.model.model_name || mapping.model.upstream_model,
-                )
-              }}</small
-            >
-            <Button
-              square
-              size="small"
-              semantic="error"
-              variant="solid"
-              icon="ph:trash"
-              aria-label="删除供应商映射"
-              title="删除供应商映射"
-              @click="removeModel(mapping.index)"
-            />
-          </div>
+            :provider="providerForModel(mapping.model)?.name ?? '已删除供应商'"
+            :source="providerSourceLabel(providerForModel(mapping.model))"
+            :model="
+              mapping.model.display_name?.trim() ||
+              modelCatalogLabel(
+                mapping.model.model_name || mapping.model.upstream_model,
+              )
+            "
+            :can-move-up="mappingPosition(group, mapping.index) > 0"
+            :can-move-down="
+              mappingPosition(group, mapping.index) < group.mappings.length - 1
+            "
+            @move="moveMapping(mapping.index, $event)"
+            @remove="removeModel(mapping.index)"
+          />
         </div>
         <p v-if="!models.length" class="empty-text">暂无模型。</p>
       </div>
@@ -393,7 +395,6 @@ function submit() {
   gap: var(--spacing-sm);
 }
 .section-header span,
-.model-row small,
 .model-group__header small,
 .empty-text {
   color: var(--st-text-secondary);
@@ -418,11 +419,6 @@ function submit() {
   min-width: 0;
   padding: var(--spacing-sm) 0 0 var(--spacing-md);
   border-top: 1px solid var(--st-border-divider);
-}
-.model-row small {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 .model-popover {
   display: grid;

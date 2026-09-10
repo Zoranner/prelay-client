@@ -72,7 +72,7 @@ export function groupEndpointModels(
 ): EndpointModelGroup[] {
   const groups = new Map<string, EndpointModelGroup>();
   models.forEach((model, index) => {
-    const name = model.model_name?.trim() || model.upstream_model.trim();
+    const name = modelGroupName(model);
     const group = groups.get(name) ?? {
       name,
       displayName: model.display_name?.trim() || modelCatalogLabel(name),
@@ -83,6 +83,36 @@ export function groupEndpointModels(
     groups.set(name, group);
   });
   return [...groups.values()];
+}
+
+export function modelGroupName(model: EndpointModelLike) {
+  return model.model_name?.trim() || model.upstream_model.trim();
+}
+
+export function moveEndpointMapping<T extends EndpointModelLike>(
+  models: readonly T[],
+  index: number,
+  delta: number,
+): T[] {
+  const current = models[index];
+  if (!current) {
+    return [...models];
+  }
+  const name = modelGroupName(current);
+  const positions = models
+    .map((model, position) => (modelGroupName(model) === name ? position : -1))
+    .filter((position) => position !== -1);
+  const position = positions.indexOf(index);
+  const target = position === -1 ? -1 : (positions[position + delta] ?? -1);
+  const from = models[index];
+  const to = target === -1 ? undefined : models[target];
+  if (!from || !to) {
+    return [...models];
+  }
+  const next = [...models];
+  next[index] = to;
+  next[target] = from;
+  return next;
 }
 
 export type EndpointMappingCheck = {
