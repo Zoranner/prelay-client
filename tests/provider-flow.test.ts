@@ -117,18 +117,31 @@ test("供应商表格使用组件库表格，并通过供应商 ID 执行 Ping",
   expect(list).not.toContain("<EmptyState");
   expect(list).toContain('empty-text="暂无供应商"');
   expect(list).toContain(':loading="loading"');
+  expect(list).toContain('layout="fixed"');
   expect(page).toContain(':loading="loadingProviders"');
 });
 
-test("供应商列表展示创建人、共享状态和使用统计摘要", () => {
+test("供应商列表用头像展示创建人和可见范围，不展示使用统计和模型数量列", () => {
   expect(providerListSource).toContain('key: "owner"');
   expect(providerListSource).toContain('key: "visibility"');
-  expect(providerListSource).toContain('key: "usage"');
   expect(providerListSource).toContain("owner_display_name");
-  expect(providerListSource).toContain("visibilityLabel");
-  expect(providerListSource).toContain("total_requests");
-  expect(providerListSource).toContain("input_tokens");
-  expect(providerListSource).toContain("output_tokens");
+  expect(providerListSource).toContain('title: "可见范围"');
+  expect(providerListSource).toContain(
+    'import cutouts from "@dicebear/styles/cutouts.json"',
+  );
+  expect(providerListSource).toContain("new DiceBearAvatar(cutoutsStyle");
+  expect(providerListSource).toContain("selected_identity_ids");
+  expect(providerListSource).toContain("scope-avatar");
+  expect(providerListSource).toContain("visibility-scope");
+  expect(providerListSource).not.toContain('key: "models"');
+  expect(providerListSource).not.toContain("modelCatalogProviderModels");
+  expect(providerListSource).not.toContain("待新增");
+  expect(providerListSource).not.toContain('key: "usage"');
+  expect(providerListSource).not.toContain("使用统计");
+  expect(providerListSource).not.toContain("total_requests");
+  expect(providerListSource).not.toContain("input_tokens");
+  expect(providerListSource).not.toContain("output_tokens");
+  expect(pageSource()).toContain(':identities="identities"');
 });
 
 test("非创建人供应商禁用编辑、删除、Ping 和协议测试", () => {

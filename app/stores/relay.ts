@@ -144,9 +144,9 @@ export interface ProviderListItem {
   owner_identity_id: string;
   owner_display_name: string;
   visibility: ProviderVisibility;
+  selected_identity_ids: string[];
   can_manage: boolean;
   created_at: string;
-  usage?: ProviderUsage;
 }
 
 export interface ProviderSharing {

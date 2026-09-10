@@ -44,12 +44,17 @@ type ProviderPingState = {
 async function loadProviders() {
   loadingProviders.value = true;
   try {
-    const [availableProviders, availableCatalogProviders] = await Promise.all([
-      invokeCommand<ProviderListItem[]>("providers_list"),
-      invokeCommand<CatalogProvider[]>("catalog_providers_list"),
-    ]);
-    providers.value = await attachUsage(availableProviders);
+    const [availableProviders, availableCatalogProviders, directory] =
+      await Promise.all([
+        invokeCommand<ProviderListItem[]>("providers_list"),
+        invokeCommand<CatalogProvider[]>("catalog_providers_list"),
+        invokeCommand<IdentityDirectoryEntry[]>(
+          "identity_directory_list",
+        ).catch(() => []),
+      ]);
+    providers.value = availableProviders;
     catalogProviders.value = availableCatalogProviders;
+    identities.value = directory;
     pingStates.value = Object.fromEntries(
       providers.value.map((provider) => [provider.id, { checking: false }]),
     );
@@ -63,26 +68,6 @@ async function loadProviders() {
   } finally {
     loadingProviders.value = false;
   }
-}
-
-async function attachUsage(providerList: ProviderListItem[]) {
-  const entries = await Promise.all(
-    providerList.map(async (provider) => {
-      try {
-        const usage = await invokeCommand<ProviderUsage>(
-          "providers_usage_get",
-          {
-            providerId: provider.id,
-            range: "all",
-          },
-        );
-        return { ...provider, usage };
-      } catch {
-        return { ...provider, usage: emptyUsage() };
-      }
-    }),
-  );
-  return entries;
 }
 
 function emptyUsage(): ProviderUsage {
@@ -234,7 +219,17 @@ async function saveSharing(input: ProviderSharingInput) {
     );
     if (refreshedProvider) {
       sharingProvider.value = refreshedProvider;
-      sharingUsage.value = refreshedProvider.usage ?? emptyUsage();
+      try {
+        sharingUsage.value = await invokeCommand<ProviderUsage>(
+          "providers_usage_get",
+          {
+            providerId: refreshedProvider.id,
+            range: "all",
+          },
+        );
+      } catch {
+        sharingUsage.value = emptyUsage();
+      }
     } else {
       closeProviderSharing();
     }
@@ -298,6 +293,7 @@ onMounted(loadProviders);
       <ProviderList
         :loading="loadingProviders"
         :providers="providers"
+        :identities="identities"
         :ping-states="pingStates"
         @edit="editProvider"
         @ping="pingProvider"
