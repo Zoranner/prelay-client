@@ -76,7 +76,7 @@ const metrics = computed(() => [
 .dashboard-stats {
   display: grid;
   grid-template-columns: repeat(6, minmax(0, 1fr));
-  gap: var(--spacing-md);
+  gap: var(--spacing-lg);
 }
 
 @media (max-width: 1180px) {

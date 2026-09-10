@@ -32,14 +32,14 @@ const emit = defineEmits<{
 
 const columns = [
   { key: "name", title: "名称", width: 220, ellipsis: true },
-  { key: "protocols", title: "协议", width: 260, ellipsis: true },
-  { key: "owner", title: "创建人", width: 168, ellipsis: true },
-  { key: "visibility", title: "可见范围", width: 156 },
-  { key: "status", title: "状态", width: 128 },
+  { key: "protocols", title: "协议", minWidth: 260, ellipsis: true },
+  { key: "status", title: "状态", width: 116 },
+  { key: "owner", title: "创建人", width: 128, ellipsis: true },
+  { key: "visibility", title: "可见范围", width: 140 },
   {
     key: "actions",
     title: "操作",
-    width: 168,
+    width: 108,
     align: "right" as const,
     fixed: "right" as const,
   },
