@@ -24,7 +24,9 @@ pub(crate) use items::{
 };
 
 #[cfg(all(test, windows))]
-pub(crate) use discovery::newest_chatgpt_desktop_version;
+pub(crate) use discovery::{
+    chatgpt_offline_install_version, chatgpt_package_version, newest_version,
+};
 
 #[cfg(test)]
 pub(crate) use discovery::{

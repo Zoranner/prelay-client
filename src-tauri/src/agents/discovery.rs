@@ -18,15 +18,33 @@ use std::os::windows::process::CommandExt;
 use windows::{
     core::PCWSTR,
     Win32::{
-        Foundation::WIN32_ERROR,
+        Foundation::{ERROR_NO_MORE_ITEMS, WIN32_ERROR},
         System::{
-            Registry::{RegCloseKey, RegEnumKeyW, RegOpenKeyExW, HKEY_CURRENT_USER, KEY_READ},
+            Registry::{
+                RegCloseKey, RegEnumKeyW, RegGetValueW, RegOpenKeyExW, HKEY, HKEY_CURRENT_USER,
+                HKEY_LOCAL_MACHINE, KEY_READ, RRF_RT_REG_SZ,
+            },
             Threading::CREATE_NO_WINDOW,
         },
     },
 };
 
 const VERSION_COMMAND_TIMEOUT: Duration = Duration::from_secs(5);
+
+#[cfg(windows)]
+const CHATGPT_PACKAGE_FAMILY_PREFIX: &str = "OpenAI.Codex_";
+
+#[cfg(windows)]
+const CHATGPT_UNINSTALL_NAME_PREFIX: &str = "ChatGPT";
+
+#[cfg(windows)]
+const CHATGPT_UNINSTALL_PUBLISHER: &str = "OpenAI";
+
+#[cfg(windows)]
+const PACKAGE_FAMILIES_KEY: &str = "Software\\Classes\\Local Settings\\Software\\Microsoft\\Windows\\CurrentVersion\\AppModel\\Repository\\Families";
+
+#[cfg(windows)]
+const UNINSTALL_KEY: &str = "Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall";
 
 pub fn agent_client_versions(clients: Vec<AgentClient>) -> Vec<AgentClientVersion> {
     clients
@@ -80,42 +98,99 @@ pub(crate) fn command_path(command: &str) -> Option<PathBuf> {
     command_path_in(command, &paths, &extensions)
 }
 
+/// ChatGPT 桌面端有应用商店包和离线安装包两种安装形态，分别注册在当前用户的包仓库和卸载注册表。
 #[cfg(windows)]
 pub(crate) fn chatgpt_desktop_version() -> Option<String> {
-    let key_path = wide("Software\\Classes\\ActivatableClasses\\Package");
-    let mut package_key = Default::default();
-    if unsafe {
-        RegOpenKeyExW(
-            HKEY_CURRENT_USER,
-            PCWSTR::from_raw(key_path.as_ptr()),
-            None,
-            KEY_READ,
-            &mut package_key,
-        )
-    } != WIN32_ERROR(0)
-    {
-        return None;
-    }
-    let mut package_names = Vec::new();
-    for index in 0.. {
-        let mut name = vec![0u16; 256];
-        let status = unsafe { RegEnumKeyW(package_key, index, Some(&mut name)) };
-        if status == WIN32_ERROR(259) {
-            break;
-        }
-        if status == WIN32_ERROR(0) {
-            if let Some(name) = string_from_wide(&name) {
-                package_names.push(name);
-            }
-        }
-    }
-    let _ = unsafe { RegCloseKey(package_key) };
-    newest_chatgpt_desktop_version(package_names.iter().map(String::as_str))
+    newest_version(
+        chatgpt_package_versions()
+            .into_iter()
+            .chain(chatgpt_offline_install_versions()),
+    )
 }
 
 #[cfg(not(windows))]
 pub(crate) fn chatgpt_desktop_version() -> Option<String> {
     None
+}
+
+#[cfg(windows)]
+fn chatgpt_package_versions() -> Vec<String> {
+    subkey_names(HKEY_CURRENT_USER, PACKAGE_FAMILIES_KEY)
+        .into_iter()
+        .filter(|family| family.starts_with(CHATGPT_PACKAGE_FAMILY_PREFIX))
+        .flat_map(|family| {
+            subkey_names(
+                HKEY_CURRENT_USER,
+                &format!("{PACKAGE_FAMILIES_KEY}\\{family}"),
+            )
+        })
+        .filter_map(|package| chatgpt_package_version(&package))
+        .collect()
+}
+
+#[cfg(windows)]
+fn chatgpt_offline_install_versions() -> Vec<String> {
+    let mut versions = Vec::new();
+    for hive in [HKEY_LOCAL_MACHINE, HKEY_CURRENT_USER] {
+        for entry in subkey_names(hive, UNINSTALL_KEY) {
+            let entry_key = format!("{UNINSTALL_KEY}\\{entry}");
+            let (Some(display_name), Some(display_version)) = (
+                registry_string(hive, &entry_key, "DisplayName"),
+                registry_string(hive, &entry_key, "DisplayVersion"),
+            ) else {
+                continue;
+            };
+            let publisher = registry_string(hive, &entry_key, "Publisher").unwrap_or_default();
+            if let Some(version) =
+                chatgpt_offline_install_version(&display_name, &publisher, &display_version)
+            {
+                versions.push(version);
+            }
+        }
+    }
+    versions
+}
+
+#[cfg(windows)]
+pub(crate) fn chatgpt_package_version(package_full_name: &str) -> Option<String> {
+    let version = package_full_name
+        .strip_prefix(CHATGPT_PACKAGE_FAMILY_PREFIX)?
+        .split('_')
+        .next()?;
+    let components = version
+        .split('.')
+        .map(str::parse::<u32>)
+        .collect::<Result<Vec<_>, _>>()
+        .ok()?;
+    (components.len() == 4).then(|| version.to_string())
+}
+
+#[cfg(windows)]
+pub(crate) fn chatgpt_offline_install_version(
+    display_name: &str,
+    publisher: &str,
+    display_version: &str,
+) -> Option<String> {
+    (display_name.starts_with(CHATGPT_UNINSTALL_NAME_PREFIX)
+        && publisher.eq_ignore_ascii_case(CHATGPT_UNINSTALL_PUBLISHER))
+    .then(|| display_version.to_string())
+}
+
+#[cfg(windows)]
+pub(crate) fn newest_version(versions: impl IntoIterator<Item = String>) -> Option<String> {
+    versions
+        .into_iter()
+        .max_by(|left, right| (version_rank(left), left).cmp(&(version_rank(right), right)))
+}
+
+#[cfg(windows)]
+fn version_rank(version: &str) -> Vec<u32> {
+    version
+        .split('.')
+        .map(str::parse::<u32>)
+        .collect::<Result<Vec<_>, _>>()
+        .ok()
+        .unwrap_or_default()
 }
 
 #[cfg(windows)]
@@ -130,25 +205,73 @@ fn string_from_wide(value: &[u16]) -> Option<String> {
 }
 
 #[cfg(windows)]
-pub(crate) fn newest_chatgpt_desktop_version<'a>(
-    package_names: impl IntoIterator<Item = &'a str>,
-) -> Option<String> {
-    package_names
-        .into_iter()
-        .filter_map(|package_name| {
-            let version = package_name
-                .strip_prefix("OpenAI.Codex_")?
-                .split('_')
-                .next()?;
-            let components = version
-                .split('.')
-                .map(str::parse::<u32>)
-                .collect::<Result<Vec<_>, _>>()
-                .ok()?;
-            (components.len() == 4).then_some((components, version))
-        })
-        .max_by(|left, right| left.0.cmp(&right.0))
-        .map(|(_, version)| version.to_string())
+fn subkey_names(hive: HKEY, path: &str) -> Vec<String> {
+    let path = wide(path);
+    let mut key = HKEY::default();
+    if unsafe {
+        RegOpenKeyExW(
+            hive,
+            PCWSTR::from_raw(path.as_ptr()),
+            None,
+            KEY_READ,
+            &mut key,
+        )
+    } != WIN32_ERROR(0)
+    {
+        return Vec::new();
+    }
+    let mut names = Vec::new();
+    for index in 0.. {
+        let mut name = vec![0u16; 256];
+        match unsafe { RegEnumKeyW(key, index, Some(&mut name)) } {
+            ERROR_NO_MORE_ITEMS => break,
+            WIN32_ERROR(0) => {
+                if let Some(name) = string_from_wide(&name) {
+                    names.push(name);
+                }
+            }
+            _ => break,
+        }
+    }
+    let _ = unsafe { RegCloseKey(key) };
+    names
+}
+
+#[cfg(windows)]
+fn registry_string(hive: HKEY, key_path: &str, value_name: &str) -> Option<String> {
+    let key_path = wide(key_path);
+    let value_name = wide(value_name);
+    let mut byte_count = 0;
+    let status = unsafe {
+        RegGetValueW(
+            hive,
+            PCWSTR::from_raw(key_path.as_ptr()),
+            PCWSTR::from_raw(value_name.as_ptr()),
+            RRF_RT_REG_SZ,
+            None,
+            None,
+            Some(&mut byte_count),
+        )
+    };
+    if status != WIN32_ERROR(0) {
+        return None;
+    }
+    let mut value = vec![0u16; byte_count as usize / std::mem::size_of::<u16>()];
+    let status = unsafe {
+        RegGetValueW(
+            hive,
+            PCWSTR::from_raw(key_path.as_ptr()),
+            PCWSTR::from_raw(value_name.as_ptr()),
+            RRF_RT_REG_SZ,
+            None,
+            Some(value.as_mut_ptr().cast()),
+            Some(&mut byte_count),
+        )
+    };
+    if status != WIN32_ERROR(0) {
+        return None;
+    }
+    string_from_wide(&value)
 }
 
 #[cfg(windows)]

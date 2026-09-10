@@ -6,13 +6,13 @@ use tempfile::tempdir;
 
 #[cfg(windows)]
 use super::super::command_client_version;
-#[cfg(windows)]
-use super::super::newest_chatgpt_desktop_version;
 use super::super::{
     agent_client_statuses_with, command_path_in, command_version_from_output,
     scan_user_items_with_installation, AgentClient, AgentClientVersion, AgentItemKind,
     AgentItemStatus,
 };
+#[cfg(windows)]
+use super::super::{chatgpt_offline_install_version, chatgpt_package_version, newest_version};
 use super::write;
 
 #[test]
@@ -210,14 +210,52 @@ fn reads_a_version_from_a_command_that_finishes_within_five_seconds() {
 
 #[cfg(windows)]
 #[test]
-fn uses_the_newest_chatgpt_desktop_package_version() {
-    let version = newest_chatgpt_desktop_version([
-        "OpenAI.Codex_26.609.1420.0_x64__2p2nqsd0c76g0",
-        "OpenAI.Codex_26.818.8289.0_x64__2p2nqsd0c76g0",
-        "NotCodex_99.0.0.0_x64__2p2nqsd0c76g0",
-    ]);
+fn reads_the_version_from_a_chatgpt_package_full_name() {
+    assert_eq!(
+        chatgpt_package_version("OpenAI.Codex_26.818.8289.0_x64__2p2nqsd0c76g0").as_deref(),
+        Some("26.818.8289.0")
+    );
+    assert_eq!(
+        chatgpt_package_version("NotCodex_99.0.0.0_x64__2p2nqsd0c76g0"),
+        None
+    );
+    assert_eq!(
+        chatgpt_package_version("OpenAI.Codex_26.818_x64__2p2nqsd0c76g0"),
+        None
+    );
+}
 
-    assert_eq!(version.as_deref(), Some("26.818.8289.0"));
+#[cfg(windows)]
+#[test]
+fn matches_the_offline_chatgpt_installation_registration() {
+    assert_eq!(
+        chatgpt_offline_install_version("ChatGPT 26.901.6511.0", "OpenAI", "26.901.6511.0")
+            .as_deref(),
+        Some("26.901.6511.0")
+    );
+    assert_eq!(
+        chatgpt_offline_install_version("ChatGPT 26.901.6511.0", "openai", "26.901.6511.0")
+            .as_deref(),
+        Some("26.901.6511.0")
+    );
+    assert_eq!(
+        chatgpt_offline_install_version("ChatGPT 26.901.6511.0", "Other", "26.901.6511.0"),
+        None
+    );
+    assert_eq!(
+        chatgpt_offline_install_version("Codex 0.9.0", "OpenAI", "0.9.0"),
+        None
+    );
+}
+
+#[cfg(windows)]
+#[test]
+fn uses_the_newest_version_across_chatgpt_installation_sources() {
+    assert_eq!(
+        newest_version(["26.803.10989.0".to_string(), "26.901.6511.0".to_string(),]).as_deref(),
+        Some("26.901.6511.0")
+    );
+    assert_eq!(newest_version(Vec::<String>::new()), None);
 }
 
 #[test]
