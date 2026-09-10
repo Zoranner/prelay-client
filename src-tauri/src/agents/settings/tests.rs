@@ -212,3 +212,94 @@ fn saves_opencode_prelay_provider_without_replacing_other_configuration() {
         "始终先阅读仓库约束。"
     );
 }
+
+fn console_payload(
+    client: &str,
+    settings: serde_json::Value,
+    connection: serde_json::Value,
+) -> (AgentSettings, AgentConnection) {
+    let settings = serde_json::from_value(serde_json::json!({
+        "client": client,
+        "settings": settings,
+    }))
+    .unwrap_or_else(|error| panic!("{client} settings payload does not deserialize: {error}"));
+    let connection = serde_json::from_value(serde_json::json!({
+        "client": client,
+        "connection": connection,
+    }))
+    .unwrap_or_else(|error| panic!("{client} connection payload does not deserialize: {error}"));
+    (settings, connection)
+}
+
+#[test]
+fn deserializes_the_settings_save_payload_sent_by_the_desktop_console() {
+    let codex_settings = serde_json::json!({
+        "endpoint": "endpoint-1",
+        "model": "gpt-5-codex",
+        "personality": "pragmatic",
+        "webSearch": true,
+        "sandbox": "workspace-write",
+        "disableResponseStorage": true,
+        "maxThreads": 16,
+        "maxDepth": 1,
+        "jobMaxRuntimeSeconds": 1800,
+        "networkAccess": true,
+        "shellEnvironmentInherit": "all",
+        "windowsSandbox": "unelevated",
+        "features": {
+            "memories": true,
+            "goals": true,
+            "workspaceDependencies": false,
+        },
+        "rules": "",
+    });
+    let codex_connection = serde_json::json!({
+        "kind": "prelay",
+        "endpointId": "endpoint-1",
+        "endpointName": "Prelay",
+        "endpointToken": "endpoint-token",
+        "relayUrl": "https://relay.example.test",
+        "models": [],
+    });
+    let (settings, connection) =
+        console_payload("codexCli", codex_settings.clone(), codex_connection.clone());
+    assert!(matches!(settings, AgentSettings::CodexCli(_)));
+    assert!(matches!(
+        connection,
+        AgentConnection::CodexCli(CodexConnection::Prelay { .. })
+    ));
+
+    let (settings, connection) = console_payload("chatgpt", codex_settings, codex_connection);
+    assert!(matches!(settings, AgentSettings::ChatGpt(_)));
+    assert!(matches!(
+        connection,
+        AgentConnection::ChatGpt(CodexConnection::Prelay { .. })
+    ));
+
+    let simple_connection = serde_json::json!({
+        "kind": "prelay",
+        "endpointToken": "endpoint-token",
+        "relayUrl": "https://relay.example.test",
+    });
+    let (settings, connection) = console_payload(
+        "openCode",
+        serde_json::json!({ "endpoint": "endpoint-1", "model": "deepseek-coder", "rules": "" }),
+        simple_connection.clone(),
+    );
+    assert!(matches!(settings, AgentSettings::OpenCode(_)));
+    assert!(matches!(
+        connection,
+        AgentConnection::OpenCode(OpenCodeConnection::Prelay { .. })
+    ));
+
+    let (settings, connection) = console_payload(
+        "claudeCode",
+        serde_json::json!({ "endpoint": "endpoint-1", "model": "claude-sonnet", "rules": "" }),
+        simple_connection,
+    );
+    assert!(matches!(settings, AgentSettings::ClaudeCode(_)));
+    assert!(matches!(
+        connection,
+        AgentConnection::ClaudeCode(ClaudeCodeConnection::Prelay { .. })
+    ));
+}

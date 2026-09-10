@@ -62,6 +62,7 @@ pub enum OpenCodeConnection {
 
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
+#[serde(rename_all_fields = "camelCase")]
 #[serde(tag = "kind")]
 pub enum ClaudeCodeConnection {
     Prelay {
