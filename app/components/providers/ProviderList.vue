@@ -178,7 +178,7 @@ function scopeTitle(row: ProviderListItem) {
           square
           size="small"
           icon="ph:heartbeat"
-          :disabled="!row.can_manage || pingStatus(row.id).label === '检查中'"
+          :disabled="pingStatus(row.id).label === '检查中'"
           :aria-label="`测试 ${row.name || row.provider_type}`"
           title="测试连接"
           @click.stop="emit('ping', row)"

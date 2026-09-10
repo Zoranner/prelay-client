@@ -64,11 +64,7 @@ async function loadProviders() {
     pingStates.value = Object.fromEntries(
       providers.value.map((provider) => [provider.id, { checking: false }]),
     );
-    void Promise.all(
-      providers.value
-        .filter((provider) => provider.can_manage)
-        .map(pingProvider),
-    );
+    void Promise.all(providers.value.map(pingProvider));
   } catch {
     // The command composable exposes the error to this view.
   } finally {
@@ -88,7 +84,6 @@ function emptyUsage(): ProviderUsage {
 }
 
 async function pingProvider(provider: ProviderListItem) {
-  if (!provider.can_manage) return;
   pingStates.value = {
     ...pingStates.value,
     [provider.id]: { checking: true },

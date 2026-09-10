@@ -144,10 +144,17 @@ test("供应商列表用头像展示创建人和可见范围，不展示使用�
   expect(pageSource()).toContain(':identities="identities"');
 });
 
-test("非创建人供应商禁用编辑、删除、Ping 和协议测试", () => {
+test("非创建人供应商保留连通性测试，禁用编辑、删除和协议测试", () => {
   const page = pageSource();
 
   expect(providerListSource).toContain(':disabled="!row.can_manage"');
+  expect(providerListSource).toContain(
+    `:disabled="pingStatus(row.id).label === '检查中'"`,
+  );
+  expect(page).not.toContain("if (!provider.can_manage) return;");
+  expect(page).toContain(
+    "void Promise.all(providers.value.map(pingProvider));",
+  );
   expect(providerListSource).not.toContain("emit('share'");
   expect(page).toContain(
     ':can-edit="editingProvider ? editingProvider.can_manage : true"',
