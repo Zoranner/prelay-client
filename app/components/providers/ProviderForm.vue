@@ -144,7 +144,8 @@ function submit() {
               :key="`language-${modelOption.value}`"
               class="model-tag model-tag--language"
               size="small"
-              variant="primary"
+              semantic="primary"
+              variant="soft"
             >
               {{ modelOption.label }}
             </Tag>
@@ -164,7 +165,8 @@ function submit() {
               :key="`image-${modelOption.value}`"
               class="model-tag model-tag--image"
               size="small"
-              variant="warning"
+              semantic="warning"
+              variant="soft"
             >
               {{ modelOption.label }}
             </Tag>

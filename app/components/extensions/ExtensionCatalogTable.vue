@@ -23,7 +23,7 @@ async function copyRepositoryUrl(repository: string) {
     await navigator.clipboard.writeText(repositoryUrl(repository));
     notifications.success("已复制仓库链接");
   } catch {
-    notifications.danger("请手动复制。", { title: "无法访问剪贴板" });
+    notifications.error("请手动复制。", { title: "无法访问剪贴板" });
   }
 }
 

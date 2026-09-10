@@ -35,7 +35,7 @@ export function useLocalCommand() {
       const localError = toRelayError(caught);
       if (notify) {
         error.value = localError;
-        notifications.danger(localError.message, { title: "本地操作失败" });
+        notifications.error(localError.message, { title: "本地操作失败" });
       }
       throw localError;
     } finally {

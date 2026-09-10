@@ -10,7 +10,7 @@ import {
   Table,
   Tag,
 } from "@stellar/ui";
-import { protocolLabel, protocolTagVariant } from "~/utils/providerTemplates";
+import { protocolLabel, protocolTagPalette } from "~/utils/providerTemplates";
 import { modelCatalogLabel } from "~/utils/modelCatalog";
 
 type RequestTableRow = Activity & Record<string, unknown>;
@@ -184,7 +184,7 @@ function updateLimit(value: string | number | boolean | null) {
           <Tag
             size="small"
             :title="protocolLabel(row.protocol_in)"
-            :variant="protocolTagVariant(row.protocol_in)"
+            :palette="protocolTagPalette(row.protocol_in)"
           >
             {{ protocolLabel(row.protocol_in) }}
           </Tag>
@@ -200,7 +200,10 @@ function updateLimit(value: string | number | boolean | null) {
         </template>
         <template #cell-status="{ row }">
           <div class="activity-status">
-            <Badge :variant="row.status === 'failed' ? 'danger' : 'success'">
+            <Badge
+              :semantic="row.status === 'failed' ? 'error' : 'success'"
+              variant="soft"
+            >
               {{ row.http_status ?? row.status }}
             </Badge>
             <Button

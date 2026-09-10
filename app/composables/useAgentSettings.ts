@@ -306,7 +306,7 @@ export function useAgentSettings(options: AgentSettingsOptions) {
         },
       });
       if (validationError) {
-        notifications.danger(validationError, {
+        notifications.error(validationError, {
           title: "无法保存智能体设置",
         });
         return false;

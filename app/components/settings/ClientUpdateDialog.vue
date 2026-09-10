@@ -58,7 +58,8 @@ onBeforeUnmount(() => exitRegistration?.unregister());
         稍后安装
       </Button>
       <Button
-        variant="primary"
+        semantic="primary"
+        variant="solid"
         :loading="clientUpdate.installing.value"
         @click="install"
       >

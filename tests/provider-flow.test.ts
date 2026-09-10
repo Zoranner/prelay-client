@@ -393,9 +393,9 @@ test("供应商与活动表共用协议 Tag 颜色", () => {
     "utf8",
   );
 
-  expect(providerList).toContain("protocolTagVariant");
+  expect(providerList).toContain("protocolTagPalette");
   expect(providerList).toContain("<Tag");
-  expect(requestTable).toContain("protocolTagVariant");
+  expect(requestTable).toContain("protocolTagPalette");
   expect(requestTable).toContain("<Tag");
   expect(requestTable).not.toContain("function protocolLabel");
 });

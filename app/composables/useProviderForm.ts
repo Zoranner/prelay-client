@@ -224,13 +224,13 @@ export function useProviderForm(options: ProviderFormOptions) {
 
   async function requestProtocolTest(protocol: UpstreamProtocol) {
     if (!apiKey.value.trim()) {
-      notifications.danger("请填写上游 API Key。", { title: "连接配置不完整" });
+      notifications.error("请填写上游 API Key。", { title: "连接配置不完整" });
       return;
     }
     const result = await options.testProtocol(operationInput(protocol));
     const feedback = getProviderOperationFeedback(result);
     notifications.notify({
-      type: feedback.success ? "success" : "danger",
+      semantic: feedback.success ? "success" : "error",
       title: feedback.message,
       message: feedback.metrics ?? "",
     });
@@ -238,24 +238,24 @@ export function useProviderForm(options: ProviderFormOptions) {
 
   function submit(): ProviderFormPayload | null {
     if (!name.value.trim() || !baseUrl.value.trim()) {
-      notifications.danger("请填写名称和 Base URL。", {
+      notifications.error("请填写名称和 Base URL。", {
         title: "连接配置不完整",
       });
       return null;
     }
     const provider = options.provider();
     if (!provider && !providerTemplate.value) {
-      notifications.danger("请选择目录中的供应商。", {
+      notifications.error("请选择目录中的供应商。", {
         title: "供应商配置不完整",
       });
       return null;
     }
     if (!provider && !apiKey.value.trim()) {
-      notifications.danger("请填写上游 API Key。", { title: "连接配置不完整" });
+      notifications.error("请填写上游 API Key。", { title: "连接配置不完整" });
       return null;
     }
     if (catalogStatus.value !== "ready") {
-      notifications.danger("模型目录尚未加载完成，请稍后重试。", {
+      notifications.error("模型目录尚未加载完成，请稍后重试。", {
         title: "无法保存供应商配置",
       });
       return null;

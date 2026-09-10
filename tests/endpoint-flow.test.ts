@@ -108,7 +108,7 @@ test("接入点模型从列表上下文新增而非底部统一编辑器", () =>
   expect(endpointForm.match(/<template #footer>/g)?.length).toBe(2);
   expect(endpointForm).toContain("无可用模型");
   expect(endpointForm).not.toContain("无可用上游模型");
-  expect(endpointForm.match(/>确认<\/Button/g)?.length).toBe(2);
+  expect(endpointForm.match(/确认[\s\S]*?<\/Button/g)?.length).toBe(2);
   expect(endpointForm).not.toContain('class="model-editor"');
   expect(endpointForm).not.toContain('class="add-model-form"');
   expect(endpointForm).not.toContain('class="add-provider-form"');

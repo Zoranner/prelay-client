@@ -39,7 +39,8 @@ onMounted(loadActivities);
     <PanelSection title="活动">
       <template #header-actions>
         <Button
-          variant="primary"
+          semantic="primary"
+          variant="solid"
           icon="ph:arrows-clockwise"
           :disabled="pending"
           @click="loadActivities"

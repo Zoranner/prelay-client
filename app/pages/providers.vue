@@ -286,7 +286,11 @@ onMounted(loadProviders);
         <Button :disabled="loadingProviders" @click="loadProviders">
           {{ loadingProviders ? "刷新中..." : "刷新" }}
         </Button>
-        <Button variant="primary" icon="ph:plus" @click="newProvider"
+        <Button
+          semantic="primary"
+          variant="solid"
+          icon="ph:plus"
+          @click="newProvider"
           >新增</Button
         >
       </template>
@@ -324,7 +328,8 @@ onMounted(loadProviders);
         <Button
           form="provider-form"
           type="submit"
-          variant="primary"
+          semantic="primary"
+          variant="solid"
           :disabled="pending"
         >
           {{ pending ? "保存中..." : "保存" }}

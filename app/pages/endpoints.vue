@@ -112,7 +112,7 @@ async function copy(value: string) {
     await navigator.clipboard.writeText(value);
     notifications.success("已复制到剪贴板");
   } catch {
-    notifications.danger("请手动复制。", { title: "无法访问剪贴板" });
+    notifications.error("请手动复制。", { title: "无法访问剪贴板" });
   }
 }
 
@@ -170,7 +170,8 @@ onMounted(load);
           {{ pending ? "刷新中..." : "刷新" }}
         </Button>
         <Button
-          variant="primary"
+          semantic="primary"
+          variant="solid"
           icon="ph:plus"
           :disabled="pending"
           @click="createEndpoint"
@@ -207,7 +208,8 @@ onMounted(load);
         <Button
           form="endpoint-form"
           type="submit"
-          variant="primary"
+          semantic="primary"
+          variant="solid"
           :disabled="pending"
         >
           {{ pending ? "保存中..." : "保存" }}

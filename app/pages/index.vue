@@ -96,7 +96,8 @@ watch(selectedRange, loadDashboard);
       <template #header-actions>
         <StatsRangeSelect v-model="selectedRange" />
         <Button
-          variant="primary"
+          semantic="primary"
+          variant="solid"
           icon="ph:arrows-clockwise"
           :disabled="pending"
           @click="loadDashboard"

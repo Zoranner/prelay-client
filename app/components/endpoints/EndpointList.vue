@@ -108,7 +108,8 @@ function modelLabel(model: EndpointModel) {
         <Button
           square
           size="small"
-          variant="danger"
+          semantic="error"
+          variant="solid"
           icon="ph:trash"
           :disabled="pending"
           aria-label="删除接入点"

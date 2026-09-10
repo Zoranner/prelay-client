@@ -69,7 +69,7 @@ export function providerModelOptions(
   }));
 }
 
-export type ProtocolTagVariant = "primary" | "success" | "warning" | "default";
+export type ProtocolTagPalette = "blue" | "cyan" | "violet" | "amber" | "gray";
 
 export function protocolLabel(protocol: string | null) {
   return protocol === "responses"
@@ -83,16 +83,18 @@ export function protocolLabel(protocol: string | null) {
           : "-";
 }
 
-export function protocolTagVariant(
+export function protocolTagPalette(
   protocol: string | null,
-): ProtocolTagVariant {
+): ProtocolTagPalette {
   return protocol === "responses"
-    ? "success"
+    ? "cyan"
     : protocol === "anthropic" || protocol === "anthropic_messages"
-      ? "warning"
+      ? "violet"
       : protocol === "openai" || protocol === "chat_completions"
-        ? "primary"
-        : "default";
+        ? "blue"
+        : protocol === "images_generations"
+          ? "amber"
+          : "gray";
 }
 
 function upstreamProtocol(protocol: CatalogProviderProtocol): UpstreamProtocol {

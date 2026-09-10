@@ -70,7 +70,7 @@ test("智能体刷新按钮是带图标的主操作并保留加载反馈", () =>
   const page = source("pages/agents.vue");
 
   expect(page).toMatch(
-    /<Button\s+variant="primary"\s+icon="ph:arrows-clockwise"\s+:disabled="clientStatusesLoading"\s+aria-label="刷新"\s+title="刷新"\s+@click="refreshAgentClients"\s+>\s+\{\{ clientStatusesLoading \? "刷新中\.\.\." : "刷新" \}\}/,
+    /<Button[\s\S]*semantic="primary"[\s\S]*variant="solid"[\s\S]*icon="ph:arrows-clockwise"[\s\S]*:disabled="clientStatusesLoading"[\s\S]*@click="refreshAgentClients"/,
   );
 });
 

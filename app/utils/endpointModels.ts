@@ -84,3 +84,44 @@ export function groupEndpointModels(
   });
   return [...groups.values()];
 }
+
+export type EndpointMappingCheck = {
+  providerId: string;
+  upstreamModel: string;
+  providerModels: EndpointProviderModelOption[];
+  endpointModels: EndpointModelLike[];
+  fixedModelName?: string;
+};
+
+export type EndpointMappingFailure = {
+  message: string;
+  title: string;
+};
+
+export function checkEndpointMapping(
+  check: EndpointMappingCheck,
+): EndpointMappingFailure | null {
+  if (!check.providerId || !check.upstreamModel) {
+    return { message: "请选择供应商和上游模型。", title: "模型配置不完整" };
+  }
+  if (
+    !check.providerModels.some(
+      (model) => model.model_name === check.upstreamModel,
+    )
+  ) {
+    return { message: "请选择该供应商已配置的模型。", title: "上游模型无效" };
+  }
+  if (check.fixedModelName && check.upstreamModel !== check.fixedModelName) {
+    return { message: "只能添加相同名称的上游模型。", title: "模型不匹配" };
+  }
+  if (
+    check.endpointModels.some(
+      (mapping) =>
+        mapping.provider_id === check.providerId &&
+        mapping.upstream_model === check.upstreamModel,
+    )
+  ) {
+    return { message: "该供应商已经绑定此模型。", title: "模型已存在" };
+  }
+  return null;
+}

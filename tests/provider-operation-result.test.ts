@@ -93,7 +93,7 @@ test("供应商表单内的协议测试也发送全局通知并保留指标", ()
 
   expect(form).toContain("getProviderOperationFeedback");
   expect(form).toContain("notifications.notify");
-  expect(form).toContain('type: feedback.success ? "success" : "danger"');
+  expect(form).toContain('semantic: feedback.success ? "success" : "error"');
   expect(form).toContain('message: feedback.metrics ?? ""');
 });
 

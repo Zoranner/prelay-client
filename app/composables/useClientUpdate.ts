@@ -87,7 +87,7 @@ export function useClientUpdate() {
       });
     } catch (caught) {
       const error = toRelayError(caught);
-      notifications.danger(error.message, { title: "启动安装程序失败" });
+      notifications.error(error.message, { title: "启动安装程序失败" });
       installing.value = false;
     }
   }

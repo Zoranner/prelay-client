@@ -136,7 +136,14 @@ async function save() {
 
     <template #footer>
       <Button :disabled="saving" @click="requestClose">取消</Button>
-      <Button variant="primary" :disabled="saving" @click="save">保存</Button>
+      <Button
+        semantic="primary"
+        variant="solid"
+        :disabled="saving"
+        @click="save"
+      >
+        保存
+      </Button>
     </template>
   </Modal>
 </template>

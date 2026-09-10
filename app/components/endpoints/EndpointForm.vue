@@ -7,6 +7,7 @@ import type {
 } from "~/stores/relay";
 import {
   availableEndpointModelsForProvider,
+  checkEndpointMapping,
   endpointModelsForProvider,
   groupEndpointModels,
   providerOptionLabel,
@@ -137,38 +138,15 @@ function selectProvider(form: ModelForm, group?: EndpointModelGroup) {
 
 function addMapping(form: ModelForm, fixedModelName?: string) {
   const upstreamModel = form.upstream_model.trim();
-  if (!form.provider_id || !upstreamModel) {
-    notifications.danger("请选择供应商和上游模型。", {
-      title: "模型配置不完整",
-    });
-    return false;
-  }
-  if (
-    !modelsForProvider(form.provider_id).some(
-      (item) => item.model_name === upstreamModel,
-    )
-  ) {
-    notifications.danger("请选择该供应商已配置的模型。", {
-      title: "上游模型无效",
-    });
-    return false;
-  }
-  if (fixedModelName && upstreamModel !== fixedModelName) {
-    notifications.danger("只能添加相同名称的上游模型。", {
-      title: "模型不匹配",
-    });
-    return false;
-  }
-  if (
-    models.value.some(
-      (mapping) =>
-        mapping.provider_id === form.provider_id &&
-        mapping.upstream_model === upstreamModel,
-    )
-  ) {
-    notifications.danger("该供应商已经绑定此模型。", {
-      title: "模型已存在",
-    });
+  const failure = checkEndpointMapping({
+    providerId: form.provider_id,
+    upstreamModel,
+    providerModels: modelsForProvider(form.provider_id),
+    endpointModels: models.value,
+    fixedModelName,
+  });
+  if (failure) {
+    notifications.error(failure.message, { title: failure.title });
     return false;
   }
   models.value.push({
@@ -212,11 +190,11 @@ function removeModel(index: number) {
 
 function submit() {
   if (!name.value.trim()) {
-    notifications.danger("请填写接入点名称。", { title: "接入点配置不完整" });
+    notifications.error("请填写接入点名称。", { title: "接入点配置不完整" });
     return;
   }
   if (!models.value.length) {
-    notifications.danger("请至少新增一个模型。", { title: "接入点配置不完整" });
+    notifications.error("请至少新增一个模型。", { title: "接入点配置不完整" });
     return;
   }
   emit("save", {
@@ -249,9 +227,14 @@ function submit() {
             size="large"
             @update:model-value="setModelPopover"
           >
-            <Button size="small" type="button" variant="primary" icon="ph:plus">
-              新增
-            </Button>
+            <Button
+              size="small"
+              type="button"
+              semantic="primary"
+              variant="solid"
+              icon="ph:plus"
+              >新增</Button
+            >
             <template #title>新增模型</template>
             <template #content>
               <div class="model-popover">
@@ -273,12 +256,14 @@ function submit() {
             </template>
             <template #footer>
               <Button
-                variant="primary"
+                semantic="primary"
+                variant="solid"
                 type="button"
                 :disabled="pending"
                 @click="addModel"
-                >确认</Button
               >
+                确认
+              </Button>
             </template>
           </Popover>
         </div>
@@ -325,12 +310,14 @@ function submit() {
                 </template>
                 <template #footer>
                   <Button
-                    variant="primary"
+                    semantic="primary"
+                    variant="solid"
                     type="button"
                     :disabled="pending"
                     @click="addProvider(group.name)"
-                    >确认</Button
                   >
+                    确认
+                  </Button>
                 </template>
               </Popover>
             </div>
@@ -356,7 +343,8 @@ function submit() {
             <Button
               square
               size="small"
-              variant="danger"
+              semantic="error"
+              variant="solid"
               icon="ph:trash"
               aria-label="删除供应商映射"
               title="删除供应商映射"

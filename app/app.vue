@@ -102,7 +102,9 @@ function isDesktopRuntime() {
       >
         <p class="app-error-detail">{{ managementApiError.message }}</p>
         <Button @click="switchRelayAddress">切换服务地址</Button>
-        <Button variant="primary" @click="reloadApplication"> 重新加载 </Button>
+        <Button semantic="primary" variant="solid" @click="reloadApplication">
+          重新加载
+        </Button>
       </Result>
     </div>
     <DesktopPreferencesDialog v-model:visible="desktopPreferencesVisible" />

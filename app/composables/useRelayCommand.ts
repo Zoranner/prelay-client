@@ -72,7 +72,7 @@ export function useRelayCommand(): CommandState & {
     } catch (caught) {
       const relayError = toRelayError(caught);
       error.value = relayError;
-      notifications.danger(notificationMessage(relayError), {
+      notifications.error(notificationMessage(relayError), {
         title: "管理服务请求失败",
       });
       if (relayError.code === "network_error") {

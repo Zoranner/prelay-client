@@ -4,7 +4,7 @@ import cutouts from "@dicebear/styles/cutouts.json";
 import { Avatar, Badge, Button, Table, Tag } from "@stellar/ui";
 import type { IdentityDirectoryEntry, ProviderListItem } from "~/stores/relay";
 import { providerProtocolOptions } from "~/utils/providerCapabilities";
-import { protocolLabel, protocolTagVariant } from "~/utils/providerTemplates";
+import { protocolLabel, protocolTagPalette } from "~/utils/providerTemplates";
 
 type ProviderRow = ProviderListItem & Record<string, unknown>;
 
@@ -48,16 +48,16 @@ const rows = computed<ProviderRow[]>(() => props.providers as ProviderRow[]);
 
 function pingStatus(providerId: string) {
   const state = props.pingStates[providerId];
-  if (state?.checking) return { label: "检查中", variant: "info" as const };
+  if (state?.checking) return { label: "检查中", semantic: "info" as const };
   if (state?.ok) {
     return {
       label: state.latencyMs == null ? "已连接" : `${state.latencyMs} ms`,
-      variant: "success" as const,
+      semantic: "success" as const,
     };
   }
   if (state?.ok === false)
-    return { label: "连接失败", variant: "danger" as const };
-  return { label: "未检查", variant: "default" as const };
+    return { label: "连接失败", semantic: "error" as const };
+  return { label: "未检查", semantic: undefined };
 }
 
 function avatarSrc(identityId: string) {
@@ -144,7 +144,7 @@ function scopeTitle(row: ProviderListItem) {
           v-for="protocol in providerProtocolOptions(row)"
           :key="protocol"
           size="small"
-          :variant="protocolTagVariant(protocol)"
+          :palette="protocolTagPalette(protocol)"
         >
           {{ protocolLabel(protocol) }}
         </Tag>
@@ -168,7 +168,7 @@ function scopeTitle(row: ProviderListItem) {
       </div>
     </template>
     <template #cell-status="{ row }">
-      <Badge :variant="pingStatus(row.id).variant">{{
+      <Badge :semantic="pingStatus(row.id).semantic" variant="soft">{{
         pingStatus(row.id).label
       }}</Badge>
     </template>
@@ -195,7 +195,8 @@ function scopeTitle(row: ProviderListItem) {
         <Button
           square
           size="small"
-          variant="danger"
+          semantic="error"
+          variant="solid"
           icon="ph:trash"
           :disabled="!row.can_manage"
           aria-label="删除供应商"

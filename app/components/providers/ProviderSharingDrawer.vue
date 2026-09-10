@@ -177,7 +177,8 @@ function formatDate(value: unknown) {
       <Button @click="close">关闭</Button>
       <Button
         v-if="provider?.can_manage"
-        variant="primary"
+        semantic="primary"
+        variant="solid"
         :disabled="pending"
         @click="saveSharing"
       >

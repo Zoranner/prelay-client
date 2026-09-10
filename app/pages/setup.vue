@@ -56,7 +56,12 @@ async function save() {
           required
           type="url"
         />
-        <Button variant="primary" :disabled="pending" type="submit">
+        <Button
+          semantic="primary"
+          variant="solid"
+          :disabled="pending"
+          type="submit"
+        >
           {{ pending ? "正在连接..." : "继续" }}
         </Button>
       </form>

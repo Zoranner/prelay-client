@@ -88,7 +88,7 @@ async function install(overwrite = false) {
       }
       return;
     }
-    notifications.danger(error.message ?? "扩展安装失败。", {
+    notifications.error(error.message ?? "扩展安装失败。", {
       title: "扩展安装失败",
     });
   } finally {
@@ -128,7 +128,8 @@ watch(
     <template #footer>
       <Button :disabled="installing" @click="visible = false">取消</Button>
       <Button
-        variant="primary"
+        semantic="primary"
+        variant="solid"
         :disabled="installing || !selectedClients.length"
         @click="install()"
       >

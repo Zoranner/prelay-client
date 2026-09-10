@@ -39,17 +39,12 @@ function statusLabel(status: AgentItem["status"]) {
   return { enabled: "启用", disabled: "禁用", error: "错误" }[status];
 }
 
-function statusVariant(
-  status: AgentItem["status"],
-): "success" | "default" | "danger" {
-  switch (status) {
-    case "enabled":
-      return "success";
-    case "error":
-      return "danger";
-    default:
-      return "default";
-  }
+function statusSemantic(status: AgentItem["status"]) {
+  return status === "enabled"
+    ? "success"
+    : status === "error"
+      ? "error"
+      : undefined;
 }
 
 async function copySourcePath(sourcePath: string) {
@@ -57,7 +52,7 @@ async function copySourcePath(sourcePath: string) {
     await navigator.clipboard.writeText(sourcePath);
     notifications.success("已复制来源路径");
   } catch {
-    notifications.danger("请手动复制。", { title: "无法访问剪贴板" });
+    notifications.error("请手动复制。", { title: "无法访问剪贴板" });
   }
 }
 </script>
@@ -82,7 +77,10 @@ async function copySourcePath(sourcePath: string) {
       {{ row.version || "-" }}
     </template>
     <template #cell-source="{ row }">
-      <Badge :variant="row.source === 'team' ? 'primary' : 'default'">
+      <Badge
+        :semantic="row.source === 'team' ? 'primary' : undefined"
+        variant="soft"
+      >
         {{ row.source === "team" ? "团队" : "个人" }}
       </Badge>
     </template>
@@ -102,7 +100,7 @@ async function copySourcePath(sourcePath: string) {
       </div>
     </template>
     <template v-if="showStatus" #cell-status="{ row }">
-      <Badge :variant="statusVariant(row.status)">
+      <Badge :semantic="statusSemantic(row.status)" variant="soft">
         {{ statusLabel(row.status) }}
       </Badge>
     </template>
@@ -110,7 +108,8 @@ async function copySourcePath(sourcePath: string) {
       <Button
         square
         size="small"
-        variant="danger"
+        semantic="error"
+        variant="solid"
         icon="ph:trash"
         aria-label="卸载"
         title="卸载"

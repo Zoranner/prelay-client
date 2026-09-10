@@ -71,7 +71,8 @@ const emit = defineEmits<{
       <Button
         form="agent-settings-form"
         type="submit"
-        variant="primary"
+        semantic="primary"
+        variant="solid"
         :disabled="pending"
       >
         {{ pending ? "保存中..." : "保存" }}
