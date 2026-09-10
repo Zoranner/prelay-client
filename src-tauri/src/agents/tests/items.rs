@@ -7,6 +7,7 @@ use super::super::{
     AgentItemKind, AgentItemSource, AgentItemStatus,
 };
 use super::write;
+use crate::agents::integrations::{claude_code::CLAUDE_CODE, AgentIntegration};
 
 #[test]
 fn scans_user_level_codex_items_and_distinguishes_disabled_entries() {
@@ -281,4 +282,135 @@ fn includes_chatgpt_when_only_the_desktop_app_is_installed() {
     assert_eq!(snapshot.clients.len(), 1);
     assert_eq!(snapshot.clients[0].client, AgentClient::ChatGpt);
     assert!(snapshot.clients[0].items.is_empty());
+}
+
+#[test]
+fn scans_user_level_claude_code_mcp_servers() {
+    let directory = tempdir().unwrap();
+    write(
+        directory.path().join(".claude.json"),
+        r#"{
+  "numStartups": 3,
+  "mcpServers": {
+    "godot": { "type": "stdio", "command": "godot-mcp" },
+    "docs": { "type": "http", "url": "https://relay.example.test/mcp" }
+  }
+}"#,
+    );
+    write(
+        directory
+            .path()
+            .join(".claude")
+            .join("skills")
+            .join("web-research")
+            .join("SKILL.md"),
+        "---\nname: web-research\n---\n",
+    );
+
+    let snapshot = scan_user_items_with_installation(directory.path(), |client| {
+        client == AgentClient::ClaudeCode
+    });
+    let claude = snapshot.clients.first().unwrap();
+
+    assert!(claude.items.iter().any(|item| {
+        item.kind == AgentItemKind::Mcp
+            && item.name == "godot"
+            && item.status == AgentItemStatus::Enabled
+            && item.source == AgentItemSource::Personal
+            && item.source_path.ends_with(".claude.json")
+    }));
+    assert!(claude
+        .items
+        .iter()
+        .any(|item| { item.kind == AgentItemKind::Mcp && item.name == "docs" }));
+    assert!(claude
+        .items
+        .iter()
+        .any(|item| { item.kind == AgentItemKind::Skill && item.name == "web-research" }));
+}
+
+#[test]
+fn ignores_claude_code_state_without_mcp_servers() {
+    let directory = tempdir().unwrap();
+    write(
+        directory.path().join(".claude.json"),
+        r#"{ "numStartups": 1 }"#,
+    );
+
+    let snapshot = scan_user_items_with_installation(directory.path(), |client| {
+        client == AgentClient::ClaudeCode
+    });
+
+    assert!(snapshot.clients[0].items.is_empty());
+}
+
+#[test]
+fn records_invalid_claude_code_mcp_configuration_as_one_error() {
+    let directory = tempdir().unwrap();
+    write(directory.path().join(".claude.json"), "{ \"mcpServers\": {");
+
+    let snapshot = scan_user_items_with_installation(directory.path(), |client| {
+        client == AgentClient::ClaudeCode
+    });
+    let claude = snapshot.clients.first().unwrap();
+
+    assert_eq!(claude.items.len(), 1);
+    assert_eq!(claude.items[0].kind, AgentItemKind::Mcp);
+    assert_eq!(claude.items[0].status, AgentItemStatus::Error);
+}
+
+#[test]
+fn uninstalls_claude_code_mcp_server_without_touching_other_state() {
+    let directory = tempdir().unwrap();
+    write(
+        directory.path().join(".claude.json"),
+        r#"{
+  "numStartups": 3,
+  "projects": { "E:\\demo": { "allowedTools": ["Read"] } },
+  "mcpServers": {
+    "keep": { "type": "stdio", "command": "keep" },
+    "remove": { "type": "stdio", "command": "remove" }
+  }
+}"#,
+    );
+
+    let snapshot = scan_user_items_with_installation(directory.path(), |client| {
+        client == AgentClient::ClaudeCode
+    });
+    let item = snapshot.clients[0]
+        .items
+        .iter()
+        .find(|item| item.kind == AgentItemKind::Mcp && item.name == "remove")
+        .unwrap();
+    uninstall_user_item_with_installation(
+        directory.path(),
+        AgentClient::ClaudeCode,
+        item.kind,
+        &item.name,
+        &item.source_path,
+        |client| client == AgentClient::ClaudeCode,
+    )
+    .unwrap();
+
+    let contents = fs::read_to_string(directory.path().join(".claude.json")).unwrap();
+    let config: serde_json::Value = serde_json::from_str(&contents).unwrap();
+    assert_eq!(config["numStartups"], 3);
+    assert!(config["projects"]["E:\\demo"].is_object());
+    assert!(config["mcpServers"]["keep"].is_object());
+    assert!(config["mcpServers"].get("remove").is_none());
+}
+
+#[test]
+fn rejects_uninstalling_a_missing_claude_code_mcp_server() {
+    let directory = tempdir().unwrap();
+    write(
+        directory.path().join(".claude.json"),
+        r#"{ "mcpServers": { "keep": { "type": "stdio", "command": "keep" } } }"#,
+    );
+
+    let error = CLAUDE_CODE
+        .uninstall(directory.path(), AgentItemKind::Mcp, "missing", "")
+        .unwrap_err();
+
+    assert_eq!(error, "未找到要卸载的配置项。");
 }

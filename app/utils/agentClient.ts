@@ -42,7 +42,7 @@ export const agentClientDefinitions: Array<{
     icon: claudeCodeIcon,
     configurable: true,
     monochrome: true,
-    sections: ["rules", "skill"],
+    sections: ["rules", "mcp", "skill"],
   },
 ];
 
