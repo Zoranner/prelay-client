@@ -203,14 +203,6 @@ function scopeTitle(row: ProviderListItem) {
           title="删除供应商"
           @click.stop="emit('remove', row)"
         />
-        <Button
-          square
-          size="small"
-          icon="ph:share-network"
-          :aria-label="`管理 ${row.name || row.provider_type} 共享`"
-          title="共享与统计"
-          @click.stop="emit('share', row)"
-        />
       </div>
     </template>
   </Table>

@@ -148,7 +148,7 @@ test("非创建人供应商禁用编辑、删除、Ping 和协议测试", () => 
   const page = pageSource();
 
   expect(providerListSource).toContain(':disabled="!row.can_manage"');
-  expect(providerListSource).toContain("@click.stop=\"emit('share', row)\"");
+  expect(providerListSource).not.toContain("emit('share'");
   expect(page).toContain(
     ':can-edit="editingProvider ? editingProvider.can_manage : true"',
   );
