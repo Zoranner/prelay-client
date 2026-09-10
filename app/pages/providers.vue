@@ -2,6 +2,7 @@
 import type {
   CatalogProvider,
   IdentityDirectoryEntry,
+  Provider,
   ProviderListItem,
   ProviderSharing,
   ProviderSharingInput,
@@ -22,7 +23,7 @@ const notifications = useNotification();
 const workspaceExit = useWorkspaceExitGuard();
 const providers = ref<ProviderListItem[]>([]);
 const catalogProviders = ref<CatalogProvider[]>([]);
-const editingProvider = ref<ProviderListItem | null>(null);
+const editingProvider = ref<EditableProvider | null>(null);
 const showForm = ref(false);
 const loadingProviders = ref(false);
 const pingStates = ref<Record<string, ProviderPingState>>({});
@@ -39,6 +40,11 @@ type ProviderPingState = {
   checking: boolean;
   ok?: boolean;
   latencyMs?: number | null;
+};
+
+type EditableProvider = ProviderListItem & {
+  api_key?: string;
+  api_key_masked?: string;
 };
 
 async function loadProviders() {
@@ -163,9 +169,18 @@ function testProtocolFromForm(input: {
   });
 }
 
-function editProvider(provider: ProviderListItem) {
+async function editProvider(provider: ProviderListItem) {
   formDirty.value = false;
-  editingProvider.value = provider;
+  let editable: EditableProvider = provider;
+  try {
+    const detail = await invokeCommand<Provider>("providers_get", {
+      providerId: provider.id,
+    });
+    editable = { ...provider, ...detail };
+  } catch {
+    // The command composable exposes the error to this view.
+  }
+  editingProvider.value = editable;
   showForm.value = true;
 }
 

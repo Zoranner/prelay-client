@@ -29,6 +29,17 @@ pub async fn providers_list(
 }
 
 #[tauri::command]
+pub async fn providers_get(
+    state: State<'_, NativeState>,
+    provider_id: String,
+) -> Result<ProviderResponse, ClientError> {
+    authenticated_api(&state)
+        .await?
+        .get(&format!("/api/providers/{provider_id}"))
+        .await
+}
+
+#[tauri::command]
 pub async fn catalog_providers_list(
     state: State<'_, NativeState>,
 ) -> Result<Vec<CatalogProviderResponse>, ClientError> {
