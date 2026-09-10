@@ -108,3 +108,49 @@ test("智能体模型选项使用目录显示名且连接携带目录对象", ()
   expect(agentUtils).toContain("CatalogLanguageModelResponse");
   expect(agentUtils).toContain("catalogModel?: CatalogLanguageModelResponse");
 });
+
+test("Claude Code 设置覆盖模型分配与接入开关", () => {
+  const form = source("components/agents/ClaudeCodeSettingsForm.vue");
+  const agentUtils = source("utils/agentSettings.ts");
+
+  for (const field of [
+    "opusModel",
+    "sonnetModel",
+    "haikuModel",
+    "subagentModel",
+    "apiTimeoutMs",
+    "maxOutputTokens",
+    "toolSearchEnabled",
+    "nonessentialTrafficDisabled",
+  ]) {
+    expect(form).toContain(field);
+    expect(agentUtils).toContain(field);
+  }
+
+  expect(form).toContain('label: "不设置"');
+  expect(form).toContain("updateNumber");
+  expect(agentUtils).toContain("apiTimeoutMs: null");
+});
+
+test("智能体设置表单定义了自己用到的分组与字段样式", () => {
+  for (const form of [
+    "CodexSettingsForm.vue",
+    "ClaudeCodeSettingsForm.vue",
+    "OpenCodeSettingsForm.vue",
+  ]) {
+    const contents = source(`components/agents/${form}`);
+    for (const rule of [
+      "group",
+      "group-header",
+      "fields",
+      "rows",
+      "row",
+      "label",
+      "value",
+    ]) {
+      if (contents.includes(`class="agent-settings__${rule}"`)) {
+        expect(contents).toContain(`.agent-settings__${rule}`);
+      }
+    }
+  }
+});

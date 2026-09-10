@@ -187,6 +187,22 @@ pub struct ClaudeCodeSettings {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub model: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub opus_model: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub sonnet_model: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub haiku_model: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub subagent_model: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub api_timeout_ms: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub max_output_tokens: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub tool_search_enabled: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub nonessential_traffic_disabled: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub rules: Option<String>,
 }
 

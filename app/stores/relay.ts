@@ -381,6 +381,14 @@ export type ClaudeCodeSettings = Partial<{
   baseUrl: string;
   endpointToken: string;
   model: string;
+  opusModel: string;
+  sonnetModel: string;
+  haikuModel: string;
+  subagentModel: string;
+  apiTimeoutMs: number;
+  maxOutputTokens: number;
+  toolSearchEnabled: boolean;
+  nonessentialTrafficDisabled: boolean;
   rules: string;
 }>;
 

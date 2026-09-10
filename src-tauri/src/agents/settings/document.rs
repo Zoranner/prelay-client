@@ -184,3 +184,23 @@ pub(super) fn json_string(value: Option<&serde_json::Value>, path: &[&str]) -> O
         .and_then(serde_json::Value::as_str)
         .map(str::to_owned)
 }
+
+pub(super) fn json_env_integer(value: Option<&serde_json::Value>, key: &str) -> Option<u64> {
+    match json_value(value, &["env", key])? {
+        serde_json::Value::Number(number) => number.as_u64(),
+        serde_json::Value::String(text) => text.trim().parse().ok(),
+        _ => None,
+    }
+}
+
+pub(super) fn json_env_flag(value: Option<&serde_json::Value>, key: &str) -> Option<bool> {
+    match json_value(value, &["env", key])? {
+        serde_json::Value::Bool(flag) => Some(*flag),
+        serde_json::Value::String(text) => match text.trim().to_ascii_lowercase().as_str() {
+            "1" | "true" => Some(true),
+            "0" | "false" => Some(false),
+            _ => None,
+        },
+        _ => None,
+    }
+}

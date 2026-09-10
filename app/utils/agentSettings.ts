@@ -36,7 +36,19 @@ export type OpenCodeSettingsDraft = {
   rules: string;
 };
 
-export type ClaudeCodeSettingsDraft = OpenCodeSettingsDraft;
+export type ClaudeCodeSettingsDraft = {
+  endpoint: string;
+  model: string;
+  opusModel: string;
+  sonnetModel: string;
+  haikuModel: string;
+  subagentModel: string;
+  apiTimeoutMs: number | null;
+  maxOutputTokens: number | null;
+  toolSearchEnabled: boolean;
+  nonessentialTrafficDisabled: boolean;
+  rules: string;
+};
 
 export type AgentConfiguration = {
   codexCli: CodexSettingsDraft;
@@ -92,6 +104,14 @@ export function createAgentConfiguration(): AgentConfiguration {
     claudeCode: {
       endpoint: "",
       model: "",
+      opusModel: "",
+      sonnetModel: "",
+      haikuModel: "",
+      subagentModel: "",
+      apiTimeoutMs: null,
+      maxOutputTokens: null,
+      toolSearchEnabled: false,
+      nonessentialTrafficDisabled: false,
       rules: "",
     },
   };
