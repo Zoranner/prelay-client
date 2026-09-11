@@ -1,6 +1,6 @@
 mod chatgpt;
 pub(crate) mod claude_code;
-mod codex_cli;
+pub(crate) mod codex_cli;
 pub(crate) mod opencode;
 
 use std::path::{Path, PathBuf};

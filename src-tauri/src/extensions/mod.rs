@@ -68,6 +68,15 @@ pub struct ExtensionInstallResult {
     pub message: String,
 }
 
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct McpInstallPreview {
+    pub name: String,
+    pub version: String,
+    pub commit_sha: String,
+    pub manifest: prelay_protocol::ExtensionMcpManifest,
+}
+
 pub async fn list_extensions(
     home: &Path,
     state: &NativeState,
@@ -187,7 +196,7 @@ pub async fn read_extension_readme(
 pub async fn read_mcp_install_manifest(
     state: &NativeState,
     package: &ExtensionPackage,
-) -> Result<prelay_protocol::ExtensionMcpManifest, ClientError> {
+) -> Result<McpInstallPreview, ClientError> {
     if package.kind != ExtensionKind::Mcp {
         return Err(ClientError::new(
             "invalid_request",
@@ -201,14 +210,15 @@ pub async fn read_mcp_install_manifest(
             package.name, package.version
         ))
         .await?;
-    validate_bundle(&bundle)?;
-    if bundle.kind != ExtensionKind::Mcp {
-        return Err(ClientError::new(
-            "invalid_response",
-            "扩展安装包类型不匹配。",
-        ));
-    }
-    mcp::read_mcp_manifest(bundle.files.first().expect("validated MCP install bundle"))
+    validate_package_bundle(package, &bundle)?;
+    Ok(McpInstallPreview {
+        name: bundle.name,
+        version: bundle.version.tag,
+        commit_sha: bundle.version.commit_sha,
+        manifest: mcp::read_mcp_manifest(
+            bundle.files.first().expect("validated MCP install bundle"),
+        )?,
+    })
 }
 
 pub async fn install_extension(
@@ -223,7 +233,7 @@ pub async fn install_extension(
             request.package.name, request.package.version
         ))
         .await?;
-    validate_bundle(&bundle)?;
+    validate_package_bundle(&request.package, &bundle)?;
 
     match bundle.kind {
         ExtensionKind::Rule => {
@@ -297,7 +307,7 @@ pub async fn update_all_skill_extensions(
                 package.name, package.version
             ))
             .await?;
-        validate_bundle(&bundle)?;
+        validate_package_bundle(package, &bundle)?;
         for target_root in target_roots {
             skills::install_skill_files(
                 target_root,
@@ -333,6 +343,24 @@ fn validate_bundle(bundle: &ExtensionInstallBundle) -> Result<(), ClientError> {
             "extension install bundle is invalid",
         )),
     }
+}
+
+fn validate_package_bundle(
+    package: &ExtensionPackage,
+    bundle: &ExtensionInstallBundle,
+) -> Result<(), ClientError> {
+    validate_bundle(bundle)?;
+    if bundle.name != package.name
+        || bundle.kind != package.kind
+        || bundle.version.tag != package.version
+        || bundle.version.commit_sha != package.commit_sha
+    {
+        return Err(ClientError::new(
+            "invalid_response",
+            "扩展安装包与已选择的固定版本不一致。",
+        ));
+    }
+    Ok(())
 }
 
 fn mcp_agent_clients(clients: &[AgentClient]) -> Vec<AgentClient> {
@@ -380,3 +408,7 @@ fn storage_error(error: std::io::Error) -> ClientError {
         format!("无法写入扩展文件：{error}"),
     )
 }
+
+#[cfg(test)]
+#[path = "mod_tests.rs"]
+mod tests;

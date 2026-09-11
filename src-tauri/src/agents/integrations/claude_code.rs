@@ -88,7 +88,7 @@ fn scan_mcp_servers(home: &Path) -> Vec<AgentItem> {
         .collect()
 }
 
-fn remove_mcp_server(home: &Path, name: &str) -> Result<(), String> {
+pub(crate) fn remove_mcp_server(home: &Path, name: &str) -> Result<(), String> {
     let path = mcp_configuration_path(home);
     let contents =
         fs::read_to_string(&path).map_err(|error| format!("无法读取 Claude Code 配置：{error}"))?;
@@ -117,6 +117,25 @@ pub(crate) fn mcp_server_exists(home: &Path, name: &str) -> Result<bool, String>
         .get("mcpServers")
         .and_then(Value::as_object)
         .is_some_and(|servers| servers.contains_key(name)))
+}
+
+pub(crate) fn mcp_server_matches(
+    home: &Path,
+    manifest: &ExtensionMcpManifest,
+) -> Result<bool, String> {
+    let path = mcp_configuration_path(home);
+    let contents = match fs::read_to_string(&path) {
+        Ok(contents) => contents,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(false),
+        Err(error) => return Err(format!("无法读取 Claude Code 配置：{error}")),
+    };
+    let document = serde_json::from_str::<Value>(&contents)
+        .map_err(|error| format!("Claude Code 配置不是有效的 JSON：{error}"))?;
+    let actual = document
+        .get("mcpServers")
+        .and_then(Value::as_object)
+        .and_then(|servers| servers.get(&manifest.name));
+    Ok(actual == Some(&mcp_server_entry(manifest)?))
 }
 
 pub(crate) fn upsert_mcp_server(

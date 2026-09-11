@@ -115,6 +115,10 @@ fn remove_config_entry(path: &Path, section: &str, name: &str) -> Result<(), Str
     write_json(path, &document)
 }
 
+pub(crate) fn remove_mcp_server(home: &Path, name: &str) -> Result<(), String> {
+    remove_config_entry(&configuration_path(home), "mcp", name)
+}
+
 pub(crate) fn mcp_server_exists(home: &Path, name: &str) -> Result<bool, String> {
     let path = configuration_path(home);
     let contents = match fs::read_to_string(&path) {
@@ -128,6 +132,25 @@ pub(crate) fn mcp_server_exists(home: &Path, name: &str) -> Result<bool, String>
         .get("mcp")
         .and_then(Value::as_object)
         .is_some_and(|servers| servers.contains_key(name)))
+}
+
+pub(crate) fn mcp_server_matches(
+    home: &Path,
+    manifest: &ExtensionMcpManifest,
+) -> Result<bool, String> {
+    let path = configuration_path(home);
+    let contents = match fs::read_to_string(&path) {
+        Ok(contents) => contents,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(false),
+        Err(error) => return Err(format!("无法读取 OpenCode 配置：{error}")),
+    };
+    let document = json5::from_str::<Value>(&contents)
+        .map_err(|error| format!("OpenCode 配置不是有效的 JSONC：{error}"))?;
+    let actual = document
+        .get("mcp")
+        .and_then(Value::as_object)
+        .and_then(|servers| servers.get(&manifest.name));
+    Ok(actual == Some(&mcp_server_entry(manifest)?))
 }
 
 pub(crate) fn upsert_mcp_server(

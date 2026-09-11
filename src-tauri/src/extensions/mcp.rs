@@ -9,7 +9,8 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     agents::{
-        claude_code, codex_mcp_server_exists, opencode, upsert_codex_mcp_server, AgentClient,
+        claude_code, codex_mcp_server_exists, codex_mcp_server_matches, opencode,
+        remove_codex_mcp_server, upsert_codex_mcp_server, AgentClient,
     },
     relay::client::ClientError,
 };
@@ -23,12 +24,20 @@ const MCP_PACKAGE_STATE_FILE: &str = "mcp.json";
 #[serde(transparent)]
 struct InstalledMcpPackages(BTreeMap<String, InstalledMcpPackage>);
 
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 struct InstalledMcpPackage {
     server_name: String,
     version: String,
     commit_sha: String,
+    #[serde(default)]
+    manifest: Option<ExtensionMcpManifest>,
+}
+
+struct PreparedMcpInstallation {
+    client: AgentClient,
+    installed: InstalledMcpPackages,
+    previous_server: Option<String>,
 }
 
 pub(crate) struct McpInstallationStatus {
@@ -67,9 +76,10 @@ pub(super) fn install_mcp(
     manifest: &ExtensionMcpManifest,
     overwrite: bool,
 ) -> Result<(), ClientError> {
+    let mut targets = Vec::with_capacity(clients.len());
     for client in clients {
         let exists = mcp_server_exists(home, *client, &manifest.name)?;
-        let mut installed = read_installed_mcp_packages(home, *client)?;
+        let installed = read_installed_mcp_packages(home, *client)?;
         let owned = installed
             .0
             .get(package)
@@ -80,25 +90,51 @@ pub(super) fn install_mcp(
                 "MCP 服务名已存在，确认后可覆盖安装。",
             ));
         }
-        installed.0.retain(|installed_package, entry| {
+        let previous_server = if let Some(previous) = installed
+            .0
+            .get(package)
+            .filter(|entry| entry.server_name != manifest.name)
+        {
+            match previous.manifest.as_ref() {
+                Some(current) if mcp_server_matches(home, *client, current)? => {
+                    Some(previous.server_name.clone())
+                }
+                _ => None,
+            }
+        } else {
+            None
+        };
+        targets.push(PreparedMcpInstallation {
+            client: *client,
+            installed,
+            previous_server,
+        });
+    }
+
+    for mut target in targets {
+        if let Some(previous_server) = target.previous_server {
+            remove_mcp_server(home, target.client, &previous_server)?;
+        }
+        target.installed.0.retain(|installed_package, entry| {
             installed_package == package || entry.server_name != manifest.name
         });
-        upsert_mcp_server(home, *client, manifest)?;
-        installed.0.insert(
+        upsert_mcp_server(home, target.client, manifest)?;
+        target.installed.0.insert(
             package.to_string(),
             InstalledMcpPackage {
                 server_name: manifest.name.clone(),
                 version: version.to_string(),
                 commit_sha: commit_sha.to_string(),
+                manifest: Some(manifest.clone()),
             },
         );
-        write_installed_mcp_packages(home, *client, &installed)?;
+        write_installed_mcp_packages(home, target.client, &target.installed)?;
     }
     Ok(())
 }
 
 fn validate_mcp_manifest(manifest: &ExtensionMcpManifest) -> Result<(), ClientError> {
-    if manifest.name.trim().is_empty() || manifest.name.chars().any(char::is_control) {
+    if !is_mcp_server_name(&manifest.name) {
         return Err(ClientError::new("invalid_response", "MCP 服务名无效。"));
     }
     match &manifest.transport {
@@ -106,12 +142,15 @@ fn validate_mcp_manifest(manifest: &ExtensionMcpManifest) -> Result<(), ClientEr
             command,
             cwd,
             environment,
+            enabled,
             ..
         } => {
             if command
                 .first()
                 .is_none_or(|program| program.trim().is_empty())
                 || cwd.is_some()
+                || !enabled
+                || command_has_plaintext_secret(command)
                 || environment.iter().any(|(name, value)| {
                     !is_environment_variable_name(name)
                         || !is_environment_variable_name(value)
@@ -124,13 +163,14 @@ fn validate_mcp_manifest(manifest: &ExtensionMcpManifest) -> Result<(), ClientEr
                 ));
             }
         }
-        ExtensionMcpTransport::Http { url, headers, .. } => {
-            let url = reqwest::Url::parse(url)
-                .map_err(|_| ClientError::new("invalid_response", "MCP HTTP 地址无效。"))?;
-            if !matches!(url.scheme(), "http" | "https")
-                || url.host().is_none()
-                || !url.username().is_empty()
-                || url.password().is_some()
+        ExtensionMcpTransport::Http {
+            url,
+            headers,
+            enabled,
+            ..
+        } => {
+            if !enabled
+                || !is_safe_http_url(url)
                 || headers.iter().any(|(name, variable)| {
                     reqwest::header::HeaderName::from_bytes(name.as_bytes()).is_err()
                         || !is_environment_variable_name(variable)
@@ -141,6 +181,53 @@ fn validate_mcp_manifest(manifest: &ExtensionMcpManifest) -> Result<(), ClientEr
         }
     }
     Ok(())
+}
+
+fn is_mcp_server_name(value: &str) -> bool {
+    !value.is_empty()
+        && value
+            .chars()
+            .all(|character| character.is_ascii_alphanumeric() || matches!(character, '-' | '_'))
+}
+
+fn is_safe_http_url(value: &str) -> bool {
+    let Ok(url) = reqwest::Url::parse(value) else {
+        return false;
+    };
+    matches!(url.scheme(), "http" | "https")
+        && url.host().is_some()
+        && url.username().is_empty()
+        && url.password().is_none()
+        && url.fragment().is_none()
+        && !url
+            .query_pairs()
+            .any(|(name, _)| is_sensitive_name(name.as_ref()))
+}
+
+fn command_has_plaintext_secret(command: &[String]) -> bool {
+    command
+        .iter()
+        .skip(1)
+        .any(|argument| is_sensitive_command_option(argument))
+}
+
+fn is_sensitive_command_option(argument: &str) -> bool {
+    let option = argument
+        .trim_start_matches('-')
+        .split_once('=')
+        .map_or(argument.trim_start_matches('-'), |(name, _)| name);
+    is_sensitive_name(option)
+}
+
+fn is_sensitive_name(value: &str) -> bool {
+    let normalized = value.to_ascii_lowercase().replace('_', "-");
+    normalized.contains("api-key")
+        || normalized.contains("apikey")
+        || normalized.contains("token")
+        || normalized.contains("secret")
+        || normalized.contains("password")
+        || normalized.contains("authorization")
+        || matches!(normalized.as_str(), "auth" | "key")
 }
 
 fn is_environment_variable_name(value: &str) -> bool {
@@ -175,6 +262,11 @@ pub(crate) fn mcp_installation_status(
         installed_clients.push(*client);
         if current.version != version || current.commit_sha != commit_sha {
             outdated = true;
+        }
+        if let Some(manifest) = current.manifest.as_ref() {
+            if !mcp_server_matches(home, *client, manifest)? {
+                outdated = true;
+            }
         }
     }
 
@@ -245,6 +337,43 @@ fn upsert_mcp_server(
     .map_err(|error| ClientError::new("local_extensions_error", error))
 }
 
+fn mcp_server_matches(
+    home: &Path,
+    client: AgentClient,
+    manifest: &ExtensionMcpManifest,
+) -> Result<bool, ClientError> {
+    match client {
+        AgentClient::CodexCli => codex_mcp_server_matches(home, manifest),
+        AgentClient::ClaudeCode => claude_code::mcp_server_matches(home, manifest),
+        AgentClient::OpenCode => opencode::mcp_server_matches(home, manifest),
+        AgentClient::ChatGpt => {
+            return Err(ClientError::new(
+                "extension_client_unavailable",
+                "ChatGPT 当前不支持 MCP 安装。",
+            ));
+        }
+    }
+    .map_err(|error| ClientError::new("local_extensions_error", error))
+}
+
+fn remove_mcp_server(home: &Path, client: AgentClient, name: &str) -> Result<(), ClientError> {
+    if !mcp_server_exists(home, client, name)? {
+        return Ok(());
+    }
+    match client {
+        AgentClient::CodexCli => remove_codex_mcp_server(home, name),
+        AgentClient::ClaudeCode => claude_code::remove_mcp_server(home, name),
+        AgentClient::OpenCode => opencode::remove_mcp_server(home, name),
+        AgentClient::ChatGpt => {
+            return Err(ClientError::new(
+                "extension_client_unavailable",
+                "ChatGPT 当前不支持 MCP 安装。",
+            ));
+        }
+    }
+    .map_err(|error| ClientError::new("local_extensions_error", error))
+}
+
 fn read_installed_mcp_packages(
     home: &Path,
     client: AgentClient,
@@ -299,6 +428,9 @@ fn mcp_package_state_path(home: &Path, client: AgentClient) -> Result<PathBuf, C
         .join(MCP_PACKAGE_STATE_FILE))
 }
 
+#[cfg(test)]
+#[path = "mcp_state_tests.rs"]
+mod state_tests;
 #[cfg(test)]
 #[path = "mcp_tests.rs"]
 mod tests;

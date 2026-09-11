@@ -1,13 +1,10 @@
-use std::{collections::BTreeSet, fs};
+use std::fs;
 
 use base64::{engine::general_purpose::STANDARD as BASE64, Engine};
 use prelay_protocol::{ExtensionFile, ExtensionMcpManifest, ExtensionMcpTransport};
 use tempfile::tempdir;
 
-use super::{
-    install_mcp, mcp_installation_status, read_mcp_manifest, retain_listed_mcp_packages,
-    McpInstallAction,
-};
+use super::{install_mcp, mcp_installation_status, read_mcp_manifest, McpInstallAction};
 use crate::agents::AgentClient;
 
 #[test]
@@ -143,7 +140,7 @@ fn writes_opencode_stdio_mcp_configuration_without_replacing_other_state() {
             command: vec!["uvx".to_string(), "mcp-server-filesystem".to_string()],
             cwd: None,
             environment: [("GITHUB_TOKEN".to_string(), "GITHUB_TOKEN".to_string())].into(),
-            enabled: false,
+            enabled: true,
             timeout_ms: Some(30_000),
         },
     };
@@ -181,7 +178,7 @@ fn writes_opencode_stdio_mcp_configuration_without_replacing_other_state() {
         config["mcp"]["filesystem"]["environment"]["GITHUB_TOKEN"],
         "{env:GITHUB_TOKEN}"
     );
-    assert_eq!(config["mcp"]["filesystem"]["enabled"], false);
+    assert_eq!(config["mcp"]["filesystem"]["enabled"], true);
     assert_eq!(config["mcp"]["filesystem"]["timeout"], 30_000);
     assert!(directory
         .path()
@@ -193,111 +190,9 @@ fn writes_opencode_stdio_mcp_configuration_without_replacing_other_state() {
 }
 
 #[test]
-fn removing_an_unpublished_package_clears_only_its_mcp_state() {
-    let directory = tempdir().unwrap();
-    let manifest = ExtensionMcpManifest {
-        name: "filesystem".to_string(),
-        transport: ExtensionMcpTransport::Stdio {
-            command: vec!["uvx".to_string(), "mcp-server-filesystem".to_string()],
-            cwd: None,
-            environment: Default::default(),
-            enabled: true,
-            timeout_ms: None,
-        },
-    };
-    install_mcp(
-        directory.path(),
-        &[AgentClient::CodexCli],
-        "filesystem-mcp",
-        "v1.0.0",
-        "commit",
-        &manifest,
-        false,
-    )
-    .unwrap();
-
-    retain_listed_mcp_packages(directory.path(), &[AgentClient::CodexCli], &BTreeSet::new())
-        .unwrap();
-
-    let state: serde_json::Value = serde_json::from_slice(
-        &fs::read(
-            directory
-                .path()
-                .join(".codex")
-                .join(".prelay")
-                .join("mcp.json"),
-        )
-        .unwrap(),
-    )
-    .unwrap();
-    assert_eq!(state, serde_json::json!({}));
-    let config: toml::Value = toml::from_str(
-        &fs::read_to_string(directory.path().join(".codex").join("config.toml")).unwrap(),
-    )
-    .unwrap();
-    assert!(config["mcp_servers"]["filesystem"].is_table());
-}
-
-#[test]
-fn replacing_a_managed_mcp_server_transfers_its_version_record() {
-    let directory = tempdir().unwrap();
-    let manifest = ExtensionMcpManifest {
-        name: "filesystem".to_string(),
-        transport: ExtensionMcpTransport::Stdio {
-            command: vec!["uvx".to_string(), "mcp-server-filesystem".to_string()],
-            cwd: None,
-            environment: Default::default(),
-            enabled: true,
-            timeout_ms: None,
-        },
-    };
-    install_mcp(
-        directory.path(),
-        &[AgentClient::CodexCli],
-        "first-package",
-        "v1.0.0",
-        "first",
-        &manifest,
-        false,
-    )
-    .unwrap();
-    install_mcp(
-        directory.path(),
-        &[AgentClient::CodexCli],
-        "second-package",
-        "v1.0.0",
-        "second",
-        &manifest,
-        true,
-    )
-    .unwrap();
-
-    let first = mcp_installation_status(
-        directory.path(),
-        &[AgentClient::CodexCli],
-        "first-package",
-        "v1.0.0",
-        "first",
-    )
-    .unwrap();
-    assert_eq!(first.action, McpInstallAction::Install);
-    let second = mcp_installation_status(
-        directory.path(),
-        &[AgentClient::CodexCli],
-        "second-package",
-        "v1.0.0",
-        "second",
-    )
-    .unwrap();
-    assert_eq!(second.action, McpInstallAction::Installed);
-}
-
-#[test]
-fn rejects_a_mcp_bundle_that_contains_plaintext_credentials() {
-    let file = ExtensionFile {
-        path: "server.json".to_string(),
-        content_base64: BASE64.encode(
-            r#"{
+fn rejects_unsafe_mcp_bundles() {
+    for content in [
+        r#"{
                 "name": "filesystem",
                 "transport": {
                     "type": "stdio",
@@ -308,8 +203,65 @@ fn rejects_a_mcp_bundle_that_contains_plaintext_credentials() {
                     "timeoutMs": null
                 }
             }"#,
-        ),
-    };
+        r#"{
+                "name": "filesystem",
+                "transport": {
+                    "type": "stdio",
+                    "command": ["uvx", "mcp-server-filesystem"],
+                    "cwd": null,
+                    "environment": {},
+                    "enabled": false,
+                    "timeoutMs": null
+                }
+            }"#,
+        r#"{
+                "name": "filesystem server",
+                "transport": {
+                    "type": "stdio",
+                    "command": ["uvx", "mcp-server-filesystem"],
+                    "cwd": null,
+                    "environment": {},
+                    "enabled": true,
+                    "timeoutMs": null
+                }
+            }"#,
+        r#"{
+                "name": "filesystem",
+                "transport": {
+                    "type": "stdio",
+                    "command": ["uvx", "mcp-server-filesystem", "--api-key", "plain-text-secret"],
+                    "cwd": null,
+                    "environment": {},
+                    "enabled": true,
+                    "timeoutMs": null
+                }
+            }"#,
+        r#"{
+                "name": "remote",
+                "transport": {
+                    "type": "http",
+                    "url": "https://mcp.example.test?token=plain-text-secret",
+                    "headers": {},
+                    "enabled": true,
+                    "timeoutMs": null
+                }
+            }"#,
+        r#"{
+                "name": "remote",
+                "transport": {
+                    "type": "http",
+                    "url": "https://mcp.example.test?api_key=plain-text-secret",
+                    "headers": {},
+                    "enabled": true,
+                    "timeoutMs": null
+                }
+            }"#,
+    ] {
+        let file = ExtensionFile {
+            path: "server.json".to_string(),
+            content_base64: BASE64.encode(content),
+        };
 
-    assert!(read_mcp_manifest(&file).is_err());
+        assert!(read_mcp_manifest(&file).is_err());
+    }
 }

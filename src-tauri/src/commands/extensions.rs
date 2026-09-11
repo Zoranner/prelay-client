@@ -4,7 +4,7 @@ use crate::{
     extensions::{
         install_extension, list_extensions, read_extension_readme, read_mcp_install_manifest,
         update_all_skill_extensions, ExtensionCatalogSnapshot, ExtensionInstallRequest,
-        ExtensionInstallResult, ExtensionKind, ExtensionPackage,
+        ExtensionInstallResult, ExtensionKind, ExtensionPackage, McpInstallPreview,
     },
     relay::client::ClientError,
     NativeState,
@@ -37,7 +37,7 @@ pub async fn extension_readme(
 pub async fn extensions_mcp_preview(
     state: tauri::State<'_, NativeState>,
     package: ExtensionPackage,
-) -> Result<prelay_protocol::ExtensionMcpManifest, ClientError> {
+) -> Result<McpInstallPreview, ClientError> {
     read_mcp_install_manifest(&state, &package).await
 }
 
