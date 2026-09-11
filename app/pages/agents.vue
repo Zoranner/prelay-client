@@ -139,6 +139,7 @@ const extensionSectionOptions: Array<{
 }> = [
   { value: "rule", label: "规则", icon: "ph:notebook" },
   { value: "skill", label: "Skill", icon: "ph:book-open-text" },
+  { value: "mcp", label: "MCP", icon: "ph:plugs-connected" },
 ];
 const activeItems = computed(
   () => clientItems.value[activeClient.value]?.items ?? [],

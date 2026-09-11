@@ -327,7 +327,7 @@ export interface AgentClientStatus {
 }
 
 export type ExtensionKind = "rule" | "mcp" | "skill";
-export type ExtensionCatalogKind = Exclude<ExtensionKind, "mcp">;
+export type ExtensionCatalogKind = ExtensionKind;
 export type ExtensionInstallAction =
   | "install"
   | "partial"
@@ -350,6 +350,28 @@ export type ExtensionCatalogPackage = Omit<ExtensionPackage, "kind"> & {
 
 export interface ExtensionCatalogSnapshot {
   packages: ExtensionCatalogPackage[];
+}
+
+export type ExtensionMcpTransport =
+  | {
+      type: "stdio";
+      command: string[];
+      cwd: string | null;
+      environment: Record<string, string>;
+      enabled: boolean;
+      timeoutMs: number | null;
+    }
+  | {
+      type: "http";
+      url: string;
+      headers: Record<string, string>;
+      enabled: boolean;
+      timeoutMs: number | null;
+    };
+
+export interface ExtensionMcpManifest {
+  name: string;
+  transport: ExtensionMcpTransport;
 }
 
 export type CodexSettings = Partial<{

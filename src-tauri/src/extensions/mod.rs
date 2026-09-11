@@ -184,6 +184,33 @@ pub async fn read_extension_readme(
         .map_err(|_| ClientError::new("invalid_response", "extension README is not UTF-8"))
 }
 
+pub async fn read_mcp_install_manifest(
+    state: &NativeState,
+    package: &ExtensionPackage,
+) -> Result<prelay_protocol::ExtensionMcpManifest, ClientError> {
+    if package.kind != ExtensionKind::Mcp {
+        return Err(ClientError::new(
+            "invalid_request",
+            "只有 MCP 扩展可以读取安装配置。",
+        ));
+    }
+    let client = authenticated_api(state).await?;
+    let bundle: ExtensionInstallBundle = client
+        .get(&format!(
+            "/api/extensions/{}/versions/{}/install",
+            package.name, package.version
+        ))
+        .await?;
+    validate_bundle(&bundle)?;
+    if bundle.kind != ExtensionKind::Mcp {
+        return Err(ClientError::new(
+            "invalid_response",
+            "扩展安装包类型不匹配。",
+        ));
+    }
+    mcp::read_mcp_manifest(bundle.files.first().expect("validated MCP install bundle"))
+}
+
 pub async fn install_extension(
     home: &Path,
     state: &NativeState,

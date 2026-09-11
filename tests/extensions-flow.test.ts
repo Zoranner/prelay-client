@@ -87,8 +87,9 @@ test("扩展库沿用智能体工作区的分类表格与单层操作表面", ()
   expect(page).toContain("<ExtensionInstallModal");
   expect(page).toContain('value: "rule"');
   expect(page).toContain('value: "skill"');
+  expect(page).toContain('value: "mcp"');
   expect(page).not.toContain('value: "plugin"');
-  expect(catalog).not.toContain("mcp:");
+  expect(catalog).toContain("mcp: emptyCatalog()");
   expect(source("stores/relay.ts")).toContain(
     'export type ExtensionCatalogPackage = Omit<ExtensionPackage, "kind"> & {',
   );
@@ -115,6 +116,7 @@ test("扩展库沿用智能体工作区的分类表格与单层操作表面", ()
     "extensionCatalog.loading.value[activeExtensionSection]",
   );
   expect(page).toContain('{ value: "skill", label: "Skill", icon: "ph:book-open-text" }');
+  expect(page).toContain('{ value: "mcp", label: "MCP", icon: "ph:plugs-connected" }');
   expect(page).toContain('void extensionCatalog.load("skill")');
   expect(updates).toContain('"extensions_update_all"');
   expect(page).toContain(':extension-updating="extensionActions.updating.value"');
@@ -148,7 +150,21 @@ test("扩展库沿用智能体工作区的分类表格与单层操作表面", ()
   expect(installModal).toContain("extension_target_exists");
   expect(installModal).toContain('confirmText: "覆盖"');
   expect(installModal).toContain("overwrite");
-  expect(installModal).not.toContain("Checkbox");
-  expect(installModal).not.toContain("extension_install_preview");
-  expect(installModal).not.toContain("正在生成安装变更");
+  expect(installModal).toContain("Checkbox");
+  expect(installModal).toContain("extensions_mcp_preview");
+  expect(installModal).toContain("首次使用时可能下载依赖或启动本地进程。");
+  expect(installModal).toContain("mcpRiskAccepted");
+  expect(installModal).toContain("mcpPreview");
+  expect(installModal).toContain('client.value !== "chatgpt"');
+  expect(installModal).toContain("MCP 配置");
+  expect(installModal).toContain("MCP 环境变量");
+  expect(installModal).toContain("工作目录");
+  expect(installModal).toContain("超时时间");
+  expect(installModal).toContain("mcpPreview.transport.enabled");
+  expect(installModal).toContain("var(--text-sm)");
+  expect(installModal).toContain("var(--st-warning)");
+  expect(installModal).toContain("var(--st-semantic-error)");
+  expect(installModal).not.toContain("var(--font-size-sm)");
+  expect(installModal).not.toContain("var(--st-text-warning)");
+  expect(installModal).not.toContain("var(--st-text-error)");
 });

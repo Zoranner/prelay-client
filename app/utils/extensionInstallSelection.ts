@@ -11,7 +11,9 @@ const allAgents: AgentClient[] = [
 export function linkedAgentsForExtension(
   kind: ExtensionCatalogKind,
 ): AgentClient[] {
-  return kind === "skill" ? allAgents : codexHostAgents;
+  if (kind === "skill") return allAgents;
+  if (kind === "rule") return codexHostAgents;
+  return [];
 }
 
 export function synchronizeExtensionInstallSelection({

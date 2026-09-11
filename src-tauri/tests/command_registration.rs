@@ -45,3 +45,13 @@ fn registers_the_complete_authenticated_catalog_command() {
     assert!(command.contains("pub async fn catalog_models_get("));
     assert!(command.contains(".get(\"/api/catalog\")"));
 }
+
+#[test]
+fn registers_the_mcp_preview_command() {
+    let application = source_file("src/app/mod.rs");
+    let command = source_file("src/commands/extensions.rs");
+
+    assert!(application.contains("crate::commands::extensions::extensions_mcp_preview"));
+    assert!(command.contains("pub async fn extensions_mcp_preview("));
+    assert!(command.contains("read_mcp_install_manifest"));
+}

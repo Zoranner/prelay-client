@@ -12,6 +12,7 @@ export type LocalCommand =
   | "agent_settings_save"
   | "extensions_list"
   | "extension_readme"
+  | "extensions_mcp_preview"
   | "extensions_install"
   | "extensions_update_all";
 

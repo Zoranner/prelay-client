@@ -10,8 +10,10 @@ export function useExtensionUpdates({
   const notifications = useNotification();
   const updating = ref(false);
 
-  async function installed() {
-    await Promise.all([refreshSkills(), extensionCatalog.load("skill", true)]);
+  async function installed(kind: "rule" | "skill" | "mcp") {
+    const refresh = [extensionCatalog.load(kind, true)];
+    if (kind === "skill") refresh.push(refreshSkills());
+    await Promise.all(refresh);
     notifications.success("扩展已安装");
   }
 

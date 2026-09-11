@@ -1,12 +1,18 @@
 <script setup lang="ts">
 import {
   Button,
+  Checkbox,
+  Loading,
   Modal,
   Select,
   useConfirm,
   useNotification,
 } from "@stellar/ui";
-import type { AgentClient, ExtensionCatalogPackage } from "~/stores/relay";
+import type {
+  AgentClient,
+  ExtensionCatalogPackage,
+  ExtensionMcpManifest,
+} from "~/stores/relay";
 import { synchronizeExtensionInstallSelection } from "~/utils/extensionInstallSelection";
 
 const visible = defineModel<boolean>("visible", { default: false });
@@ -14,12 +20,16 @@ const props = defineProps<{
   extension: ExtensionCatalogPackage | null;
   detectedClients: AgentClient[];
 }>();
-const emit = defineEmits<{ installed: [] }>();
+const emit = defineEmits<{ installed: [kind: ExtensionCatalogPackage["kind"]] }>();
 const { invokeLocalCommand } = useLocalCommand();
 const { confirm: confirmAction } = useConfirm();
 const notifications = useNotification();
 const selectedClients = ref<AgentClient[]>([]);
 const installing = ref(false);
+const mcpPreview = ref<ExtensionMcpManifest | null>(null);
+const mcpPreviewLoading = ref(false);
+const mcpPreviewError = ref("");
+const mcpRiskAccepted = ref(false);
 const actionLabel = computed(() =>
   props.extension?.installAction === "update"
     ? "更新"
@@ -29,33 +39,51 @@ const actionLabel = computed(() =>
 );
 
 const detected = computed(() => new Set(props.detectedClients));
-const clientOptions = computed(() => [
-  {
-    value: "codexCli",
-    label: "Codex CLI",
-    disabled: !detected.value.has("codexCli"),
-  },
-  {
-    value: "chatgpt",
-    label: "ChatGPT",
-    disabled: !detected.value.has("chatgpt"),
-  },
-  {
-    value: "openCode",
-    label: "OpenCode",
-    disabled: !detected.value.has("openCode"),
-  },
-  {
-    value: "claudeCode",
-    label: "Claude Code",
-    disabled: !detected.value.has("claudeCode"),
-  },
-]);
+const isMcp = computed(() => props.extension?.kind === "mcp");
+const supportedDetectedClients = computed(() =>
+  isMcp.value
+    ? props.detectedClients.filter((client) => client !== "chatgpt")
+    : props.detectedClients,
+);
+const clientOptions = computed(() =>
+  [
+    {
+      value: "codexCli",
+      label: "Codex CLI",
+      disabled: !detected.value.has("codexCli"),
+    },
+    {
+      value: "chatgpt",
+      label: "ChatGPT",
+      disabled: !detected.value.has("chatgpt"),
+    },
+    {
+      value: "openCode",
+      label: "OpenCode",
+      disabled: !detected.value.has("openCode"),
+    },
+    {
+      value: "claudeCode",
+      label: "Claude Code",
+      disabled: !detected.value.has("claudeCode"),
+    },
+  ].filter((client) => !isMcp.value || client.value !== "chatgpt"),
+);
+const mcpEnvironmentNames = computed(() =>
+  mcpPreview.value?.transport.type === "stdio"
+    ? Object.keys(mcpPreview.value.transport.environment)
+    : [],
+);
+const mcpHeaderNames = computed(() =>
+  mcpPreview.value?.transport.type === "http"
+    ? Object.keys(mcpPreview.value.transport.headers)
+    : [],
+);
 
 function selectClients(values: AgentClient[]) {
   if (!props.extension) return;
   selectedClients.value = synchronizeExtensionInstallSelection({
-    detected: props.detectedClients,
+    detected: supportedDetectedClients.value,
     kind: props.extension.kind,
     next: values,
     previous: selectedClients.value,
@@ -64,6 +92,12 @@ function selectClients(values: AgentClient[]) {
 
 async function install(overwrite = false) {
   if (!props.extension || !selectedClients.value.length) return;
+  if (
+    props.extension.kind === "mcp" &&
+    (!mcpPreview.value || !mcpRiskAccepted.value)
+  ) {
+    return;
+  }
   installing.value = true;
   try {
     await invokeLocalCommand(
@@ -78,15 +112,21 @@ async function install(overwrite = false) {
       { notify: false },
     );
     visible.value = false;
-    emit("installed");
+    emit("installed", props.extension.kind);
   } catch (caught) {
     const error = caught as { code?: string; message?: string };
     if (!overwrite && error.code === "extension_target_exists") {
       const confirmed = await confirmAction({
-        title: "覆盖已有技能",
-        message: "目标技能目录已存在，是否覆盖安装？",
+        title:
+          props.extension.kind === "mcp" ? "覆盖已有 MCP 配置" : "覆盖已有技能",
+        message:
+          props.extension.kind === "mcp"
+            ? "目标 MCP 服务名已存在，是否覆盖安装？"
+            : "目标技能目录已存在，是否覆盖安装？",
         description:
-          "覆盖会删除该技能目录中的现有文件，然后写入当前扩展包内容。",
+          props.extension.kind === "mcp"
+            ? "覆盖会替换目标 MCP 服务配置，并更新当前扩展包的版本记录。"
+            : "覆盖会删除该技能目录中的现有文件，然后写入当前扩展包内容。",
         confirmText: "覆盖",
         danger: true,
       });
@@ -104,19 +144,36 @@ async function install(overwrite = false) {
 }
 
 watch(
-  () => visible.value,
-  (isVisible) => {
+  () => [visible.value, props.extension?.commitSha] as const,
+  async ([isVisible]) => {
     if (!isVisible) return;
     const extension = props.extension;
+    mcpRiskAccepted.value = false;
+    mcpPreview.value = null;
+    mcpPreviewError.value = "";
     selectedClients.value =
       ["partial", "update"].includes(extension?.installAction ?? "")
-        ? props.detectedClients.filter(
+        ? supportedDetectedClients.value.filter(
             (client) =>
               extension?.installAction === "partial"
                 ? !extension.installedClients.includes(client)
                 : extension?.installedClients.includes(client),
           )
-        : [...props.detectedClients];
+        : [...supportedDetectedClients.value];
+    if (extension?.kind !== "mcp") return;
+    mcpPreviewLoading.value = true;
+    try {
+      mcpPreview.value = await invokeLocalCommand<ExtensionMcpManifest>(
+        "extensions_mcp_preview",
+        { package: extension },
+        { notify: false, trackPending: false },
+      );
+    } catch (caught) {
+      const error = caught as { message?: string };
+      mcpPreviewError.value = error.message ?? "无法读取 MCP 配置。";
+    } finally {
+      mcpPreviewLoading.value = false;
+    }
   },
 );
 </script>
@@ -132,6 +189,58 @@ watch(
     @update:visible="(nextVisible) => (visible = nextVisible)"
   >
     <div class="extension-install">
+      <section v-if="isMcp" class="mcp-install-preview">
+        <Loading v-if="mcpPreviewLoading" visible text="正在读取 MCP 配置..." />
+        <template v-else-if="mcpPreview">
+          <h3>MCP 配置</h3>
+          <dl>
+            <template v-if="mcpPreview.transport.type === 'stdio'">
+              <dt>传输方式</dt>
+              <dd>本地进程</dd>
+              <dt>命令</dt>
+              <dd><code>{{ mcpPreview.transport.command[0] }}</code></dd>
+              <template v-if="mcpPreview.transport.command.length > 1">
+                <dt>参数</dt>
+                <dd><code>{{ mcpPreview.transport.command.slice(1).join(" ") }}</code></dd>
+              </template>
+              <dt>工作目录</dt>
+              <dd>默认</dd>
+            </template>
+            <template v-else>
+              <dt>传输方式</dt>
+              <dd>HTTP</dd>
+              <dt>地址</dt>
+              <dd><code>{{ mcpPreview.transport.url }}</code></dd>
+            </template>
+            <template v-if="mcpEnvironmentNames.length">
+              <dt>MCP 环境变量</dt>
+              <dd>{{ mcpEnvironmentNames.join("、") }}</dd>
+            </template>
+            <template v-if="mcpHeaderNames.length">
+              <dt>请求头</dt>
+              <dd>{{ mcpHeaderNames.join("、") }}</dd>
+            </template>
+            <dt>启用状态</dt>
+            <dd>{{ mcpPreview.transport.enabled ? "启用" : "停用" }}</dd>
+            <dt>超时时间</dt>
+            <dd>
+              {{
+                mcpPreview.transport.timeoutMs
+                  ? `${mcpPreview.transport.timeoutMs} ms`
+                  : "未设置"
+              }}
+            </dd>
+          </dl>
+          <p class="mcp-install-warning">
+            首次使用时可能下载依赖或启动本地进程。
+          </p>
+          <Checkbox
+            v-model="mcpRiskAccepted"
+            label="我已了解以上 MCP 配置及其运行风险"
+          />
+        </template>
+        <p v-else class="mcp-install-error">{{ mcpPreviewError }}</p>
+      </section>
       <Select
         :model-value="selectedClients"
         :options="clientOptions"
@@ -146,7 +255,11 @@ watch(
       <Button
         semantic="primary"
         variant="solid"
-        :disabled="installing || !selectedClients.length"
+        :disabled="
+          installing ||
+          !selectedClients.length ||
+          (isMcp && (!mcpPreview || !mcpRiskAccepted))
+        "
         @click="install()"
       >
         {{ installing ? `${actionLabel}中...` : actionLabel }}
@@ -158,5 +271,47 @@ watch(
 <style scoped>
 .extension-install {
   position: relative;
+}
+
+.mcp-install-preview {
+  margin-bottom: var(--spacing-lg);
+}
+
+.mcp-install-preview h3 {
+  margin: 0 0 var(--spacing-sm);
+  font-size: var(--text-sm);
+  font-weight: 600;
+}
+
+.mcp-install-preview dl {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: var(--spacing-xs) var(--spacing-md);
+  margin: 0;
+  font-size: var(--text-sm);
+}
+
+.mcp-install-preview dt {
+  color: var(--st-text-secondary);
+}
+
+.mcp-install-preview dd {
+  min-width: 0;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.mcp-install-warning,
+.mcp-install-error {
+  margin: var(--spacing-md) 0;
+  font-size: var(--text-sm);
+}
+
+.mcp-install-warning {
+  color: var(--st-warning);
+}
+
+.mcp-install-error {
+  color: var(--st-semantic-error);
 }
 </style>
