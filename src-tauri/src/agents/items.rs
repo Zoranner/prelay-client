@@ -31,11 +31,25 @@ pub fn scan_agent_items(home: &Path, client: AgentClient) -> AgentClientItems {
 }
 
 pub fn agent_rule_targets(clients: &[AgentClient], home: &Path) -> Vec<PathBuf> {
-    clients
-        .iter()
-        .filter_map(|client| integration(*client).rule_target(home))
+    agent_rule_targets_with_clients(clients, home)
+        .into_iter()
+        .map(|(_, target)| target)
         .collect::<BTreeSet<_>>()
         .into_iter()
+        .collect()
+}
+
+pub fn agent_rule_targets_with_clients(
+    clients: &[AgentClient],
+    home: &Path,
+) -> Vec<(AgentClient, PathBuf)> {
+    clients
+        .iter()
+        .filter_map(|client| {
+            integration(*client)
+                .rule_target(home)
+                .map(|target| (*client, target))
+        })
         .collect()
 }
 

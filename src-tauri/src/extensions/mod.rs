@@ -7,8 +7,8 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     agents::{
-        agent_rule_targets, agent_skill_target_roots, agent_skill_targets, installed_agent_clients,
-        AgentClient,
+        agent_rule_targets, agent_rule_targets_with_clients, agent_skill_target_roots,
+        agent_skill_targets, installed_agent_clients, AgentClient,
     },
     identity::registration::authenticated_api,
     relay::client::ClientError,
@@ -17,7 +17,7 @@ use crate::{
 
 pub use prelay_protocol::ExtensionKind;
 
-mod rules;
+pub(crate) mod rules;
 pub(crate) mod skills;
 
 const RULES_PATH: &str = "AGENTS.md";
@@ -96,30 +96,56 @@ pub async fn list_extensions(
             installed_clients: Vec::new(),
         })
         .collect::<Vec<_>>();
-    if kind == ExtensionKind::Skill {
-        let clients = installed_agent_clients();
-        let targets = agent_skill_targets(&clients, home);
-        let target_roots = agent_skill_target_roots(&clients, home);
-        let listed = packages
-            .iter()
-            .map(|package| package.name.clone())
-            .collect();
-        skills::retain_listed_skill_packages(&target_roots, &listed)?;
-        for package in &mut packages {
-            let status = skills::skill_installation_status(
-                &targets,
-                &package.name,
-                &package.version,
-                &package.commit_sha,
-            )?;
-            package.install_action = match status.action {
-                skills::SkillInstallAction::Install => ExtensionInstallAction::Install,
-                skills::SkillInstallAction::Partial => ExtensionInstallAction::Partial,
-                skills::SkillInstallAction::Update => ExtensionInstallAction::Update,
-                skills::SkillInstallAction::Installed => ExtensionInstallAction::Installed,
-            };
-            package.installed_clients = status.clients;
+    let clients = installed_agent_clients();
+    match kind {
+        ExtensionKind::Rule => {
+            let targets = agent_rule_targets_with_clients(&clients, home);
+            let listed = packages
+                .iter()
+                .map(|package| package.name.clone())
+                .collect();
+            rules::retain_listed_rule_packages(&targets, &listed)?;
+            for package in &mut packages {
+                let status = rules::rule_installation_status(
+                    &targets,
+                    &package.name,
+                    &package.version,
+                    &package.commit_sha,
+                )?;
+                package.install_action = match status.action {
+                    rules::RuleInstallAction::Install => ExtensionInstallAction::Install,
+                    rules::RuleInstallAction::Partial => ExtensionInstallAction::Partial,
+                    rules::RuleInstallAction::Update => ExtensionInstallAction::Update,
+                    rules::RuleInstallAction::Installed => ExtensionInstallAction::Installed,
+                };
+                package.installed_clients = status.clients;
+            }
         }
+        ExtensionKind::Skill => {
+            let targets = agent_skill_targets(&clients, home);
+            let target_roots = agent_skill_target_roots(&clients, home);
+            let listed = packages
+                .iter()
+                .map(|package| package.name.clone())
+                .collect();
+            skills::retain_listed_skill_packages(&target_roots, &listed)?;
+            for package in &mut packages {
+                let status = skills::skill_installation_status(
+                    &targets,
+                    &package.name,
+                    &package.version,
+                    &package.commit_sha,
+                )?;
+                package.install_action = match status.action {
+                    skills::SkillInstallAction::Install => ExtensionInstallAction::Install,
+                    skills::SkillInstallAction::Partial => ExtensionInstallAction::Partial,
+                    skills::SkillInstallAction::Update => ExtensionInstallAction::Update,
+                    skills::SkillInstallAction::Installed => ExtensionInstallAction::Installed,
+                };
+                package.installed_clients = status.clients;
+            }
+        }
+        ExtensionKind::Mcp => unreachable!("MCP directory is disabled"),
     }
     Ok(ExtensionCatalogSnapshot { packages })
 }
@@ -163,7 +189,13 @@ pub async fn install_extension(
         ExtensionKind::Rule => {
             let rules = bundle.files.first().expect("validated rule bundle");
             for target in agent_rule_targets(&request.clients, home) {
-                rules::install_rule(&target, rules)?;
+                rules::install_rule(
+                    &target,
+                    &bundle.name,
+                    &bundle.version.tag,
+                    &bundle.version.commit_sha,
+                    rules,
+                )?;
             }
         }
         ExtensionKind::Skill => {

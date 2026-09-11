@@ -1,4 +1,4 @@
-use std::path::Path;
+use std::{fs, path::Path};
 
 use prelay_protocol::CatalogLanguageModelResponse;
 
@@ -6,6 +6,7 @@ mod codex_catalog;
 use serde::{Deserialize, Serialize};
 
 use super::AgentClient;
+use crate::{agents::agent_rule_targets, extensions::rules};
 
 mod claude_code;
 mod codex;
@@ -14,6 +15,8 @@ mod opencode;
 
 #[cfg(test)]
 mod catalog_tests;
+#[cfg(test)]
+mod rule_state_tests;
 #[cfg(test)]
 mod test_helpers;
 #[cfg(test)]
@@ -224,7 +227,13 @@ pub fn save_user_settings(
     settings: &AgentSettings,
     connection: Option<&AgentConnection>,
 ) -> Result<(), String> {
-    match (settings, connection) {
+    let client = settings_client(settings);
+    let targets = agent_rule_targets(&[client], home);
+    let rules = settings_rules(settings);
+    let rules_changed = targets
+        .iter()
+        .any(|target| fs::read_to_string(target).unwrap_or_default() != rules);
+    let result = match (settings, connection) {
         (AgentSettings::CodexCli(settings), None) => {
             codex::save_codex_settings(home, settings, None)
         }
@@ -250,5 +259,30 @@ pub fn save_user_settings(
             opencode::save_opencode_settings(home, settings, Some(connection))
         }
         _ => Err("智能体设置与接入配置不匹配".to_string()),
+    };
+    result?;
+    if rules_changed {
+        for target in targets {
+            rules::clear_rule_package_state(&target)?;
+        }
+    }
+    Ok(())
+}
+
+fn settings_client(settings: &AgentSettings) -> AgentClient {
+    match settings {
+        AgentSettings::CodexCli(_) => AgentClient::CodexCli,
+        AgentSettings::ChatGpt(_) => AgentClient::ChatGpt,
+        AgentSettings::ClaudeCode(_) => AgentClient::ClaudeCode,
+        AgentSettings::OpenCode(_) => AgentClient::OpenCode,
+    }
+}
+
+fn settings_rules(settings: &AgentSettings) -> &str {
+    match settings {
+        AgentSettings::CodexCli(settings) => settings.rules.as_deref().unwrap_or_default(),
+        AgentSettings::ChatGpt(settings) => settings.0.rules.as_deref().unwrap_or_default(),
+        AgentSettings::ClaudeCode(settings) => settings.rules.as_deref().unwrap_or_default(),
+        AgentSettings::OpenCode(settings) => settings.rules.as_deref().unwrap_or_default(),
     }
 }
