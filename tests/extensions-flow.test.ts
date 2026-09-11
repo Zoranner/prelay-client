@@ -63,9 +63,26 @@ test("扩展库沿用智能体工作区的分类表格与单层操作表面", ()
     "components/extensions/ExtensionInstallModal.vue",
   );
   const catalog = source("composables/useExtensionCatalog.ts");
+  const updates = source("composables/useExtensionUpdates.ts");
 
+  expect(updates).toContain('import { useNotification } from "@stellar/ui";');
   expect(sidebar).toContain("扩展库");
+  expect(sidebar).toContain("extensionUpdates");
+  expect(sidebar).toContain('semantic="error"');
   expect(workspace).toContain("<ExtensionCatalogTable");
+  expect(workspace).toContain('class="extension-update-hint"');
+  expect(workspace).toContain("可更新");
+  expect(workspace).toContain(
+    'v-if="activeExtensionSection === \'skill\' && extensionUpdates > 0"',
+  );
+  expect(workspace).not.toContain(
+    'semantic="primary"\n            variant="solid"\n            icon="ph:arrows-clockwise"',
+  );
+  expect(workspace).toContain(".extension-update-hint");
+  expect(workspace).toContain("white-space: nowrap");
+  expect(workspace).toContain('"更新中..." : "全部更新"');
+  expect(workspace).toContain('icon="ph:arrow-circle-down"');
+  expect(workspace).toContain('@click="emit(\'updateAll\')"');
   expect(page).toContain("<ExtensionDetailDrawer");
   expect(page).toContain("<ExtensionInstallModal");
   expect(page).toContain('value: "rule"');
@@ -97,6 +114,10 @@ test("扩展库沿用智能体工作区的分类表格与单层操作表面", ()
   expect(page).toContain(
     "extensionCatalog.loading.value[activeExtensionSection]",
   );
+  expect(page).toContain('{ value: "skill", label: "Skill", icon: "ph:book-open-text" }');
+  expect(page).toContain('void extensionCatalog.load("skill")');
+  expect(updates).toContain('"extensions_update_all"');
+  expect(page).toContain(':extension-updating="extensionActions.updating.value"');
   expect(page).toContain("title: `卸载 ${item.name}`");
   expect(page).not.toContain("showExtensionCatalog");
   expect(page).not.toContain("<small>agents</small>");
@@ -111,8 +132,13 @@ test("扩展库沿用智能体工作区的分类表格与单层操作表面", ()
   expect(detailDrawer).toContain(".extension-detail__readme :deep(p)");
   expect(detailDrawer).not.toContain("white-space: pre-wrap");
   expect(installModal).toContain("<Select");
+  expect(installModal).toContain("const actionLabel");
+  expect(installModal).toContain('props.extension?.installAction === "update"');
   expect(installModal).toContain(
-    ":title=\"extension ? `安装 ${extension.name}` : '安装扩展'\"",
+    '["partial", "update"].includes(extension?.installAction ?? "")',
+  );
+  expect(installModal).toContain(
+    ":title=\"extension ? `${actionLabel} ${extension.name}` : '安装扩展'\"",
   );
   expect(installModal).toContain('label="安装到智能体"');
   expect(installModal).toContain('placeholder="选择智能体"');

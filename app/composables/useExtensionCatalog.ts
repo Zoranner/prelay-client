@@ -63,6 +63,13 @@ export function useExtensionCatalog() {
     return computed(() => catalogs.value[kind].packages);
   }
 
+  const updateCount = computed(
+    () =>
+      catalogs.value.skill.packages.filter(
+        (extension) => extension.installAction === "update",
+      ).length,
+  );
+
   function invalidate() {
     generation += 1;
     loadPromises.clear();
@@ -71,5 +78,5 @@ export function useExtensionCatalog() {
     loading.value = { rule: false, skill: false };
   }
 
-  return { catalogs, loaded, loading, load, packages, invalidate };
+  return { catalogs, loaded, loading, load, packages, updateCount, invalidate };
 }

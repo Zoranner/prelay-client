@@ -27,6 +27,8 @@ const {
   extensionLoading,
   extensionPackages,
   extensionSectionOptions,
+  extensionUpdates,
+  extensionUpdating,
   itemPending,
   rules,
   sectionItems,
@@ -41,6 +43,8 @@ const {
   extensionLoading: boolean;
   extensionPackages: ExtensionCatalogPackage[];
   extensionSectionOptions: SectionOption<ExtensionCatalogKind>[];
+  extensionUpdates: number;
+  extensionUpdating: boolean;
   itemPending: boolean;
   rules: string;
   sectionItems: AgentItem[];
@@ -53,6 +57,7 @@ const showItemStatus = computed(() => activeSection !== "skill");
 const emit = defineEmits<{
   detail: [extension: ExtensionCatalogPackage];
   install: [extension: ExtensionCatalogPackage];
+  updateAll: [];
   openSettings: [];
   uninstall: [item: AgentItem];
   "update:activeExtensionSection": [section: ExtensionCatalogKind];
@@ -82,6 +87,21 @@ function updateExtensionSection(value: string | number | boolean | null) {
           variant="button"
           @update:model-value="updateExtensionSection"
         />
+        <div
+          v-if="activeExtensionSection === 'skill' && extensionUpdates > 0"
+          class="agent-toolbar__actions"
+        >
+          <span class="extension-update-hint">
+            可更新
+          </span>
+          <Button
+            icon="ph:arrow-circle-down"
+            :disabled="extensionUpdating"
+            @click="emit('updateAll')"
+          >
+            {{ extensionUpdating ? "更新中..." : "全部更新" }}
+          </Button>
+        </div>
       </div>
       <div class="item-results">
         <ExtensionCatalogTable
@@ -186,7 +206,13 @@ function updateExtensionSection(value: string | number | boolean | null) {
 
 .agent-toolbar__actions {
   display: flex;
+  flex: 0 0 auto;
   align-items: center;
   gap: var(--spacing-sm);
 }
+
+.extension-update-hint {
+  white-space: nowrap;
+}
+
 </style>

@@ -12,7 +12,8 @@ export type LocalCommand =
   | "agent_settings_save"
   | "extensions_list"
   | "extension_readme"
-  | "extensions_install";
+  | "extensions_install"
+  | "extensions_update_all";
 
 export function useLocalCommand() {
   const notifications = useNotification();

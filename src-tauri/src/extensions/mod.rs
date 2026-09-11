@@ -185,6 +185,50 @@ pub async fn install_extension(
     })
 }
 
+pub async fn update_all_skill_extensions(
+    home: &Path,
+    state: &NativeState,
+) -> Result<ExtensionInstallResult, ClientError> {
+    let catalog = list_extensions(home, state, ExtensionKind::Skill).await?;
+    let clients = installed_agent_clients();
+    let target_roots = agent_skill_target_roots(&clients, home);
+    let targets = skills::outdated_skill_package_targets(&target_roots, &catalog.packages)?;
+    if targets.is_empty() {
+        return Ok(ExtensionInstallResult {
+            message: "没有可更新扩展。".to_string(),
+        });
+    }
+
+    let client = authenticated_api(state).await?;
+    for (name, target_roots) in &targets {
+        let package = catalog
+            .packages
+            .iter()
+            .find(|package| package.name == *name)
+            .expect("outdated package exists in the catalog");
+        let bundle: ExtensionInstallBundle = client
+            .get(&format!(
+                "/api/extensions/{}/versions/{}/install",
+                package.name, package.version
+            ))
+            .await?;
+        validate_bundle(&bundle)?;
+        for target_root in target_roots {
+            skills::install_skill_files(
+                target_root,
+                &bundle.name,
+                &bundle.version.tag,
+                &bundle.version.commit_sha,
+                &bundle.files,
+                false,
+            )?;
+        }
+    }
+    Ok(ExtensionInstallResult {
+        message: format!("已更新 {} 个扩展。", targets.len()),
+    })
+}
+
 fn validate_bundle(bundle: &ExtensionInstallBundle) -> Result<(), ClientError> {
     match bundle.kind {
         ExtensionKind::Rule if bundle.files.len() == 1 && bundle.files[0].path == RULES_PATH => {

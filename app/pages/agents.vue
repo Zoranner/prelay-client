@@ -29,6 +29,7 @@ const workspaceExit = useWorkspaceExitGuard();
 const { bootstrap, setBootstrap } = useRelayStore();
 const agentWorkspace = useAgentWorkspace();
 const extensionCatalog = useExtensionCatalog();
+const extensionUpdates = extensionCatalog.updateCount;
 const {
   clientStatuses,
   clientStatusesLoaded,
@@ -98,6 +99,9 @@ const agentRules = useAgentRules({
   configuration: agentConfiguration,
   reloadSettings: agentWorkspace.reloadSettings,
   save: (request) => invokeLocalCommand("agent_settings_save", request),
+});
+const extensionActions = useExtensionUpdates({
+  refreshSkills: () => agentWorkspace.refreshClient(activeClient.value),
 });
 useAgentRulesHydration({
   activeClient,
@@ -200,11 +204,6 @@ function openExtensionInstall(extension: ExtensionCatalogPackage) {
   showExtensionInstall.value = true;
 }
 
-async function onExtensionInstalled() {
-  await agentWorkspace.refreshClient(lastActiveClient.value);
-  notifications.success("扩展已安装");
-}
-
 function requestCloseSettings() {
   if (settingsExitRegistration) {
     void settingsExitRegistration.requestExit();
@@ -293,6 +292,7 @@ onMounted(() => {
           : "allow",
   });
   void loadAgentPage();
+  void extensionCatalog.load("skill");
 });
 
 watch(showSettings, (visible) => {
@@ -333,9 +333,9 @@ watch(
   () => bootstrap.value?.relay_url,
   () => {
     extensionCatalog.invalidate();
-    if (activeWorkspace.value === "extensions") {
+    void extensionCatalog.load("skill");
+    if (activeWorkspace.value === "extensions")
       void extensionCatalog.load(activeExtensionSection.value);
-    }
   },
 );
 
@@ -366,6 +366,7 @@ onBeforeUnmount(() => {
         <AgentSidebar
           :active-workspace="activeWorkspace"
           :clients="agentClients"
+          :extension-updates="extensionUpdates"
           :status-loading="clientStatusesLoading"
           @select-client="selectClient"
           @select-extensions="selectExtensionCatalog"
@@ -382,12 +383,15 @@ onBeforeUnmount(() => {
           "
           :extension-packages="extensionPackages"
           :extension-section-options="extensionSectionOptions"
+          :extension-updates="extensionUpdates"
+          :extension-updating="extensionActions.updating.value"
           :item-pending="pending"
           :section-items="sectionItems"
           :section-options="availableSectionOptions"
           :workspace="activeWorkspace"
           @detail="openExtensionDetails"
           @install="openExtensionInstall"
+          @update-all="extensionActions.updateAll"
           @open-settings="openSettings(activeClientDetected)"
           @uninstall="uninstallAgentItem"
         />
@@ -418,7 +422,7 @@ onBeforeUnmount(() => {
         .filter((client) => client.installed)
         .map((client) => client.client)
     "
-    @installed="onExtensionInstalled"
+    @installed="extensionActions.installed"
   />
 </template>
 
