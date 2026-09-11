@@ -17,6 +17,7 @@ use crate::{
 
 pub use prelay_protocol::ExtensionKind;
 
+pub(crate) mod mcp;
 pub(crate) mod rules;
 pub(crate) mod skills;
 
@@ -75,12 +76,7 @@ pub async fn list_extensions(
     let path = match kind {
         ExtensionKind::Rule => "/api/extensions/rules",
         ExtensionKind::Skill => "/api/extensions/skills",
-        ExtensionKind::Mcp => {
-            return Err(ClientError::new(
-                "extension_kind_unavailable",
-                "MCP 扩展当前未开放。",
-            ));
-        }
+        ExtensionKind::Mcp => "/api/extensions/mcp",
     };
     let client = authenticated_api(state).await?;
     let summaries: Vec<ExtensionSummary> = client.get(path).await?;
@@ -145,7 +141,30 @@ pub async fn list_extensions(
                 package.installed_clients = status.clients;
             }
         }
-        ExtensionKind::Mcp => unreachable!("MCP directory is disabled"),
+        ExtensionKind::Mcp => {
+            let clients = mcp_agent_clients(&clients);
+            let listed = packages
+                .iter()
+                .map(|package| package.name.clone())
+                .collect();
+            mcp::retain_listed_mcp_packages(home, &clients, &listed)?;
+            for package in &mut packages {
+                let status = mcp::mcp_installation_status(
+                    home,
+                    &clients,
+                    &package.name,
+                    &package.version,
+                    &package.commit_sha,
+                )?;
+                package.install_action = match status.action {
+                    mcp::McpInstallAction::Install => ExtensionInstallAction::Install,
+                    mcp::McpInstallAction::Partial => ExtensionInstallAction::Partial,
+                    mcp::McpInstallAction::Update => ExtensionInstallAction::Update,
+                    mcp::McpInstallAction::Installed => ExtensionInstallAction::Installed,
+                };
+                package.installed_clients = status.clients;
+            }
+        }
     }
     Ok(ExtensionCatalogSnapshot { packages })
 }
@@ -170,12 +189,6 @@ pub async fn install_extension(
     state: &NativeState,
     request: &ExtensionInstallRequest,
 ) -> Result<ExtensionInstallResult, ClientError> {
-    if request.package.kind == ExtensionKind::Mcp {
-        return Err(ClientError::new(
-            "extension_kind_unavailable",
-            "MCP 扩展当前未开放安装。",
-        ));
-    }
     let client = authenticated_api(state).await?;
     let bundle: ExtensionInstallBundle = client
         .get(&format!(
@@ -210,7 +223,20 @@ pub async fn install_extension(
                 )?;
             }
         }
-        ExtensionKind::Mcp => unreachable!("MCP installation is disabled"),
+        ExtensionKind::Mcp => {
+            let manifest = mcp::read_mcp_manifest(
+                bundle.files.first().expect("validated MCP install bundle"),
+            )?;
+            mcp::install_mcp(
+                home,
+                &request.clients,
+                &bundle.name,
+                &bundle.version.tag,
+                &bundle.version.commit_sha,
+                &manifest,
+                request.overwrite,
+            )?;
+        }
     }
     Ok(ExtensionInstallResult {
         message: format!("已安装{}。", bundle.name),
@@ -272,11 +298,27 @@ fn validate_bundle(bundle: &ExtensionInstallBundle) -> Result<(), ClientError> {
         {
             Ok(())
         }
+        ExtensionKind::Mcp if bundle.files.len() == 1 => {
+            mcp::read_mcp_manifest(&bundle.files[0]).map(|_| ())
+        }
         _ => Err(ClientError::new(
             "invalid_response",
             "extension install bundle is invalid",
         )),
     }
+}
+
+fn mcp_agent_clients(clients: &[AgentClient]) -> Vec<AgentClient> {
+    clients
+        .iter()
+        .copied()
+        .filter(|client| {
+            matches!(
+                client,
+                AgentClient::CodexCli | AgentClient::ClaudeCode | AgentClient::OpenCode
+            )
+        })
+        .collect()
 }
 
 fn safe_skill_path(path: &str) -> bool {

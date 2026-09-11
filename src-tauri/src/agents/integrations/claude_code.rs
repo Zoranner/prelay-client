@@ -3,7 +3,8 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use serde_json::Value;
+use prelay_protocol::{ExtensionMcpManifest, ExtensionMcpTransport};
+use serde_json::{Map, Value};
 
 use super::{AgentIntegration, AgentItem, AgentItemKind};
 use crate::agents::{
@@ -101,4 +102,120 @@ fn remove_mcp_server(home: &Path, name: &str) -> Result<(), String> {
         return Err("未找到要卸载的配置项。".to_string());
     }
     write_json(&path, &document)
+}
+
+pub(crate) fn mcp_server_exists(home: &Path, name: &str) -> Result<bool, String> {
+    let path = mcp_configuration_path(home);
+    let contents = match fs::read_to_string(&path) {
+        Ok(contents) => contents,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(false),
+        Err(error) => return Err(format!("无法读取 Claude Code 配置：{error}")),
+    };
+    let document = serde_json::from_str::<Value>(&contents)
+        .map_err(|error| format!("Claude Code 配置不是有效的 JSON：{error}"))?;
+    Ok(document
+        .get("mcpServers")
+        .and_then(Value::as_object)
+        .is_some_and(|servers| servers.contains_key(name)))
+}
+
+pub(crate) fn upsert_mcp_server(
+    home: &Path,
+    manifest: &ExtensionMcpManifest,
+) -> Result<(), String> {
+    let path = mcp_configuration_path(home);
+    let contents = match fs::read_to_string(&path) {
+        Ok(contents) if contents.trim().is_empty() => "{}".to_string(),
+        Ok(contents) => contents,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => "{}".to_string(),
+        Err(error) => return Err(format!("无法读取 Claude Code 配置：{error}")),
+    };
+    let mut document = serde_json::from_str::<Value>(&contents)
+        .map_err(|error| format!("Claude Code 配置不是有效的 JSON：{error}"))?;
+    let root = document
+        .as_object_mut()
+        .ok_or_else(|| "Claude Code 配置根节点必须是对象。".to_string())?;
+    let servers = root
+        .entry("mcpServers".to_string())
+        .or_insert_with(|| Value::Object(Map::new()))
+        .as_object_mut()
+        .ok_or_else(|| "Claude Code MCP 配置不是对象。".to_string())?;
+    servers.insert(manifest.name.clone(), mcp_server_entry(manifest)?);
+    write_json(&path, &document)
+}
+
+fn mcp_server_entry(manifest: &ExtensionMcpManifest) -> Result<Value, String> {
+    let mut entry = Map::new();
+    match &manifest.transport {
+        ExtensionMcpTransport::Stdio {
+            command,
+            cwd,
+            environment,
+            enabled,
+            timeout_ms,
+        } => {
+            let (program, arguments) = command
+                .split_first()
+                .filter(|(program, _)| !program.trim().is_empty())
+                .ok_or_else(|| "MCP 命令不能为空。".to_string())?;
+            if cwd.is_some() {
+                return Err("MCP 工作目录当前不受支持。".to_string());
+            }
+            if environment.iter().any(|(name, value)| name != value) {
+                return Err("MCP 环境变量必须使用同名引用。".to_string());
+            }
+            entry.insert("type".to_string(), Value::String("stdio".to_string()));
+            entry.insert("command".to_string(), Value::String(program.to_string()));
+            if !arguments.is_empty() {
+                entry.insert(
+                    "args".to_string(),
+                    Value::Array(arguments.iter().cloned().map(Value::String).collect()),
+                );
+            }
+            if !environment.is_empty() {
+                entry.insert(
+                    "env".to_string(),
+                    Value::Object(
+                        environment
+                            .keys()
+                            .map(|name| (name.clone(), Value::String(format!("${{{name}}}"))))
+                            .collect(),
+                    ),
+                );
+            }
+            entry.insert("enabled".to_string(), Value::Bool(*enabled));
+            set_timeout(&mut entry, *timeout_ms);
+        }
+        ExtensionMcpTransport::Http {
+            url,
+            headers,
+            enabled,
+            timeout_ms,
+        } => {
+            entry.insert("type".to_string(), Value::String("http".to_string()));
+            entry.insert("url".to_string(), Value::String(url.clone()));
+            if !headers.is_empty() {
+                entry.insert(
+                    "headers".to_string(),
+                    Value::Object(
+                        headers
+                            .iter()
+                            .map(|(name, variable)| {
+                                (name.clone(), Value::String(format!("${{{variable}}}")))
+                            })
+                            .collect(),
+                    ),
+                );
+            }
+            entry.insert("enabled".to_string(), Value::Bool(*enabled));
+            set_timeout(&mut entry, *timeout_ms);
+        }
+    }
+    Ok(Value::Object(entry))
+}
+
+fn set_timeout(entry: &mut Map<String, Value>, timeout_ms: Option<u64>) {
+    if let Some(timeout_ms) = timeout_ms {
+        entry.insert("timeout".to_string(), Value::Number(timeout_ms.into()));
+    }
 }

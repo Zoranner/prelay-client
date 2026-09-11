@@ -18,9 +18,11 @@ pub use model::{
 };
 
 pub(crate) use discovery::{chatgpt_desktop_version, command_client_version, command_path};
+pub(crate) use integrations::{claude_code, opencode};
 pub(crate) use items::{
-    claude_code_configuration_path, deduplicate, error_item, opencode_configuration_path,
-    remove_codex_config_item, remove_skill_directory, scan_codex, scan_skills, write_json,
+    claude_code_configuration_path, codex_mcp_server_exists, deduplicate, error_item,
+    opencode_configuration_path, remove_codex_config_item, remove_skill_directory, scan_codex,
+    scan_skills, upsert_codex_mcp_server, write_json,
 };
 
 #[cfg(all(test, windows))]

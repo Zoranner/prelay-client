@@ -6,7 +6,8 @@ use std::{
 };
 
 use atomic_write_file::AtomicWriteFile;
-use toml_edit::DocumentMut;
+use prelay_protocol::{ExtensionMcpManifest, ExtensionMcpTransport};
+use toml_edit::{value, Array, DocumentMut, Item, Table, Value};
 
 use super::{
     discovery::agent_client_is_installed,
@@ -214,6 +215,120 @@ pub(crate) fn remove_codex_config_item(
         return Err("未找到要卸载的配置项。".to_string());
     }
     write_text(&config_path, document.to_string().as_bytes())
+}
+
+pub(crate) fn codex_mcp_server_exists(home: &Path, name: &str) -> Result<bool, String> {
+    let config_path = home.join(".codex").join("config.toml");
+    let contents = match fs::read_to_string(&config_path) {
+        Ok(contents) => contents,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(false),
+        Err(error) => return Err(format!("无法读取 Codex 配置：{error}")),
+    };
+    let document = contents
+        .parse::<DocumentMut>()
+        .map_err(|error| format!("Codex 配置不是有效的 TOML：{error}"))?;
+    Ok(document["mcp_servers"]
+        .as_table()
+        .is_some_and(|servers| servers.contains_key(name)))
+}
+
+pub(crate) fn upsert_codex_mcp_server(
+    home: &Path,
+    manifest: &ExtensionMcpManifest,
+) -> Result<(), String> {
+    let config_path = home.join(".codex").join("config.toml");
+    let contents = match fs::read_to_string(&config_path) {
+        Ok(contents) => contents,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => String::new(),
+        Err(error) => return Err(format!("无法读取 Codex 配置：{error}")),
+    };
+    let mut document = contents
+        .parse::<DocumentMut>()
+        .map_err(|error| format!("Codex 配置不是有效的 TOML：{error}"))?;
+    if !document.as_table().contains_key("mcp_servers") {
+        document["mcp_servers"] = Item::Table(Table::new());
+    }
+    let servers = document["mcp_servers"]
+        .as_table_mut()
+        .ok_or_else(|| "Codex MCP 配置不是表。".to_string())?;
+    servers.insert(
+        &manifest.name,
+        Item::Table(codex_mcp_server_table(manifest)?),
+    );
+    write_text(&config_path, document.to_string().as_bytes())
+}
+
+fn codex_mcp_server_table(manifest: &ExtensionMcpManifest) -> Result<Table, String> {
+    let mut server = Table::new();
+    match &manifest.transport {
+        ExtensionMcpTransport::Stdio {
+            command,
+            cwd,
+            environment,
+            enabled,
+            timeout_ms,
+        } => {
+            let (program, arguments) = command
+                .split_first()
+                .filter(|(program, _)| !program.trim().is_empty())
+                .ok_or_else(|| "MCP 命令不能为空。".to_string())?;
+            if cwd.is_some() {
+                return Err("MCP 工作目录当前不受支持。".to_string());
+            }
+            if environment.iter().any(|(name, value)| name != value) {
+                return Err("MCP 环境变量必须使用同名引用。".to_string());
+            }
+            server["command"] = value(program);
+            set_string_array(&mut server, "args", arguments);
+            set_string_array(
+                &mut server,
+                "env_vars",
+                &environment.keys().cloned().collect::<Vec<_>>(),
+            );
+            server["enabled"] = value(*enabled);
+            set_timeout(&mut server, *timeout_ms)?;
+        }
+        ExtensionMcpTransport::Http {
+            url,
+            headers,
+            enabled,
+            timeout_ms,
+        } => {
+            server["url"] = value(url);
+            let mut header_variables = toml_edit::InlineTable::new();
+            for (header, variable) in headers {
+                header_variables.insert(header, Value::from(variable.as_str()));
+            }
+            if !header_variables.is_empty() {
+                server["env_http_headers"] = Item::Value(Value::InlineTable(header_variables));
+            }
+            server["enabled"] = value(*enabled);
+            set_timeout(&mut server, *timeout_ms)?;
+        }
+    }
+    Ok(server)
+}
+
+fn set_string_array(table: &mut Table, key: &str, values: &[String]) {
+    if values.is_empty() {
+        return;
+    }
+    let mut array = Array::new();
+    for entry in values {
+        array.push(entry.as_str());
+    }
+    table[key] = Item::Value(Value::Array(array));
+}
+
+fn set_timeout(table: &mut Table, timeout_ms: Option<u64>) -> Result<(), String> {
+    let Some(timeout_ms) = timeout_ms else {
+        return Ok(());
+    };
+    let timeout_secs = timeout_ms.div_ceil(1_000);
+    let timeout_secs =
+        i64::try_from(timeout_secs).map_err(|_| "MCP 超时时间超出 Codex 支持范围。".to_string())?;
+    table["tool_timeout_sec"] = value(timeout_secs);
+    Ok(())
 }
 
 pub(crate) fn remove_skill_directory(source_path: &str) -> Result<(), String> {
