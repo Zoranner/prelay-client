@@ -187,7 +187,6 @@ function updateExtensionSection(value: string | number | boolean | null) {
   flex: 1;
   min-width: 0;
   min-height: 0;
-  padding-top: var(--spacing-md);
   overflow: hidden;
 }
 
