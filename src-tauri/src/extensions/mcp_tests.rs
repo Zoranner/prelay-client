@@ -226,6 +226,17 @@ fn rejects_unsafe_mcp_bundles() {
                 }
             }"#,
         r#"{
+                "name": "workspace",
+                "transport": {
+                    "type": "stdio",
+                    "command": ["uvx", "mcp-server-filesystem"],
+                    "cwd": null,
+                    "environment": {},
+                    "enabled": true,
+                    "timeoutMs": null
+                }
+            }"#,
+        r#"{
                 "name": "filesystem",
                 "transport": {
                     "type": "stdio",
@@ -241,6 +252,27 @@ fn rejects_unsafe_mcp_bundles() {
                 "transport": {
                     "type": "http",
                     "url": "https://mcp.example.test?token=plain-text-secret",
+                    "headers": {},
+                    "enabled": true,
+                    "timeoutMs": null
+                }
+            }"#,
+        r#"{
+                "name": "filesystem",
+                "transport": {
+                    "type": "stdio",
+                    "command": ["uvx", "mcp-server-filesystem", "--access-key", "plain-text-secret"],
+                    "cwd": null,
+                    "environment": {},
+                    "enabled": true,
+                    "timeoutMs": null
+                }
+            }"#,
+        r#"{
+                "name": "remote",
+                "transport": {
+                    "type": "http",
+                    "url": "https://mcp.example.test?transport=stream",
                     "headers": {},
                     "enabled": true,
                     "timeoutMs": null
@@ -264,4 +296,26 @@ fn rejects_unsafe_mcp_bundles() {
 
         assert!(read_mcp_manifest(&file).is_err());
     }
+}
+
+#[test]
+fn accepts_ordinary_mcp_command_arguments() {
+    let file = ExtensionFile {
+        path: "server.json".to_string(),
+        content_base64: BASE64.encode(
+            r#"{
+                "name": "filesystem",
+                "transport": {
+                    "type": "stdio",
+                    "command": ["uvx", "mcp-server-filesystem", "--tokenizer=cl100k_base"],
+                    "cwd": null,
+                    "environment": {},
+                    "enabled": true,
+                    "timeoutMs": null
+                }
+            }"#,
+        ),
+    };
+
+    assert!(read_mcp_manifest(&file).is_ok());
 }

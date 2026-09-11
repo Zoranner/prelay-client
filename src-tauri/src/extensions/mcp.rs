@@ -188,6 +188,10 @@ fn is_mcp_server_name(value: &str) -> bool {
         && value
             .chars()
             .all(|character| character.is_ascii_alphanumeric() || matches!(character, '-' | '_'))
+        && !matches!(
+            value.to_ascii_lowercase().as_str(),
+            "workspace" | "cli" | "project" | "user" | "local" | "claude" | "builtin"
+        )
 }
 
 fn is_safe_http_url(value: &str) -> bool {
@@ -199,9 +203,7 @@ fn is_safe_http_url(value: &str) -> bool {
         && url.username().is_empty()
         && url.password().is_none()
         && url.fragment().is_none()
-        && !url
-            .query_pairs()
-            .any(|(name, _)| is_sensitive_name(name.as_ref()))
+        && url.query().is_none()
 }
 
 fn command_has_plaintext_secret(command: &[String]) -> bool {
@@ -221,13 +223,21 @@ fn is_sensitive_command_option(argument: &str) -> bool {
 
 fn is_sensitive_name(value: &str) -> bool {
     let normalized = value.to_ascii_lowercase().replace('_', "-");
-    normalized.contains("api-key")
-        || normalized.contains("apikey")
-        || normalized.contains("token")
-        || normalized.contains("secret")
-        || normalized.contains("password")
-        || normalized.contains("authorization")
-        || matches!(normalized.as_str(), "auth" | "key")
+    matches!(
+        normalized.as_str(),
+        "api-key"
+            | "apikey"
+            | "access-key"
+            | "accesskey"
+            | "token"
+            | "secret"
+            | "password"
+            | "authorization"
+            | "auth"
+            | "credential"
+            | "credentials"
+            | "key"
+    )
 }
 
 fn is_environment_variable_name(value: &str) -> bool {
@@ -263,10 +273,12 @@ pub(crate) fn mcp_installation_status(
         if current.version != version || current.commit_sha != commit_sha {
             outdated = true;
         }
-        if let Some(manifest) = current.manifest.as_ref() {
-            if !mcp_server_matches(home, *client, manifest)? {
+        match current.manifest.as_ref() {
+            Some(manifest) if !mcp_server_matches(home, *client, manifest)? => {
                 outdated = true;
             }
+            None => outdated = true,
+            Some(_) => {}
         }
     }
 

@@ -203,6 +203,57 @@ enabled = true
 }
 
 #[test]
+fn reports_update_when_legacy_mcp_state_has_no_manifest_snapshot() {
+    let directory = tempdir().unwrap();
+    let manifest = ExtensionMcpManifest {
+        name: "filesystem".to_string(),
+        transport: ExtensionMcpTransport::Stdio {
+            command: vec!["uvx".to_string(), "mcp-server-filesystem".to_string()],
+            cwd: None,
+            environment: Default::default(),
+            enabled: true,
+            timeout_ms: None,
+        },
+    };
+    install_mcp(
+        directory.path(),
+        &[AgentClient::CodexCli],
+        "filesystem-mcp",
+        "v1.0.0",
+        "commit",
+        &manifest,
+        false,
+    )
+    .unwrap();
+    fs::write(
+        directory
+            .path()
+            .join(".codex")
+            .join(".prelay")
+            .join("mcp.json"),
+        r#"{
+            "filesystem-mcp": {
+                "serverName": "filesystem",
+                "version": "v1.0.0",
+                "commitSha": "commit"
+            }
+        }"#,
+    )
+    .unwrap();
+
+    let status = mcp_installation_status(
+        directory.path(),
+        &[AgentClient::CodexCli],
+        "filesystem-mcp",
+        "v1.0.0",
+        "commit",
+    )
+    .unwrap();
+    assert_eq!(status.action, McpInstallAction::Update);
+    assert_eq!(status.clients, vec![AgentClient::CodexCli]);
+}
+
+#[test]
 fn rejects_a_multi_client_install_before_writing_any_target_with_a_conflict() {
     let directory = tempdir().unwrap();
     fs::write(
