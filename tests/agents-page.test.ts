@@ -23,7 +23,8 @@ test("智能体页面只编排路由级状态，展示和设置由领域组件�
   expect(page).toContain("AgentWorkspaceContent");
   expect(page).toContain("AgentSettingsDrawer");
   expect(sidebar).toContain("agent-client-list");
-  expect(sidebar).toContain("agent-client-icon--monochrome");
+  expect(sidebar).toContain("AgentClientIcon");
+  expect(sidebar).not.toContain("agent-client-icon--monochrome");
   expect(content).toContain("@update:model-value");
   expect(page).toContain('value: "rules"');
   expect(page).not.toContain("插件");

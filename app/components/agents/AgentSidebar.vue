@@ -1,19 +1,19 @@
 <script setup lang="ts">
-import { Icon, List, ListItem } from "@stellar/ui";
+import { Badge, Icon, List, ListItem } from "@stellar/ui";
 import type { AgentClient } from "~/stores/relay";
+import AgentClientIcon from "~/components/agents/AgentClientIcon.vue";
 
 type AgentClientCard = {
   client: AgentClient;
-  icon: string;
   installed: boolean;
   label: string;
-  monochrome: boolean;
   version: string;
 };
 
 defineProps<{
   activeWorkspace: AgentClient | "extensions";
   clients: AgentClientCard[];
+  extensionUpdates: number;
   statusLoading: boolean;
 }>();
 
@@ -35,15 +35,9 @@ const emit = defineEmits<{
       >
         <template #prefix>
           <span class="agent-client-icon-frame">
-            <img
-              :src="client.icon"
-              :alt="client.label"
-              class="agent-client-icon"
-              :class="{
-                'agent-client-icon--monochrome': client.monochrome,
-                'agent-client-icon--uninstalled': !client.installed,
-                'agent-client-icon--loading': statusLoading,
-              }"
+            <AgentClientIcon
+              :client="client.client"
+              :muted="!client.installed || statusLoading"
             />
             <span v-if="statusLoading" class="agent-client-loading">
               <Icon icon="ph:circle-notch" size="28" />
@@ -67,7 +61,12 @@ const emit = defineEmits<{
             <Icon icon="ph:storefront" size="24" />
           </span>
         </template>
-        <span class="agent-client-identity"><span>扩展库</span></span>
+        <span class="agent-extension-identity">
+          <span>扩展库</span>
+          <Badge v-if="extensionUpdates > 0" semantic="error" variant="solid">
+            {{ extensionUpdates }}
+          </Badge>
+        </span>
       </ListItem>
     </List>
   </aside>
@@ -114,23 +113,6 @@ const emit = defineEmits<{
   background: var(--st-bg-elevated);
 }
 
-.agent-client-icon {
-  display: block;
-  width: 28px;
-  height: 28px;
-  object-fit: contain;
-}
-
-.agent-client-icon--monochrome {
-  filter: var(--pr-monochrome-icon-filter);
-}
-
-.agent-client-icon--uninstalled,
-.agent-client-icon--loading {
-  filter: var(--pr-monochrome-icon-filter) grayscale(1);
-  opacity: 0.45;
-}
-
 .agent-client-loading {
   position: absolute;
   inset: 0;
@@ -144,6 +126,14 @@ const emit = defineEmits<{
 .agent-client-identity {
   display: grid;
   gap: 2px;
+}
+
+.agent-extension-identity {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--spacing-sm);
 }
 
 .agent-client-identity small {

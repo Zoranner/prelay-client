@@ -12,6 +12,10 @@ test("智能体工作区按客户端状态、内容与设置职责分层", () =>
   const page = source("pages/agents.vue");
   const workspace = source("composables/useAgentWorkspace.ts");
   const sidebar = source("components/agents/AgentSidebar.vue");
+  const clientIcon = source("components/agents/AgentClientIcon.vue");
+  const clientAvatarGroup = source(
+    "components/agents/AgentClientAvatarGroup.vue",
+  );
   const content = source("components/agents/AgentWorkspaceContent.vue");
   const settings = source("composables/useAgentSettings.ts");
   const rules = source("composables/useAgentRules.ts");
@@ -32,10 +36,17 @@ test("智能体工作区按客户端状态、内容与设置职责分层", () =>
   expect(workspace).toContain("Promise.all(");
 
   expect(sidebar).toContain('class="agent-client-loading"');
-  expect(sidebar).toContain("agent-client-icon--uninstalled");
-  expect(sidebar).toContain("agent-client-icon--monochrome");
+  expect(sidebar).toContain("AgentClientIcon");
+  expect(sidebar).not.toContain("agent-client-icon--uninstalled");
+  expect(sidebar).not.toContain("agent-client-icon--monochrome");
   expect(sidebar).toContain("agent-sidebar-loading-spin");
   expect(sidebar).toContain('icon="ph:circle-notch" size="28"');
+  expect(clientIcon).toContain("agentClientDefinitions");
+  expect(clientIcon).toContain("var(--pr-monochrome-icon-filter)");
+  expect(clientAvatarGroup).toContain("AvatarGroup");
+  expect(clientAvatarGroup).toContain(':max="4"');
+  expect(clientAvatarGroup).toContain('size="small"');
+  expect(clientAvatarGroup).toContain(":deep(img)");
   expect(content).toContain('text="正在检测智能体安装状态..."');
   expect(content).toContain('text="正在读取智能体设置..."');
   expect(content).toContain("未检测到本机安装");
