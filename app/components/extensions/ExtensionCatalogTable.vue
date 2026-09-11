@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { Button, Table, useNotification } from "@stellar/ui";
 import type { ExtensionCatalogPackage } from "~/stores/relay";
+import ExtensionInstallationScope from "~/components/extensions/ExtensionInstallationScope.vue";
 
 type ExtensionRow = ExtensionCatalogPackage & Record<string, unknown>;
 
@@ -18,6 +19,16 @@ function repositoryUrl(repository: string) {
   return repository;
 }
 
+function installAction(row: ExtensionCatalogPackage) {
+  if (row.installAction === "update")
+    return { icon: "ph:arrow-circle-down", label: "更新" };
+  if (row.installAction === "partial")
+    return { icon: "ph:download-simple", label: "补装" };
+  if (row.installAction === "installed")
+    return { icon: "ph:check", label: "已安装" };
+  return { icon: "ph:download-simple", label: "安装" };
+}
+
 async function copyRepositoryUrl(repository: string) {
   try {
     await navigator.clipboard.writeText(repositoryUrl(repository));
@@ -30,6 +41,7 @@ async function copyRepositoryUrl(repository: string) {
 const columns = [
   { key: "name", title: "名称", width: 180, ellipsis: true },
   { key: "version", title: "版本", width: 112, ellipsis: true },
+  { key: "installation", title: "安装状态", width: 140 },
   { key: "source", title: "仓库地址", minWidth: 240, ellipsis: true },
   {
     key: "actions",
@@ -54,6 +66,9 @@ const columns = [
   >
     <template #cell-name="{ row }">
       <span :title="row.name">{{ row.name }}</span>
+    </template>
+    <template #cell-installation="{ row }">
+      <ExtensionInstallationScope :package="row" />
     </template>
     <template #cell-source="{ row }">
       <div class="extension-catalog-source">
@@ -93,10 +108,10 @@ const columns = [
         <Button
           square
           size="small"
-          icon="ph:download-simple"
-          aria-label="安装"
-          title="安装"
-          :disabled="pending"
+          :icon="installAction(row).icon"
+          :aria-label="installAction(row).label"
+          :title="installAction(row).label"
+          :disabled="pending || row.installAction === 'installed'"
           @click.stop="emit('install', row)"
         />
       </div>

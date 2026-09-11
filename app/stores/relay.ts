@@ -328,6 +328,11 @@ export interface AgentClientStatus {
 
 export type ExtensionKind = "rule" | "mcp" | "skill";
 export type ExtensionCatalogKind = Exclude<ExtensionKind, "mcp">;
+export type ExtensionInstallAction =
+  | "install"
+  | "partial"
+  | "update"
+  | "installed";
 
 export interface ExtensionPackage {
   name: string;
@@ -335,6 +340,8 @@ export interface ExtensionPackage {
   commitSha: string;
   version: string;
   kind: ExtensionKind;
+  installAction: ExtensionInstallAction;
+  installedClients: AgentClient[];
 }
 
 export type ExtensionCatalogPackage = Omit<ExtensionPackage, "kind"> & {

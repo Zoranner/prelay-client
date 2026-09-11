@@ -20,6 +20,13 @@ const { confirm: confirmAction } = useConfirm();
 const notifications = useNotification();
 const selectedClients = ref<AgentClient[]>([]);
 const installing = ref(false);
+const actionLabel = computed(() =>
+  props.extension?.installAction === "update"
+    ? "更新"
+    : props.extension?.installAction === "partial"
+      ? "补装"
+      : "安装",
+);
 
 const detected = computed(() => new Set(props.detectedClients));
 const clientOptions = computed(() => [
@@ -100,7 +107,16 @@ watch(
   () => visible.value,
   (isVisible) => {
     if (!isVisible) return;
-    selectedClients.value = [...props.detectedClients];
+    const extension = props.extension;
+    selectedClients.value =
+      ["partial", "update"].includes(extension?.installAction ?? "")
+        ? props.detectedClients.filter(
+            (client) =>
+              extension?.installAction === "partial"
+                ? !extension.installedClients.includes(client)
+                : extension?.installedClients.includes(client),
+          )
+        : [...props.detectedClients];
   },
 );
 </script>
@@ -108,7 +124,7 @@ watch(
 <template>
   <Modal
     :visible="visible"
-    :title="extension ? `安装 ${extension.name}` : '安装扩展'"
+    :title="extension ? `${actionLabel} ${extension.name}` : '安装扩展'"
     size="large"
     :blocked="installing"
     :show-cancel="false"
@@ -133,7 +149,7 @@ watch(
         :disabled="installing || !selectedClients.length"
         @click="install()"
       >
-        {{ installing ? "安装中..." : "安装" }}
+        {{ installing ? `${actionLabel}中...` : actionLabel }}
       </Button>
     </template>
   </Modal>

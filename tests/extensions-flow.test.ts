@@ -8,11 +8,18 @@ test("扩展表格显示名称、版本和可复制的仓库地址", () => {
   const catalogTable = source(
     "components/extensions/ExtensionCatalogTable.vue",
   );
+  const installationScope = source(
+    "components/extensions/ExtensionInstallationScope.vue",
+  );
+  const clientAvatarGroup = source(
+    "components/agents/AgentClientAvatarGroup.vue",
+  );
 
   expect(catalogTable).toContain("function repositoryUrl");
   expect(catalogTable).toContain("function copyRepositoryUrl");
   expect(catalogTable).toContain('key: "name", title: "名称"');
   expect(catalogTable).toContain('key: "source", title: "仓库地址"');
+  expect(catalogTable).toContain('key: "installation", title: "安装状态"');
   expect(catalogTable).toContain("#cell-name");
   expect(catalogTable).toContain("#cell-source");
   expect(catalogTable).toContain("row.name");
@@ -25,6 +32,24 @@ test("扩展表格显示名称、版本和可复制的仓库地址", () => {
   expect(catalogTable).not.toContain("row.summary");
   expect(catalogTable).toContain("return repository;");
   expect(catalogTable).not.toContain("https://git.kimo.ink/agents/");
+  expect(catalogTable).toContain('row.installAction === "update"');
+  expect(catalogTable).toContain('row.installAction === "partial"');
+  expect(catalogTable).toContain('row.installAction === "installed"');
+  expect(catalogTable).toContain('icon: "ph:arrow-circle-down"');
+  expect(catalogTable).toContain('label: "更新"');
+  expect(catalogTable).toContain(':icon="installAction(row).icon"');
+  expect(catalogTable).toContain("<ExtensionInstallationScope");
+  expect(
+    catalogTable.indexOf('key: "installation", title: "安装状态"'),
+  ).toBeLessThan(catalogTable.indexOf('key: "source", title: "仓库地址"'));
+  expect(installationScope).toContain("AgentClientAvatarGroup");
+  expect(installationScope).toContain("package.installedClients");
+  expect(clientAvatarGroup).toContain("AvatarGroup");
+  expect(clientAvatarGroup).toContain('variant="capsule"');
+  expect(clientAvatarGroup).toContain(':max="4"');
+  expect(clientAvatarGroup).toContain('size="small"');
+  expect(clientAvatarGroup).toContain(":deep(img)");
+  expect(clientAvatarGroup).toContain("var(--pr-monochrome-icon-filter)");
 });
 
 test("扩展库沿用智能体工作区的分类表格与单层操作表面", () => {

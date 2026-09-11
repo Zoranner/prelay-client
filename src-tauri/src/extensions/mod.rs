@@ -6,7 +6,10 @@ use prelay_protocol::{ExtensionFile, ExtensionInstallBundle, ExtensionSummary};
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    agents::{agent_rule_targets, agent_skill_target_roots, AgentClient},
+    agents::{
+        agent_rule_targets, agent_skill_target_roots, agent_skill_targets, installed_agent_clients,
+        AgentClient,
+    },
     identity::registration::authenticated_api,
     relay::client::ClientError,
     NativeState,
@@ -15,7 +18,7 @@ use crate::{
 pub use prelay_protocol::ExtensionKind;
 
 mod rules;
-mod skills;
+pub(crate) mod skills;
 
 const RULES_PATH: &str = "AGENTS.md";
 const SKILLS_PREFIX: &str = "skills/";
@@ -28,6 +31,20 @@ pub struct ExtensionPackage {
     pub commit_sha: String,
     pub version: String,
     pub kind: ExtensionKind,
+    #[serde(default)]
+    pub install_action: ExtensionInstallAction,
+    #[serde(default)]
+    pub installed_clients: Vec<AgentClient>,
+}
+
+#[derive(Debug, Clone, Copy, Default, Deserialize, Serialize)]
+#[serde(rename_all = "lowercase")]
+pub enum ExtensionInstallAction {
+    #[default]
+    Install,
+    Partial,
+    Update,
+    Installed,
 }
 
 #[derive(Debug, Clone, Default, Serialize)]
@@ -51,6 +68,7 @@ pub struct ExtensionInstallResult {
 }
 
 pub async fn list_extensions(
+    home: &Path,
     state: &NativeState,
     kind: ExtensionKind,
 ) -> Result<ExtensionCatalogSnapshot, ClientError> {
@@ -66,18 +84,44 @@ pub async fn list_extensions(
     };
     let client = authenticated_api(state).await?;
     let summaries: Vec<ExtensionSummary> = client.get(path).await?;
-    Ok(ExtensionCatalogSnapshot {
-        packages: summaries
-            .into_iter()
-            .map(|summary| ExtensionPackage {
-                name: summary.name,
-                repository: summary.repository,
-                commit_sha: summary.latest.commit_sha,
-                version: summary.latest.tag,
-                kind,
-            })
-            .collect(),
-    })
+    let mut packages = summaries
+        .into_iter()
+        .map(|summary| ExtensionPackage {
+            name: summary.name,
+            repository: summary.repository,
+            commit_sha: summary.latest.commit_sha,
+            version: summary.latest.tag,
+            kind,
+            install_action: ExtensionInstallAction::Install,
+            installed_clients: Vec::new(),
+        })
+        .collect::<Vec<_>>();
+    if kind == ExtensionKind::Skill {
+        let clients = installed_agent_clients();
+        let targets = agent_skill_targets(&clients, home);
+        let target_roots = agent_skill_target_roots(&clients, home);
+        let listed = packages
+            .iter()
+            .map(|package| package.name.clone())
+            .collect();
+        skills::retain_listed_skill_packages(&target_roots, &listed)?;
+        for package in &mut packages {
+            let status = skills::skill_installation_status(
+                &targets,
+                &package.name,
+                &package.version,
+                &package.commit_sha,
+            )?;
+            package.install_action = match status.action {
+                skills::SkillInstallAction::Install => ExtensionInstallAction::Install,
+                skills::SkillInstallAction::Partial => ExtensionInstallAction::Partial,
+                skills::SkillInstallAction::Update => ExtensionInstallAction::Update,
+                skills::SkillInstallAction::Installed => ExtensionInstallAction::Installed,
+            };
+            package.installed_clients = status.clients;
+        }
+    }
+    Ok(ExtensionCatalogSnapshot { packages })
 }
 
 pub async fn read_extension_readme(

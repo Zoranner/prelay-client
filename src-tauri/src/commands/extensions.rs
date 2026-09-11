@@ -20,7 +20,8 @@ pub async fn extensions_list(
     state: tauri::State<'_, NativeState>,
     kind: ExtensionKind,
 ) -> Result<ExtensionCatalogSnapshot, ClientError> {
-    list_extensions(&state, kind).await
+    let home = user_home()?;
+    list_extensions(&home, &state, kind).await
 }
 
 #[tauri::command]
