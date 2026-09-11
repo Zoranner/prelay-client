@@ -6,7 +6,6 @@ use std::{
 };
 
 use atomic_write_file::AtomicWriteFile;
-use serde::Deserialize;
 use toml_edit::DocumentMut;
 
 use super::{
@@ -41,11 +40,22 @@ pub fn agent_rule_targets(clients: &[AgentClient], home: &Path) -> Vec<PathBuf> 
 }
 
 pub fn agent_skill_target_roots(clients: &[AgentClient], home: &Path) -> Vec<PathBuf> {
-    clients
-        .iter()
-        .filter_map(|client| integration(*client).skill_target_root(home))
+    agent_skill_targets(clients, home)
+        .into_iter()
+        .map(|(_, root)| root)
         .collect::<BTreeSet<_>>()
         .into_iter()
+        .collect()
+}
+
+pub fn agent_skill_targets(clients: &[AgentClient], home: &Path) -> Vec<(AgentClient, PathBuf)> {
+    clients
+        .iter()
+        .filter_map(|client| {
+            integration(*client)
+                .skill_target_root(home)
+                .map(|root| (*client, root))
+        })
         .collect()
 }
 
@@ -221,44 +231,9 @@ pub(crate) fn write_json(path: &Path, document: &serde_json::Value) -> Result<()
 
 pub(crate) fn scan_skills(root: PathBuf) -> Vec<AgentItem> {
     let mut skills = Vec::new();
-    let metadata = skill_installation_metadata(root.parent());
+    let metadata = crate::extensions::skills::skill_installation_metadata(&root);
     visit_skill_directory(&root, &metadata, &mut skills);
     skills
-}
-
-#[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
-struct ManagedSkillPackage {
-    #[serde(default)]
-    version: Option<String>,
-    #[serde(default)]
-    roots: BTreeSet<String>,
-}
-
-fn skill_installation_metadata(parent: Option<&Path>) -> BTreeMap<String, Option<String>> {
-    let Some(directory) = parent.map(|path| path.join(".prelay").join("skills")) else {
-        return BTreeMap::new();
-    };
-    let mut metadata = BTreeMap::new();
-    let Ok(entries) = fs::read_dir(directory) else {
-        return metadata;
-    };
-    for entry in entries.flatten() {
-        let path = entry.path();
-        if path.extension().and_then(|extension| extension.to_str()) != Some("json") {
-            continue;
-        }
-        let Ok(contents) = fs::read_to_string(path) else {
-            continue;
-        };
-        let Ok(package) = serde_json::from_str::<ManagedSkillPackage>(&contents) else {
-            continue;
-        };
-        for root in package.roots {
-            metadata.insert(root, package.version.clone());
-        }
-    }
-    metadata
 }
 
 fn visit_skill_directory(
@@ -274,9 +249,10 @@ fn visit_skill_directory(
         if path.is_dir() {
             let skill_file = path.join("SKILL.md");
             if skill_file.is_file() {
+                let name = entry.file_name().to_string_lossy().to_string();
                 skills.push(AgentItem {
                     kind: AgentItemKind::Skill,
-                    name: entry.file_name().to_string_lossy().to_string(),
+                    name,
                     version: metadata
                         .get(&entry.file_name().to_string_lossy().to_string())
                         .cloned()

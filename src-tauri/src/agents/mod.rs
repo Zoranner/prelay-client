@@ -7,10 +7,10 @@ pub mod settings;
 #[cfg(test)]
 mod tests;
 
-pub use discovery::{agent_client_statuses, agent_client_versions};
+pub use discovery::{agent_client_statuses, agent_client_versions, installed_agent_clients};
 pub use items::{
-    agent_rule_targets, agent_skill_target_roots, scan_agent_items, scan_user_items,
-    uninstall_user_item,
+    agent_rule_targets, agent_skill_target_roots, agent_skill_targets, scan_agent_items,
+    scan_user_items, uninstall_user_item,
 };
 pub use model::{
     AgentClient, AgentClientItems, AgentClientStatus, AgentClientVersion, AgentItem, AgentItemKind,

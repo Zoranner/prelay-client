@@ -1,5 +1,5 @@
 use std::{
-    collections::BTreeSet,
+    collections::{BTreeMap, BTreeSet},
     fs,
     path::{Path, PathBuf},
 };
@@ -7,21 +7,45 @@ use std::{
 use prelay_protocol::ExtensionFile;
 use serde::{Deserialize, Serialize};
 
-use crate::relay::client::ClientError;
+use crate::{agents::AgentClient, relay::client::ClientError};
 
-use super::{atomic_write, decode_extension_file, storage_error, SKILLS_PREFIX};
+use super::{atomic_write, decode_extension_file, storage_error, ExtensionPackage, SKILLS_PREFIX};
 
-const MANAGED_SKILLS_DIRECTORY: &str = ".prelay/skills";
+const SKILL_PACKAGE_STATE_FILE: &str = ".prelay";
+const LEGACY_MANAGED_SKILLS_DIRECTORY: &str = ".prelay/skills";
+
+#[derive(Debug, Default, Deserialize, Serialize)]
+#[serde(transparent)]
+pub(crate) struct InstalledSkillPackages(BTreeMap<String, InstalledSkillPackage>);
 
 #[derive(Debug, Deserialize, Serialize)]
-struct ManagedSkillPackage {
+#[serde(rename_all = "camelCase")]
+pub(crate) struct InstalledSkillPackage {
+    #[serde(default)]
+    pub version: Option<String>,
+    #[serde(default)]
+    pub commit_sha: Option<String>,
+    #[serde(default)]
+    pub skills: BTreeSet<String>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct LegacyManagedSkillPackage {
     #[serde(default)]
     package: String,
     #[serde(default)]
     version: Option<String>,
     #[serde(default)]
     commit_sha: Option<String>,
+    #[serde(default)]
     roots: BTreeSet<String>,
+}
+
+struct SkillInstallContents<'a> {
+    files: Vec<(&'a ExtensionFile, Vec<u8>)>,
+    roots: BTreeSet<String>,
+    removed_roots: BTreeSet<String>,
 }
 
 pub(super) fn install_skill_files(
@@ -32,191 +56,332 @@ pub(super) fn install_skill_files(
     files: &[ExtensionFile],
     overwrite: bool,
 ) -> Result<(), ClientError> {
-    let roots = skill_roots(files)?;
-    let files = files
-        .iter()
-        .map(|source| Ok((source, decode_extension_file(source)?)))
-        .collect::<Result<Vec<_>, ClientError>>()?;
-    let manifest_path = managed_skill_manifest_path(target_root, package)?;
-    let previous = read_managed_skill_package(&manifest_path)?;
-
-    if !overwrite {
-        ensure_skill_roots_available(target_root, package, &roots, previous.as_ref())?;
-    }
-    if overwrite {
-        release_skill_roots_from_other_packages(&manifest_path, &roots)?;
-    }
-
-    let mut roots_to_replace = roots.clone();
-    if let Some(previous) = &previous {
-        roots_to_replace.extend(previous.roots.iter().cloned());
-    }
-    for root in roots_to_replace {
-        let path = target_root.join(root);
-        if path.exists() {
-            fs::remove_dir_all(&path).map_err(storage_error)?;
-        }
-    }
-
-    for (source, content) in files {
-        let relative = source
-            .path
-            .strip_prefix(SKILLS_PREFIX)
-            .expect("validated skill path");
-        atomic_write(&target_root.join(relative), &content)?;
-    }
-    write_managed_skill_package(
-        &manifest_path,
-        &ManagedSkillPackage {
-            package: package.to_string(),
-            version: Some(version.to_string()),
-            commit_sha: Some(commit_sha.to_string()),
-            roots,
-        },
-    )
-}
-
-fn skill_roots(files: &[ExtensionFile]) -> Result<BTreeSet<String>, ClientError> {
-    files
-        .iter()
-        .map(|file| {
-            file.path
-                .strip_prefix(SKILLS_PREFIX)
-                .and_then(|path| path.split('/').next())
-                .filter(|root| !root.is_empty())
-                .map(str::to_owned)
-                .ok_or_else(|| {
-                    ClientError::new("invalid_response", "skill install bundle is invalid")
-                })
-        })
-        .collect()
-}
-
-fn managed_skill_manifest_path(target_root: &Path, package: &str) -> Result<PathBuf, ClientError> {
     if package.is_empty() {
         return Err(ClientError::new(
             "invalid_response",
             "skill package name is empty",
         ));
     }
-    let key = package
-        .as_bytes()
-        .iter()
-        .map(|byte| format!("{byte:02x}"))
-        .collect::<String>();
-    let parent = target_root.parent().ok_or_else(|| {
-        ClientError::new(
-            "local_extensions_error",
-            "skill target root has no parent directory",
-        )
-    })?;
-    Ok(parent
-        .join(MANAGED_SKILLS_DIRECTORY)
-        .join(format!("{key}.json")))
+    let contents = skill_install_contents(files)?;
+    if !contents.roots.is_disjoint(&contents.removed_roots) {
+        return Err(ClientError::new(
+            "invalid_response",
+            "skill install bundle cannot replace and delete the same skill",
+        ));
+    }
+    let mut installed = read_installed_skill_packages(target_root)?;
+
+    if !overwrite {
+        ensure_skill_roots_available(target_root, package, &contents.roots, &installed)?;
+    }
+    if overwrite {
+        installed.release_roots_from_other_packages(package, &contents.roots);
+    }
+
+    for root in &contents.roots {
+        let path = target_root.join(root);
+        if path.exists() {
+            fs::remove_dir_all(&path).map_err(storage_error)?;
+        }
+    }
+
+    for (source, content) in contents.files {
+        let relative = source
+            .path
+            .strip_prefix(SKILLS_PREFIX)
+            .expect("validated skill path");
+        atomic_write(&target_root.join(relative), &content)?;
+    }
+    for root in contents.removed_roots {
+        let path = target_root.join(root);
+        if path.exists() {
+            fs::remove_dir_all(&path).map_err(storage_error)?;
+        }
+    }
+    installed.0.insert(
+        package.to_string(),
+        InstalledSkillPackage {
+            version: Some(version.to_string()),
+            commit_sha: Some(commit_sha.to_string()),
+            skills: contents.roots,
+        },
+    );
+    write_installed_skill_packages(target_root, &installed)
 }
 
-fn read_managed_skill_package(path: &Path) -> Result<Option<ManagedSkillPackage>, ClientError> {
-    match fs::read(path) {
-        Ok(contents) => serde_json::from_slice(&contents)
-            .map(Some)
-            .map_err(|error| {
-                ClientError::new(
-                    "local_extensions_error",
-                    format!("无法读取已安装 Skill 清单：{error}"),
-                )
-            }),
-        Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(None),
+fn skill_install_contents(
+    files: &[ExtensionFile],
+) -> Result<SkillInstallContents<'_>, ClientError> {
+    let mut contents = SkillInstallContents {
+        files: Vec::new(),
+        roots: BTreeSet::new(),
+        removed_roots: BTreeSet::new(),
+    };
+    for source in files {
+        let relative = source.path.strip_prefix(SKILLS_PREFIX).ok_or_else(|| {
+            ClientError::new("invalid_response", "skill install bundle is invalid")
+        })?;
+        let mut parts = relative.split('/');
+        let root = parts
+            .next()
+            .filter(|part| !part.is_empty())
+            .ok_or_else(|| {
+                ClientError::new("invalid_response", "skill install bundle is invalid")
+            })?;
+        let remaining = parts.collect::<Vec<_>>();
+        if let Some(removed_root) = root.strip_prefix('.') {
+            if removed_root.is_empty() || remaining.as_slice() != [".gitkeep"] {
+                return Err(ClientError::new(
+                    "invalid_response",
+                    "skill delete marker is invalid",
+                ));
+            }
+            contents.removed_roots.insert(removed_root.to_string());
+            continue;
+        }
+        contents.roots.insert(root.to_string());
+        contents
+            .files
+            .push((source, decode_extension_file(source)?));
+    }
+    Ok(contents)
+}
+
+pub(crate) fn read_installed_skill_packages(
+    target_root: &Path,
+) -> Result<InstalledSkillPackages, ClientError> {
+    let state_path = target_root.join(SKILL_PACKAGE_STATE_FILE);
+    match fs::read(&state_path) {
+        Ok(contents) => serde_json::from_slice(&contents).map_err(|error| {
+            ClientError::new(
+                "local_extensions_error",
+                format!("无法读取已安装 Skill 状态：{error}"),
+            )
+        }),
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+            migrate_legacy_skill_packages(target_root)
+        }
         Err(error) => Err(storage_error(error)),
     }
 }
 
-fn write_managed_skill_package(
-    path: &Path,
-    package: &ManagedSkillPackage,
+pub(crate) fn retain_listed_skill_packages(
+    target_roots: &[PathBuf],
+    listed_packages: &BTreeSet<String>,
 ) -> Result<(), ClientError> {
-    let contents = serde_json::to_vec(package).map_err(|error| {
-        ClientError::new(
-            "local_extensions_error",
-            format!("无法保存已安装 Skill 清单：{error}"),
-        )
-    })?;
-    atomic_write(path, &contents)
-}
-
-fn release_skill_roots_from_other_packages(
-    current_manifest: &Path,
-    roots: &BTreeSet<String>,
-) -> Result<(), ClientError> {
-    let Some(managed_directory) = current_manifest.parent() else {
-        return Err(ClientError::new(
-            "local_extensions_error",
-            "skill manifest has no parent directory",
-        ));
-    };
-    if !managed_directory.exists() {
-        return Ok(());
-    }
-    for entry in fs::read_dir(managed_directory).map_err(storage_error)? {
-        let path = entry.map_err(storage_error)?.path();
-        if path == current_manifest || path.extension().is_none_or(|extension| extension != "json")
-        {
-            continue;
-        }
-        let Some(mut managed) = read_managed_skill_package(&path)? else {
-            continue;
-        };
-        let original_len = managed.roots.len();
-        managed.roots.retain(|root| !roots.contains(root));
-        if managed.roots.len() == original_len {
-            continue;
-        }
-        if managed.roots.is_empty() {
-            fs::remove_file(path).map_err(storage_error)?;
-        } else {
-            write_managed_skill_package(&path, &managed)?;
+    for target_root in target_roots {
+        let mut installed = read_installed_skill_packages(target_root)?;
+        let initial_len = installed.0.len();
+        installed
+            .0
+            .retain(|package, _| listed_packages.contains(package));
+        if installed.0.len() != initial_len {
+            write_installed_skill_packages(target_root, &installed)?;
         }
     }
     Ok(())
+}
+
+pub(crate) struct SkillInstallationStatus {
+    pub action: SkillInstallAction,
+    pub clients: Vec<AgentClient>,
+}
+
+pub(crate) fn skill_installation_status(
+    targets: &[(AgentClient, PathBuf)],
+    package: &str,
+    version: &str,
+    commit_sha: &str,
+) -> Result<SkillInstallationStatus, ClientError> {
+    let mut states = BTreeMap::new();
+    for (_, root) in targets {
+        if !states.contains_key(root) {
+            states.insert(root.clone(), read_installed_skill_packages(root)?);
+        }
+    }
+    let mut clients = Vec::new();
+    let mut missing = false;
+    let mut outdated = false;
+    for (client, root) in targets {
+        let packages = states.get(root).expect("skill state was loaded");
+        let Some(current) = packages.0.get(package) else {
+            missing = true;
+            continue;
+        };
+        clients.push(*client);
+        if current.version.as_deref() != Some(version)
+            || current.commit_sha.as_deref() != Some(commit_sha)
+        {
+            outdated = true;
+        }
+    }
+    let action = if outdated {
+        SkillInstallAction::Update
+    } else if !clients.is_empty() && missing {
+        SkillInstallAction::Partial
+    } else if clients.is_empty() {
+        SkillInstallAction::Install
+    } else {
+        SkillInstallAction::Installed
+    };
+    Ok(SkillInstallationStatus { action, clients })
+}
+
+pub(crate) fn outdated_skill_package_targets(
+    target_roots: &[PathBuf],
+    packages: &[ExtensionPackage],
+) -> Result<BTreeMap<String, Vec<PathBuf>>, ClientError> {
+    let catalog = packages
+        .iter()
+        .map(|package| (package.name.as_str(), package))
+        .collect::<BTreeMap<_, _>>();
+    let mut targets = BTreeMap::new();
+    for target_root in target_roots {
+        let installed = read_installed_skill_packages(target_root)?;
+        for (name, package) in installed.0 {
+            let Some(current) = catalog.get(name.as_str()) else {
+                continue;
+            };
+            if package.version.as_deref() != Some(&current.version)
+                || package.commit_sha.as_deref() != Some(&current.commit_sha)
+            {
+                targets
+                    .entry(name)
+                    .or_insert_with(Vec::new)
+                    .push(target_root.clone());
+            }
+        }
+    }
+    Ok(targets)
+}
+
+pub(crate) fn skill_installation_metadata(target_root: &Path) -> BTreeMap<String, Option<String>> {
+    let Ok(installed) = read_installed_skill_packages(target_root) else {
+        return BTreeMap::new();
+    };
+    installed
+        .0
+        .into_values()
+        .flat_map(|package| {
+            package
+                .skills
+                .into_iter()
+                .map(move |skill| (skill, package.version.clone()))
+        })
+        .collect()
+}
+
+#[derive(Debug, Clone, Copy, Default, Deserialize, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "lowercase")]
+pub(crate) enum SkillInstallAction {
+    #[default]
+    Install,
+    Partial,
+    Update,
+    Installed,
+}
+
+fn migrate_legacy_skill_packages(
+    target_root: &Path,
+) -> Result<InstalledSkillPackages, ClientError> {
+    let Some(parent) = target_root.parent() else {
+        return Ok(InstalledSkillPackages::default());
+    };
+    let legacy_directory = parent.join(LEGACY_MANAGED_SKILLS_DIRECTORY);
+    if !legacy_directory.exists() {
+        return Ok(InstalledSkillPackages::default());
+    }
+    let mut paths = fs::read_dir(&legacy_directory)
+        .map_err(storage_error)?
+        .map(|entry| entry.map(|entry| entry.path()).map_err(storage_error))
+        .collect::<Result<Vec<_>, ClientError>>()?;
+    paths.sort();
+    let mut installed = InstalledSkillPackages::default();
+    for path in paths {
+        if path.extension().is_none_or(|extension| extension != "json") {
+            continue;
+        }
+        let contents = fs::read(&path).map_err(storage_error)?;
+        let legacy: LegacyManagedSkillPackage =
+            serde_json::from_slice(&contents).map_err(|error| {
+                ClientError::new(
+                    "local_extensions_error",
+                    format!("无法迁移已安装 Skill 状态：{error}"),
+                )
+            })?;
+        if legacy.package.is_empty() {
+            return Err(ClientError::new(
+                "local_extensions_error",
+                "无法迁移已安装 Skill 状态：包名为空。",
+            ));
+        }
+        installed.0.insert(
+            legacy.package,
+            InstalledSkillPackage {
+                version: legacy.version,
+                commit_sha: legacy.commit_sha,
+                skills: legacy.roots,
+            },
+        );
+    }
+    write_installed_skill_packages(target_root, &installed)?;
+    fs::remove_dir_all(&legacy_directory).map_err(storage_error)?;
+    let legacy_parent = parent.join(".prelay");
+    if fs::read_dir(&legacy_parent)
+        .map_err(storage_error)?
+        .next()
+        .is_none()
+    {
+        fs::remove_dir(&legacy_parent).map_err(storage_error)?;
+    }
+    Ok(installed)
+}
+
+fn write_installed_skill_packages(
+    target_root: &Path,
+    packages: &InstalledSkillPackages,
+) -> Result<(), ClientError> {
+    let contents = serde_json::to_vec(packages).map_err(|error| {
+        ClientError::new(
+            "local_extensions_error",
+            format!("无法保存已安装 Skill 状态：{error}"),
+        )
+    })?;
+    atomic_write(&target_root.join(SKILL_PACKAGE_STATE_FILE), &contents)
+}
+
+impl InstalledSkillPackages {
+    fn release_roots_from_other_packages(&mut self, package: &str, roots: &BTreeSet<String>) {
+        self.0.retain(|name, installed| {
+            if name != package {
+                installed.skills.retain(|skill| !roots.contains(skill));
+            }
+            !installed.skills.is_empty()
+        });
+    }
 }
 
 fn ensure_skill_roots_available(
     target_root: &Path,
     package: &str,
     roots: &BTreeSet<String>,
-    previous: Option<&ManagedSkillPackage>,
+    installed: &InstalledSkillPackages,
 ) -> Result<(), ClientError> {
-    let managed_directory = target_root
-        .parent()
-        .ok_or_else(|| {
-            ClientError::new(
-                "local_extensions_error",
-                "skill target root has no parent directory",
-            )
-        })?
-        .join(MANAGED_SKILLS_DIRECTORY);
-    if managed_directory.exists() {
-        for entry in fs::read_dir(&managed_directory).map_err(storage_error)? {
-            let path = entry.map_err(storage_error)?.path();
-            if path.extension().is_none_or(|extension| extension != "json") {
-                continue;
-            }
-            let Some(managed) = read_managed_skill_package(&path)? else {
-                continue;
-            };
-            if path != managed_skill_manifest_path(target_root, package)?
-                && !managed.roots.is_disjoint(roots)
-            {
-                return Err(ClientError::new(
-                    "extension_target_exists",
-                    "技能目录已由另一个扩展包管理。",
-                ));
-            }
+    for (name, entry) in &installed.0 {
+        if name != package && !entry.skills.is_disjoint(roots) {
+            return Err(ClientError::new(
+                "extension_target_exists",
+                "技能目录已由另一个扩展包管理。",
+            ));
         }
     }
 
     for root in roots {
         if target_root.join(root).exists()
-            && previous.is_none_or(|managed| !managed.roots.contains(root))
+            && installed
+                .0
+                .get(package)
+                .is_none_or(|installed| !installed.skills.contains(root))
         {
             return Err(ClientError::new(
                 "extension_target_exists",
@@ -228,150 +393,5 @@ fn ensure_skill_roots_available(
 }
 
 #[cfg(test)]
-mod tests {
-    use std::fs;
-
-    use base64::{engine::general_purpose::STANDARD as BASE64, Engine};
-    use prelay_protocol::ExtensionFile;
-    use tempfile::tempdir;
-
-    use super::install_skill_files;
-
-    fn skill_file(path: &str, content: &str) -> ExtensionFile {
-        ExtensionFile {
-            path: path.to_string(),
-            content_base64: BASE64.encode(content),
-        }
-    }
-
-    #[test]
-    fn reinstalling_a_skill_package_removes_stale_files_and_directories() {
-        let directory = tempdir().unwrap();
-        let root = directory.path().join("skills");
-
-        install_skill_files(
-            &root,
-            "engineering",
-            "1.0.0",
-            "commit",
-            &[
-                skill_file("skills/check/SKILL.md", "old"),
-                skill_file("skills/retired/SKILL.md", "retired"),
-            ],
-            false,
-        )
-        .unwrap();
-        fs::write(root.join("check").join("stale.md"), "stale").unwrap();
-
-        install_skill_files(
-            &root,
-            "engineering",
-            "1.1.0",
-            "commit2",
-            &[skill_file("skills/check/SKILL.md", "new")],
-            false,
-        )
-        .unwrap();
-
-        assert_eq!(
-            fs::read_to_string(root.join("check").join("SKILL.md")).unwrap(),
-            "new"
-        );
-        assert!(!root.join("check").join("stale.md").exists());
-        assert!(!root.join("retired").exists());
-    }
-
-    #[test]
-    fn installing_a_skill_does_not_replace_another_packages_directory() {
-        let directory = tempdir().unwrap();
-        let root = directory.path().join("skills");
-        let files = [skill_file("skills/shared/SKILL.md", "first")];
-
-        install_skill_files(&root, "first-package", "1.0.0", "commit", &files, false).unwrap();
-        let result = install_skill_files(&root, "second-package", "1.0.0", "commit", &files, false);
-
-        assert!(result.is_err());
-        assert_eq!(
-            fs::read_to_string(root.join("shared").join("SKILL.md")).unwrap(),
-            "first"
-        );
-    }
-
-    #[test]
-    fn installing_a_skill_does_not_replace_an_unmanaged_directory() {
-        let directory = tempdir().unwrap();
-        let root = directory.path().join("skills");
-        fs::create_dir_all(root.join("manual")).unwrap();
-        fs::write(root.join("manual").join("SKILL.md"), "manual").unwrap();
-
-        let result = install_skill_files(
-            &root,
-            "managed-package",
-            "1.0.0",
-            "commit",
-            &[skill_file("skills/manual/SKILL.md", "managed")],
-            false,
-        );
-
-        assert!(result.is_err());
-        assert_eq!(
-            fs::read_to_string(root.join("manual").join("SKILL.md")).unwrap(),
-            "manual"
-        );
-    }
-
-    #[test]
-    fn overwrite_replaces_an_unmanaged_skill_directory_after_confirmation() {
-        let directory = tempdir().unwrap();
-        let root = directory.path().join("skills");
-        fs::create_dir_all(root.join("manual")).unwrap();
-        fs::write(root.join("manual").join("SKILL.md"), "manual").unwrap();
-
-        install_skill_files(
-            &root,
-            "managed-package",
-            "1.0.0",
-            "commit",
-            &[skill_file("skills/manual/SKILL.md", "managed")],
-            true,
-        )
-        .unwrap();
-
-        assert_eq!(
-            fs::read_to_string(root.join("manual").join("SKILL.md")).unwrap(),
-            "managed"
-        );
-    }
-
-    #[test]
-    fn overwrite_transfers_managed_skill_directory_to_the_new_package() {
-        let directory = tempdir().unwrap();
-        let root = directory.path().join("skills");
-        let files = [skill_file("skills/shared/SKILL.md", "first")];
-
-        install_skill_files(&root, "first-package", "1.0.0", "commit", &files, false).unwrap();
-        install_skill_files(
-            &root,
-            "second-package",
-            "1.0.0",
-            "commit",
-            &[skill_file("skills/shared/SKILL.md", "second")],
-            true,
-        )
-        .unwrap();
-        install_skill_files(
-            &root,
-            "second-package",
-            "1.1.0",
-            "commit2",
-            &[skill_file("skills/shared/SKILL.md", "third")],
-            false,
-        )
-        .unwrap();
-
-        assert_eq!(
-            fs::read_to_string(root.join("shared").join("SKILL.md")).unwrap(),
-            "third"
-        );
-    }
-}
+#[path = "skills_tests.rs"]
+mod tests;

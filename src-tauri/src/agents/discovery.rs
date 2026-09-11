@@ -63,6 +63,13 @@ pub fn agent_client_statuses() -> Vec<AgentClientStatus> {
     agent_client_statuses_with(agent_client_is_installed, agent_client_versions)
 }
 
+pub fn installed_agent_clients() -> Vec<AgentClient> {
+    REGISTERED_AGENT_CLIENTS
+        .into_iter()
+        .filter(|client| agent_client_is_installed(*client))
+        .collect()
+}
+
 pub(crate) fn agent_client_statuses_with(
     is_installed: impl Fn(AgentClient) -> bool,
     load_versions: impl Fn(Vec<AgentClient>) -> Vec<AgentClientVersion>,

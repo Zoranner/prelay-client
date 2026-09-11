@@ -2,6 +2,7 @@ use std::{fs, path::Path};
 
 mod discovery;
 mod items;
+mod skill_state;
 
 pub(super) fn write(path: impl AsRef<Path>, contents: &str) {
     let path = path.as_ref();
