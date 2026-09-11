@@ -9,9 +9,10 @@ fn saving_changed_rules_clears_the_managed_rule_state() {
     let directory = tempdir().unwrap();
     let codex_root = directory.path().join(".codex");
     fs::create_dir_all(&codex_root).unwrap();
+    fs::create_dir_all(codex_root.join(".prelay")).unwrap();
     fs::write(codex_root.join("AGENTS.md"), "published rule").unwrap();
     fs::write(
-        codex_root.join(".prelay"),
+        codex_root.join(".prelay").join("rule.json"),
         r#"{
   "package": "development-rules",
   "version": "v1.0.0",
@@ -30,5 +31,5 @@ fn saving_changed_rules_clears_the_managed_rule_state() {
     )
     .unwrap();
 
-    assert!(!codex_root.join(".prelay").exists());
+    assert!(!codex_root.join(".prelay").join("rule.json").exists());
 }

@@ -11,8 +11,9 @@ use crate::{agents::AgentClient, relay::client::ClientError};
 
 use super::{atomic_write, decode_extension_file, storage_error, ExtensionPackage, SKILLS_PREFIX};
 
-const SKILL_PACKAGE_STATE_FILE: &str = ".prelay";
-const LEGACY_MANAGED_SKILLS_DIRECTORY: &str = ".prelay/skills";
+const PRELAY_STATE_DIRECTORY: &str = ".prelay";
+const SKILL_PACKAGE_STATE_FILE: &str = "skill.json";
+const LEGACY_MANAGED_SKILLS_DIRECTORY: &str = "skills";
 
 #[derive(Debug, Default, Deserialize, Serialize)]
 #[serde(transparent)]
@@ -150,7 +151,12 @@ fn skill_install_contents(
 pub(crate) fn read_installed_skill_packages(
     target_root: &Path,
 ) -> Result<InstalledSkillPackages, ClientError> {
-    let state_path = target_root.join(SKILL_PACKAGE_STATE_FILE);
+    let state_path = skill_package_state_path(target_root).ok_or_else(|| {
+        ClientError::new(
+            "local_extensions_error",
+            "skill target root has no parent directory",
+        )
+    })?;
     match fs::read(&state_path) {
         Ok(contents) => serde_json::from_slice(&contents).map_err(|error| {
             ClientError::new(
@@ -287,7 +293,9 @@ fn migrate_legacy_skill_packages(
     let Some(parent) = target_root.parent() else {
         return Ok(InstalledSkillPackages::default());
     };
-    let legacy_directory = parent.join(LEGACY_MANAGED_SKILLS_DIRECTORY);
+    let legacy_directory = parent
+        .join(PRELAY_STATE_DIRECTORY)
+        .join(LEGACY_MANAGED_SKILLS_DIRECTORY);
     if !legacy_directory.exists() {
         return Ok(InstalledSkillPackages::default());
     }
@@ -326,14 +334,6 @@ fn migrate_legacy_skill_packages(
     }
     write_installed_skill_packages(target_root, &installed)?;
     fs::remove_dir_all(&legacy_directory).map_err(storage_error)?;
-    let legacy_parent = parent.join(".prelay");
-    if fs::read_dir(&legacy_parent)
-        .map_err(storage_error)?
-        .next()
-        .is_none()
-    {
-        fs::remove_dir(&legacy_parent).map_err(storage_error)?;
-    }
     Ok(installed)
 }
 
@@ -347,7 +347,21 @@ fn write_installed_skill_packages(
             format!("无法保存已安装 Skill 状态：{error}"),
         )
     })?;
-    atomic_write(&target_root.join(SKILL_PACKAGE_STATE_FILE), &contents)
+    let path = skill_package_state_path(target_root).ok_or_else(|| {
+        ClientError::new(
+            "local_extensions_error",
+            "skill target root has no parent directory",
+        )
+    })?;
+    atomic_write(&path, &contents)
+}
+
+fn skill_package_state_path(target_root: &Path) -> Option<PathBuf> {
+    target_root.parent().map(|parent| {
+        parent
+            .join(PRELAY_STATE_DIRECTORY)
+            .join(SKILL_PACKAGE_STATE_FILE)
+    })
 }
 
 impl InstalledSkillPackages {

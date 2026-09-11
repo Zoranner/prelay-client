@@ -24,8 +24,8 @@ fn reads_team_skill_version_from_the_single_skill_root_state_file() {
         directory
             .path()
             .join(".agents")
-            .join("skills")
-            .join(".prelay"),
+            .join(".prelay")
+            .join("skill.json"),
         r#"{
   "web-research": {
     "version": "v1.2.0",

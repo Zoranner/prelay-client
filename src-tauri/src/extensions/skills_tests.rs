@@ -85,12 +85,14 @@ fn migrating_legacy_skill_records_writes_a_single_state_file_in_the_skill_root()
     )
     .unwrap();
 
-    let state: serde_json::Value =
-        serde_json::from_slice(&fs::read(root.join(".prelay")).unwrap()).unwrap();
+    let state: serde_json::Value = serde_json::from_slice(
+        &fs::read(directory.path().join(".prelay").join("skill.json")).unwrap(),
+    )
+    .unwrap();
     assert_eq!(state["engineering"]["version"], "v1.0.0");
     assert_eq!(state["engineering"]["skills"], serde_json::json!(["check"]));
     assert_eq!(state["review"]["commitSha"], "current");
-    assert!(!directory.path().join(".prelay").exists());
+    assert!(!directory.path().join(".prelay").join("skills").exists());
 }
 
 #[test]

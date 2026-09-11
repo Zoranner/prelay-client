@@ -11,7 +11,8 @@ use crate::{agents::AgentClient, relay::client::ClientError};
 
 use super::{atomic_write, decode_extension_file};
 
-const RULE_PACKAGE_STATE_FILE: &str = ".prelay";
+const PRELAY_STATE_DIRECTORY: &str = ".prelay";
+const RULE_PACKAGE_STATE_FILE: &str = "rule.json";
 
 #[derive(Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -170,9 +171,11 @@ fn write_rule_package_state(
 }
 
 fn rule_package_state_path(target: &Path) -> Option<PathBuf> {
-    target
-        .parent()
-        .map(|parent| parent.join(RULE_PACKAGE_STATE_FILE))
+    target.parent().map(|parent| {
+        parent
+            .join(PRELAY_STATE_DIRECTORY)
+            .join(RULE_PACKAGE_STATE_FILE)
+    })
 }
 
 #[cfg(test)]
