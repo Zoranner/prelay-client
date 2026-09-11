@@ -73,7 +73,7 @@ test("扩展库沿用智能体工作区的分类表格与单层操作表面", ()
   expect(workspace).toContain('class="extension-update-hint"');
   expect(workspace).toContain("可更新");
   expect(workspace).toContain(
-    'v-if="activeExtensionSection === \'skill\' && extensionUpdates > 0"',
+    "v-if=\"activeExtensionSection === 'skill' && extensionUpdates > 0\"",
   );
   expect(workspace).not.toContain(
     'semantic="primary"\n            variant="solid"\n            icon="ph:arrows-clockwise"',
@@ -82,9 +82,10 @@ test("扩展库沿用智能体工作区的分类表格与单层操作表面", ()
   expect(workspace).toContain("white-space: nowrap");
   expect(workspace).toContain('"更新中..." : "全部更新"');
   expect(workspace).toContain('icon="ph:arrow-circle-down"');
-  expect(workspace).toContain('@click="emit(\'updateAll\')"');
+  expect(workspace).toContain("@click=\"emit('updateAll')\"");
   expect(page).toContain("<ExtensionDetailDrawer");
   expect(page).toContain("<ExtensionInstallModal");
+  expect(page).toContain('@refreshed="extensionActions.refresh"');
   expect(page).toContain('value: "rule"');
   expect(page).toContain('value: "skill"');
   expect(page).toContain('value: "mcp"');
@@ -115,11 +116,17 @@ test("扩展库沿用智能体工作区的分类表格与单层操作表面", ()
   expect(page).toContain(
     "extensionCatalog.loading.value[activeExtensionSection]",
   );
-  expect(page).toContain('{ value: "skill", label: "Skill", icon: "ph:book-open-text" }');
-  expect(page).toContain('{ value: "mcp", label: "MCP", icon: "ph:plugs-connected" }');
+  expect(page).toContain(
+    '{ value: "skill", label: "Skill", icon: "ph:book-open-text" }',
+  );
+  expect(page).toContain(
+    '{ value: "mcp", label: "MCP", icon: "ph:plugs-connected" }',
+  );
   expect(page).toContain('void extensionCatalog.load("skill")');
   expect(updates).toContain('"extensions_update_all"');
-  expect(page).toContain(':extension-updating="extensionActions.updating.value"');
+  expect(page).toContain(
+    ':extension-updating="extensionActions.updating.value"',
+  );
   expect(page).toContain("title: `卸载 ${item.name}`");
   expect(page).not.toContain("showExtensionCatalog");
   expect(page).not.toContain("<small>agents</small>");
@@ -137,7 +144,7 @@ test("扩展库沿用智能体工作区的分类表格与单层操作表面", ()
   expect(installModal).toContain("const actionLabel");
   expect(installModal).toContain('props.extension?.installAction === "update"');
   expect(installModal).toContain(
-    '["partial", "update"].includes(extension?.installAction ?? "")',
+    'selectedClients.value = ["partial", "update"].includes(',
   );
   expect(installModal).toContain(
     ":title=\"extension ? `${actionLabel} ${extension.name}` : '安装扩展'\"",
@@ -155,12 +162,17 @@ test("扩展库沿用智能体工作区的分类表格与单层操作表面", ()
   expect(installModal).toContain("首次使用时可能下载依赖或启动本地进程。");
   expect(installModal).toContain("mcpRiskAccepted");
   expect(installModal).toContain("mcpPreview");
+  expect(installModal).toContain('emit("refreshed", props.extension.kind)');
+  expect(updates).toContain("async function refresh");
   expect(installModal).toContain('client.value !== "chatgpt"');
   expect(installModal).toContain("MCP 配置");
   expect(installModal).toContain("MCP 环境变量");
+  expect(installModal).toContain("服务名");
+  expect(installModal).toContain("mcpPreview.manifest.name");
+  expect(installModal).toContain("mcpHeaders");
   expect(installModal).toContain("工作目录");
   expect(installModal).toContain("超时时间");
-  expect(installModal).toContain("mcpPreview.transport.enabled");
+  expect(installModal).toContain("mcpPreview.manifest.transport.enabled");
   expect(installModal).toContain("var(--text-sm)");
   expect(installModal).toContain("var(--st-warning)");
   expect(installModal).toContain("var(--st-semantic-error)");

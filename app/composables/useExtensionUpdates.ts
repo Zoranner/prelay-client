@@ -10,10 +10,14 @@ export function useExtensionUpdates({
   const notifications = useNotification();
   const updating = ref(false);
 
-  async function installed(kind: "rule" | "skill" | "mcp") {
+  async function refresh(kind: "rule" | "skill" | "mcp") {
     const refresh = [extensionCatalog.load(kind, true)];
     if (kind === "skill") refresh.push(refreshSkills());
     await Promise.all(refresh);
+  }
+
+  async function installed(kind: "rule" | "skill" | "mcp") {
+    await refresh(kind);
     notifications.success("扩展已安装");
   }
 
@@ -26,12 +30,15 @@ export function useExtensionUpdates({
         {},
         { notify: false },
       );
-      await Promise.all([refreshSkills(), extensionCatalog.load("skill", true)]);
+      await Promise.all([
+        refreshSkills(),
+        extensionCatalog.load("skill", true),
+      ]);
       notifications.success(result.message);
     } finally {
       updating.value = false;
     }
   }
 
-  return { installed, updateAll, updating };
+  return { installed, refresh, updateAll, updating };
 }

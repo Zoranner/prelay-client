@@ -424,6 +424,7 @@ onBeforeUnmount(() => {
         .map((client) => client.client)
     "
     @installed="extensionActions.installed"
+    @refreshed="extensionActions.refresh"
   />
 </template>
 

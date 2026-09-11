@@ -329,10 +329,7 @@ export interface AgentClientStatus {
 export type ExtensionKind = "rule" | "mcp" | "skill";
 export type ExtensionCatalogKind = ExtensionKind;
 export type ExtensionInstallAction =
-  | "install"
-  | "partial"
-  | "update"
-  | "installed";
+  "install" | "partial" | "update" | "installed";
 
 export interface ExtensionPackage {
   name: string;
@@ -372,6 +369,13 @@ export type ExtensionMcpTransport =
 export interface ExtensionMcpManifest {
   name: string;
   transport: ExtensionMcpTransport;
+}
+
+export interface ExtensionMcpPreview {
+  name: string;
+  version: string;
+  commitSha: string;
+  manifest: ExtensionMcpManifest;
 }
 
 export type CodexSettings = Partial<{
