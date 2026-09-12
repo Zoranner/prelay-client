@@ -4,13 +4,25 @@ import openaiIcon from "@lobehub/icons-static-svg/icons/openai.svg";
 import openCodeIcon from "@lobehub/icons-static-svg/icons/opencode.svg";
 import claudeCodeIcon from "@lobehub/icons-static-svg/icons/claudecode.svg";
 
+export type AgentSection = "rules" | AgentItemKind;
+
+export const agentSectionOptions: Array<{
+  value: AgentSection;
+  label: string;
+  icon: string;
+}> = [
+  { value: "rules", label: "规则", icon: "ph:notebook" },
+  { value: "mcp", label: "MCP", icon: "ph:terminal-window" },
+  { value: "skill", label: "Skill", icon: "ph:book-open-text" },
+];
+
 export const agentClientDefinitions: Array<{
   client: AgentClient;
   label: string;
   icon: string;
   configurable: boolean;
   monochrome: boolean;
-  sections: Array<"rules" | AgentItemKind>;
+  sections: AgentSection[];
 }> = [
   {
     client: "codexCli",

@@ -26,7 +26,7 @@ test("智能体页面只编排路由级状态，展示和设置由领域组件�
   expect(sidebar).toContain("AgentClientIcon");
   expect(sidebar).not.toContain("agent-client-icon--monochrome");
   expect(content).toContain("@update:model-value");
-  expect(page).toContain('value: "rules"');
+  expect(page).toContain("agentSectionOptions");
   expect(page).not.toContain("插件");
   expect(page).toContain("MCP");
   expect(page).toContain("Skill");
@@ -85,9 +85,7 @@ test("规则编辑器独立负责输入、预览和滚动同步", () => {
   expect(rulesEditor).toContain("onBeforeUnmount");
   expect(rulesEditor).toContain("agent-rules__editor");
   expect(rulesEditor).toContain("agent-rules__preview");
-  expect(rulesEditor).toContain(
-    "padding: 0 0 var(--spacing-lg);",
-  );
+  expect(rulesEditor).toContain("padding: 0 0 var(--spacing-lg);");
   expect(source("components/agents/AgentWorkspaceContent.vue")).not.toContain(
     "padding-top: var(--spacing-md);",
   );

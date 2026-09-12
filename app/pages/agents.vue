@@ -10,7 +10,11 @@ import type {
   RelayEndpoint,
 } from "~/stores/relay";
 import { useRelayStore } from "~/stores/relay";
-import { agentClientDefinitions, sortAgentClients } from "~/utils/agentClient";
+import {
+  agentClientDefinitions,
+  agentSectionOptions,
+  sortAgentClients,
+} from "~/utils/agentClient";
 import AgentSidebar from "~/components/agents/AgentSidebar.vue";
 import AgentWorkspaceContent from "~/components/agents/AgentWorkspaceContent.vue";
 import AgentSettingsDrawer from "~/components/agents/AgentSettingsDrawer.vue";
@@ -115,15 +119,7 @@ const activeRules = computed({
   },
 });
 
-const sectionOptions: Array<{
-  value: AgentSection;
-  label: string;
-  icon: string;
-}> = [
-  { value: "rules", label: "规则", icon: "ph:notebook" },
-  { value: "mcp", label: "MCP", icon: "ph:terminal-window" },
-  { value: "skill", label: "Skill", icon: "ph:book-open-text" },
-];
+const sectionOptions = agentSectionOptions;
 const availableSectionOptions = computed(() => {
   const definition = agentClientDefinitions.find(
     (candidate) => candidate.client === activeClient.value,
@@ -136,11 +132,11 @@ const extensionSectionOptions: Array<{
   value: ExtensionCatalogKind;
   label: string;
   icon: string;
-}> = [
-  { value: "rule", label: "规则", icon: "ph:notebook" },
-  { value: "skill", label: "Skill", icon: "ph:book-open-text" },
-  { value: "mcp", label: "MCP", icon: "ph:plugs-connected" },
-];
+}> = agentSectionOptions.map((option) => {
+  const value: ExtensionCatalogKind =
+    option.value === "rules" ? "rule" : option.value;
+  return { ...option, value };
+});
 const activeItems = computed(
   () => clientItems.value[activeClient.value]?.items ?? [],
 );

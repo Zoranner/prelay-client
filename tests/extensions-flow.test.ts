@@ -64,6 +64,7 @@ test("扩展库沿用智能体工作区的分类表格与单层操作表面", ()
   );
   const catalog = source("composables/useExtensionCatalog.ts");
   const updates = source("composables/useExtensionUpdates.ts");
+  const agentClient = source("utils/agentClient.ts");
 
   expect(updates).toContain('import { useNotification } from "@stellar/ui";');
   expect(sidebar).toContain("扩展库");
@@ -85,10 +86,21 @@ test("扩展库沿用智能体工作区的分类表格与单层操作表面", ()
   expect(workspace).toContain("@click=\"emit('updateAll')\"");
   expect(page).toContain("<ExtensionDetailDrawer");
   expect(page).toContain("<ExtensionInstallModal");
+  expect(page).toContain("agentSectionOptions");
+  expect(page).not.toContain("ph:plugs-connected");
   expect(page).toContain('@refreshed="extensionActions.refresh"');
-  expect(page).toContain('value: "rule"');
-  expect(page).toContain('value: "skill"');
-  expect(page).toContain('value: "mcp"');
+  expect(page).toContain("agentSectionOptions");
+  expect(agentClient).toContain("export const agentSectionOptions");
+  expect(agentClient).toContain(
+    '{ value: "mcp", label: "MCP", icon: "ph:terminal-window" }',
+  );
+  expect(agentClient).toContain(
+    '{ value: "skill", label: "Skill", icon: "ph:book-open-text" }',
+  );
+  expect(agentClient.indexOf('value: "mcp"')).toBeLessThan(
+    agentClient.indexOf('value: "skill"'),
+  );
+  expect(page).not.toContain("ph:plugs-connected");
   expect(page).not.toContain('value: "plugin"');
   expect(catalog).toContain("mcp: emptyCatalog()");
   expect(source("stores/relay.ts")).toContain(
@@ -115,12 +127,6 @@ test("扩展库沿用智能体工作区的分类表格与单层操作表面", ()
   );
   expect(page).toContain(
     "extensionCatalog.loading.value[activeExtensionSection]",
-  );
-  expect(page).toContain(
-    '{ value: "skill", label: "Skill", icon: "ph:book-open-text" }',
-  );
-  expect(page).toContain(
-    '{ value: "mcp", label: "MCP", icon: "ph:plugs-connected" }',
   );
   expect(page).toContain('void extensionCatalog.load("skill")');
   expect(updates).toContain('"extensions_update_all"');
