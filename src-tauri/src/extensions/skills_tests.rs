@@ -193,12 +193,12 @@ fn overwrite_transfers_managed_skill_directory_to_the_new_package() {
 fn finds_outdated_packages_only_in_the_skill_roots_that_record_them() {
     let directory = tempdir().unwrap();
     let codex_root = directory.path().join("agents").join("skills");
-    let claude_root = directory.path().join("claude").join("skills");
+    let opencode_root = directory.path().join("opencode").join("skills");
     let files = [skill_file("skills/review/SKILL.md", "old")];
 
     install_skill_files(&codex_root, "engineering", "v1.0.0", "old", &files, false).unwrap();
     install_skill_files(
-        &claude_root,
+        &opencode_root,
         "engineering",
         "v1.1.0",
         "current",
@@ -217,7 +217,7 @@ fn finds_outdated_packages_only_in_the_skill_roots_that_record_them() {
         installed_clients: Vec::new(),
     }];
     let targets =
-        outdated_skill_package_targets(&[codex_root.clone(), claude_root], &packages).unwrap();
+        outdated_skill_package_targets(&[codex_root.clone(), opencode_root], &packages).unwrap();
 
     assert_eq!(targets["engineering"], vec![codex_root]);
 }
@@ -226,7 +226,7 @@ fn finds_outdated_packages_only_in_the_skill_roots_that_record_them() {
 fn reports_partial_installation_for_detected_clients_missing_a_skill_root() {
     let directory = tempdir().unwrap();
     let shared_root = directory.path().join("agents").join("skills");
-    let claude_root = directory.path().join("claude").join("skills");
+    let opencode_root = directory.path().join("opencode").join("skills");
     let files = [skill_file("skills/review/SKILL.md", "current")];
 
     install_skill_files(
@@ -243,7 +243,7 @@ fn reports_partial_installation_for_detected_clients_missing_a_skill_root() {
         &[
             (AgentClient::CodexCli, shared_root.clone()),
             (AgentClient::ChatGpt, shared_root),
-            (AgentClient::ClaudeCode, claude_root),
+            (AgentClient::OpenCode, opencode_root),
         ],
         "engineering",
         "v1.1.0",

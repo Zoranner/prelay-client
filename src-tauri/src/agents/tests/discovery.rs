@@ -31,7 +31,6 @@ fn includes_every_registered_agent_client_when_installed() {
         vec![
             serde_json::json!("codexCli"),
             serde_json::json!("chatgpt"),
-            serde_json::json!("claudeCode"),
             serde_json::json!("openCode"),
         ]
     );
@@ -50,14 +49,12 @@ fn reports_every_registered_client_with_its_installation_status() {
         },
     );
 
-    assert_eq!(statuses.len(), 4);
+    assert_eq!(statuses.len(), 3);
     assert!(!statuses[0].installed);
     assert!(!statuses[1].installed);
-    assert_eq!(statuses[2].client, AgentClient::ClaudeCode);
-    assert!(!statuses[2].installed);
-    assert_eq!(statuses[3].client, AgentClient::OpenCode);
-    assert!(statuses[3].installed);
-    assert_eq!(statuses[3].version.as_deref(), Some("1.2.3"));
+    assert_eq!(statuses[2].client, AgentClient::OpenCode);
+    assert!(statuses[2].installed);
+    assert_eq!(statuses[2].version.as_deref(), Some("1.2.3"));
 }
 
 #[test]

@@ -6,8 +6,7 @@ export interface BootstrapState {
   has_device_credential: boolean;
 }
 
-export type UpstreamProtocol =
-  "responses" | "openai" | "anthropic" | "images_generations";
+export type UpstreamProtocol = "responses" | "openai" | "images_generations";
 
 export type CatalogProviderProtocol =
   | "chat_completions"
@@ -97,7 +96,6 @@ export interface ProviderCatalogResponse {
 export interface ProviderProtocolBaseUrls {
   responses?: string | null;
   openai?: string | null;
-  anthropic?: string | null;
   images_generations?: string | null;
 }
 
@@ -290,7 +288,7 @@ export interface Activity {
   upstream_request_id: string | null;
 }
 
-export type AgentClient = "codexCli" | "chatgpt" | "claudeCode" | "openCode";
+export type AgentClient = "codexCli" | "chatgpt" | "openCode";
 export type AgentItemKind = "mcp" | "skill";
 export type AgentItemStatus = "enabled" | "disabled" | "error";
 export type AgentItemSource = "personal" | "team";
@@ -410,25 +408,9 @@ export type OpenCodeSettings = Partial<{
   rules: string;
 }>;
 
-export type ClaudeCodeSettings = Partial<{
-  baseUrl: string;
-  endpointToken: string;
-  model: string;
-  opusModel: string;
-  sonnetModel: string;
-  haikuModel: string;
-  subagentModel: string;
-  apiTimeoutMs: number;
-  maxOutputTokens: number;
-  toolSearchEnabled: boolean;
-  nonessentialTrafficDisabled: boolean;
-  rules: string;
-}>;
-
 export type AgentSettings =
   | { client: "codexCli"; settings: CodexSettings }
   | { client: "chatgpt"; settings: ChatGptSettings }
-  | { client: "claudeCode"; settings: ClaudeCodeSettings }
   | { client: "openCode"; settings: OpenCodeSettings };
 
 export function useRelayStore() {

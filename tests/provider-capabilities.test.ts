@@ -42,7 +42,6 @@ const provider = (overrides: Partial<Provider> = {}): Provider => ({
     protocol_base_urls: {
       responses: "https://responses.example.com/v1",
       openai: null,
-      anthropic: "https://anthropic.example.com/v1",
     },
     tool_calls: true,
     reasoning: false,
@@ -59,10 +58,7 @@ const provider = (overrides: Partial<Provider> = {}): Provider => ({
 });
 
 test("协议测试使用服务端解析的上游协议能力", () => {
-  expect(providerProtocolOptions(provider())).toEqual([
-    "responses",
-    "anthropic",
-  ]);
+  expect(providerProtocolOptions(provider())).toEqual(["responses"]);
 });
 
 test("协议测试不再自行从供应商类型推导默认协议", () => {
@@ -73,12 +69,12 @@ test("协议测试不再自行从供应商类型推导默认协议", () => {
   ).toEqual(["openai"]);
 });
 
-test("供应商表格中的协议按 Chat Completions、Responses、Anthropic 排序", () => {
+test("供应商表格中的协议过滤 Anthropic 并按 Chat Completions、Responses 排序", () => {
   expect(
     providerProtocolOptions(
       provider({ upstream_protocols: ["responses", "anthropic", "openai"] }),
     ),
-  ).toEqual(["openai", "responses", "anthropic"]);
+  ).toEqual(["openai", "responses"]);
 });
 
 test("供应商表格保留图像生成协议", () => {
@@ -95,16 +91,19 @@ test("图像协议使用与其他协议同层的 API 名称", () => {
   expect(protocolLabel("images_generations")).toBe("Images Generations");
 });
 
+test("Anthropic 协议不再由客户端协议展示映射处理", () => {
+  expect(protocolLabel("anthropic")).toBe("-");
+});
+
 test("服务端目录供应商映射为表单协议、地址和模型", () => {
   expect(providerTemplateForType("example", [catalogProvider])).toEqual({
     value: "catalog:example",
     label: "示例供应商",
     providerType: "example",
     baseUrl: "https://api.example.com",
-    protocols: ["openai", "responses", "anthropic", "images_generations"],
+    protocols: ["openai", "responses", "images_generations"],
     protocolBaseUrls: {
       openai: "https://api.example.com/v1",
-      anthropic: "https://api.example.com/v1/messages",
     },
     languageModels: ["chat-model"],
     imageGenerationModels: ["image-model"],

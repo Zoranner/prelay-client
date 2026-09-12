@@ -1,12 +1,7 @@
 import type { AgentClient, ExtensionCatalogKind } from "~/stores/relay";
 
 const codexHostAgents: AgentClient[] = ["codexCli", "chatgpt"];
-const allAgents: AgentClient[] = [
-  "codexCli",
-  "chatgpt",
-  "claudeCode",
-  "openCode",
-];
+const allAgents: AgentClient[] = ["codexCli", "chatgpt", "openCode"];
 
 export function linkedAgentsForExtension(
   kind: ExtensionCatalogKind,

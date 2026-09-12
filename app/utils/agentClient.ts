@@ -2,7 +2,6 @@ import type { AgentClient, AgentItemKind } from "~/stores/relay";
 import codexIcon from "@lobehub/icons-static-svg/icons/codex.svg";
 import openaiIcon from "@lobehub/icons-static-svg/icons/openai.svg";
 import openCodeIcon from "@lobehub/icons-static-svg/icons/opencode.svg";
-import claudeCodeIcon from "@lobehub/icons-static-svg/icons/claudecode.svg";
 
 export type AgentSection = "rules" | AgentItemKind;
 
@@ -48,14 +47,6 @@ export const agentClientDefinitions: Array<{
     monochrome: true,
     sections: ["rules", "mcp", "skill"],
   },
-  {
-    client: "claudeCode",
-    label: "Claude Code",
-    icon: claudeCodeIcon,
-    configurable: true,
-    monochrome: true,
-    sections: ["rules", "mcp", "skill"],
-  },
 ];
 
 export const agentClients = agentClientDefinitions.map(({ client }) => client);
@@ -63,8 +54,7 @@ export const agentClients = agentClientDefinitions.map(({ client }) => client);
 const agentClientPriority: Record<AgentClient, number> = {
   chatgpt: 0,
   codexCli: 1,
-  claudeCode: 2,
-  openCode: 3,
+  openCode: 2,
 };
 
 export function sortAgentClients<

@@ -58,7 +58,6 @@ test("智能体工作区按客户端状态、内容与设置职责分层", () =>
 
   expect(settings).toContain("codexConnection");
   expect(settings).toContain("openCodeConnection");
-  expect(settings).toContain("claudeCodeConnection");
   expect(settings).not.toContain('kind: "custom"');
   expect(settings).not.toContain("customBaseUrl");
   expect(settings).not.toContain("customToken");
@@ -73,7 +72,6 @@ test("智能体工作区按客户端状态、内容与设置职责分层", () =>
     "endpoint.models.map(({ model_name, upstream_model })",
   );
   expect(settings).toContain("copyAgentClientSettings(configuration, draft");
-  expect(rules).toContain('claudeCode: "",');
   expect(rules).toContain(
     "function replace(client: AgentClient, rules: string)",
   );
@@ -120,35 +118,8 @@ test("智能体模型选项使用目录显示名且连接携带目录对象", ()
   expect(agentUtils).toContain("catalogModel?: CatalogLanguageModelResponse");
 });
 
-test("Claude Code 设置覆盖模型分配与接入开关", () => {
-  const form = source("components/agents/ClaudeCodeSettingsForm.vue");
-  const agentUtils = source("utils/agentSettings.ts");
-
-  for (const field of [
-    "opusModel",
-    "sonnetModel",
-    "haikuModel",
-    "subagentModel",
-    "apiTimeoutMs",
-    "maxOutputTokens",
-    "toolSearchEnabled",
-    "nonessentialTrafficDisabled",
-  ]) {
-    expect(form).toContain(field);
-    expect(agentUtils).toContain(field);
-  }
-
-  expect(form).toContain('label: "不设置"');
-  expect(form).toContain("updateNumber");
-  expect(agentUtils).toContain("apiTimeoutMs: null");
-});
-
 test("智能体设置表单定义了自己用到的分组与字段样式", () => {
-  for (const form of [
-    "CodexSettingsForm.vue",
-    "ClaudeCodeSettingsForm.vue",
-    "OpenCodeSettingsForm.vue",
-  ]) {
+  for (const form of ["CodexSettingsForm.vue", "OpenCodeSettingsForm.vue"]) {
     const contents = source(`components/agents/${form}`);
     for (const rule of [
       "group",

@@ -3,7 +3,6 @@ import type { Provider, UpstreamProtocol } from "~/stores/relay";
 const protocolValues: UpstreamProtocol[] = [
   "openai",
   "responses",
-  "anthropic",
   "images_generations",
 ];
 

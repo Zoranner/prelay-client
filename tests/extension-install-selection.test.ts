@@ -9,11 +9,10 @@ test("规则只联动 Codex CLI 与 ChatGPT", () => {
   expect(linkedAgentsForExtension("rule")).toEqual(["codexCli", "chatgpt"]);
 });
 
-test("Skill 联动全部智能体", () => {
+test("Skill 联动所有可用智能体", () => {
   expect(linkedAgentsForExtension("skill")).toEqual([
     "codexCli",
     "chatgpt",
-    "claudeCode",
     "openCode",
   ]);
 });

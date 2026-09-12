@@ -6,7 +6,6 @@ pub enum AgentClient {
     CodexCli,
     #[serde(rename = "chatgpt")]
     ChatGpt,
-    ClaudeCode,
     OpenCode,
 }
 
@@ -73,9 +72,8 @@ pub struct AgentClientStatus {
     pub version: Option<String>,
 }
 
-pub const REGISTERED_AGENT_CLIENTS: [AgentClient; 4] = [
+pub const REGISTERED_AGENT_CLIENTS: [AgentClient; 3] = [
     AgentClient::CodexCli,
     AgentClient::ChatGpt,
-    AgentClient::ClaudeCode,
     AgentClient::OpenCode,
 ];

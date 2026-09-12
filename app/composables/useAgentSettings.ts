@@ -14,7 +14,6 @@ import {
   codexSettingsPayload,
   copyAgentClientSettings,
   createAgentConfiguration,
-  claudeCodeSettingsPayload,
   openCodeSettingsPayload,
   type CodexSettingsDraft,
   type AgentSettingsSaveRequest,
@@ -46,15 +45,6 @@ function normalizeBaseUrl(url: string) {
 function managementBaseUrl(relayUrl: string) {
   const normalized = normalizeBaseUrl(relayUrl);
   return normalized.endsWith("/v1") ? normalized : `${normalized}/v1`;
-}
-
-export function claudeCodeBaseUrlMatchesRelay(
-  baseUrl: string,
-  relayUrl: string,
-) {
-  const withoutVersionPath = (value: string) =>
-    normalizeBaseUrl(value).replace(/\/v1$/, "");
-  return withoutVersionPath(baseUrl) === withoutVersionPath(relayUrl);
 }
 
 function catalogLanguageModel(
@@ -191,7 +181,6 @@ export function useAgentSettings(options: AgentSettingsOptions) {
   function discard() {
     copyAgentClientSettings(configuration, draft, "codexCli");
     copyAgentClientSettings(configuration, draft, "chatgpt");
-    copyAgentClientSettings(configuration, draft, "claudeCode");
     copyAgentClientSettings(configuration, draft, "openCode");
     close();
   }
@@ -231,53 +220,26 @@ export function useAgentSettings(options: AgentSettingsOptions) {
     return null;
   }
 
-  function claudeCodeConnection(): {
-    kind: "prelay";
-    endpointToken: string;
-    relayUrl: string;
-  } | null {
-    const endpoint = selectedEndpoint.value;
-    if (endpoint && options.bootstrap.value?.relay_url) {
-      return {
-        kind: "prelay",
-        endpointToken: endpoint.token,
-        relayUrl: options.bootstrap.value.relay_url,
-      };
-    }
-    return null;
-  }
-
   async function save() {
     const client = options.activeClient.value;
     const connection =
       client === "codexCli" || client === "chatgpt"
         ? codexConnection()
-        : client === "openCode"
-          ? openCodeConnection()
-          : claudeCodeConnection();
+        : openCodeConnection();
     const request: AgentSettingsSaveRequest = {
       settings:
         client === "codexCli"
           ? { client, settings: codexSettingsPayload(draft.codexCli) }
           : client === "chatgpt"
             ? { client, settings: codexSettingsPayload(draft.chatgpt) }
-            : client === "openCode"
-              ? { client, settings: openCodeSettingsPayload(draft.openCode) }
-              : {
-                  client,
-                  settings: claudeCodeSettingsPayload(draft.claudeCode),
-                },
+            : { client, settings: openCodeSettingsPayload(draft.openCode) },
       connection: connection ? { client, connection } : null,
     };
     let savedByValidation = false;
     if (connection?.kind === "prelay") {
       const modelIds =
-        client === "openCode" || client === "claudeCode"
-          ? [
-              client === "openCode"
-                ? draft.openCode.model
-                : draft.claudeCode.model,
-            ]
+        client === "openCode"
+          ? [draft.openCode.model]
           : (
               connection as Extract<CodexConnectionDraft, { kind: "prelay" }>
             ).models.map((model) => model.id);
@@ -286,9 +248,7 @@ export function useAgentSettings(options: AgentSettingsOptions) {
           ? draft.codexCli.model
           : client === "chatgpt"
             ? draft.chatgpt.model
-            : client === "openCode"
-              ? draft.openCode.model
-              : draft.claudeCode.model;
+            : draft.openCode.model;
       const validationError = await saveWithAgentValidation({
         kind: "prelay",
         status: catalogStatus.value,
@@ -338,23 +298,13 @@ export function useAgentSettings(options: AgentSettingsOptions) {
     }
 
     const { baseUrl, endpointToken, ...settings } = value.settings;
-    const target =
-      value.client === "openCode"
-        ? configuration.openCode
-        : configuration.claudeCode;
+    const target = configuration.openCode;
     Object.assign(target, settings);
     const endpoint =
-      value.client === "claudeCode" &&
-      options.bootstrap.value?.relay_url &&
-      baseUrl &&
-      claudeCodeBaseUrlMatchesRelay(baseUrl, options.bootstrap.value.relay_url)
+      managementUrl && baseUrl && normalizeBaseUrl(baseUrl) === managementUrl
         ? options.endpoints.value.find((item) => item.token === endpointToken)
-        : managementUrl &&
-            baseUrl &&
-            normalizeBaseUrl(baseUrl) === managementUrl
-          ? options.endpoints.value.find((item) => item.token === endpointToken)
-          : undefined;
-    target.endpoint = endpoint?.id ?? endpoint?.id ?? "";
+        : undefined;
+    target.endpoint = endpoint?.id ?? "";
     copyAgentClientSettings(configuration, draft, value.client);
   }
 
@@ -362,15 +312,13 @@ export function useAgentSettings(options: AgentSettingsOptions) {
     [
       () => options.settings.value.codexCli,
       () => options.settings.value.chatgpt,
-      () => options.settings.value.claudeCode,
       () => options.settings.value.openCode,
       () => options.endpoints.value,
       () => options.bootstrap.value?.relay_url,
     ],
-    ([codexCli, chatgpt, claudeCode, openCode]) => {
+    ([codexCli, chatgpt, openCode]) => {
       if (codexCli) hydrate(codexCli);
       if (chatgpt) hydrate(chatgpt);
-      if (claudeCode) hydrate(claudeCode);
       if (openCode) hydrate(openCode);
     },
     { immediate: true },

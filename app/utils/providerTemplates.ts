@@ -43,7 +43,8 @@ export function catalogProviderTemplate(
 ): ProviderTemplate {
   const protocolBaseUrls: Partial<Record<UpstreamProtocol, string>> = {};
   for (const entry of provider.protocol_base_urls) {
-    protocolBaseUrls[upstreamProtocol(entry.protocol)] = entry.base_url;
+    const protocol = upstreamProtocol(entry.protocol);
+    if (protocol) protocolBaseUrls[protocol] = entry.base_url;
   }
 
   return {
@@ -51,7 +52,10 @@ export function catalogProviderTemplate(
     label: provider.name,
     providerType: provider.id,
     baseUrl: provider.base_url,
-    protocols: provider.protocols.map(upstreamProtocol),
+    protocols: provider.protocols.flatMap((protocol) => {
+      const mapped = upstreamProtocol(protocol);
+      return mapped ? [mapped] : [];
+    }),
     protocolBaseUrls,
     languageModels: provider.language_models,
     imageGenerationModels: provider.image_generation_models,
@@ -74,13 +78,11 @@ export type ProtocolTagPalette = "blue" | "cyan" | "violet" | "amber" | "gray";
 export function protocolLabel(protocol: string | null) {
   return protocol === "responses"
     ? "Responses"
-    : protocol === "anthropic" || protocol === "anthropic_messages"
-      ? "Anthropic Messages"
-      : protocol === "openai" || protocol === "chat_completions"
-        ? "Chat Completions"
-        : protocol === "images_generations"
-          ? "Images Generations"
-          : "-";
+    : protocol === "openai" || protocol === "chat_completions"
+      ? "Chat Completions"
+      : protocol === "images_generations"
+        ? "Images Generations"
+        : "-";
 }
 
 export function protocolTagPalette(
@@ -88,17 +90,17 @@ export function protocolTagPalette(
 ): ProtocolTagPalette {
   return protocol === "responses"
     ? "cyan"
-    : protocol === "anthropic" || protocol === "anthropic_messages"
-      ? "violet"
-      : protocol === "openai" || protocol === "chat_completions"
-        ? "blue"
-        : protocol === "images_generations"
-          ? "amber"
-          : "gray";
+    : protocol === "openai" || protocol === "chat_completions"
+      ? "blue"
+      : protocol === "images_generations"
+        ? "amber"
+        : "gray";
 }
 
-function upstreamProtocol(protocol: CatalogProviderProtocol): UpstreamProtocol {
+function upstreamProtocol(
+  protocol: CatalogProviderProtocol,
+): UpstreamProtocol | null {
   if (protocol === "chat_completions") return "openai";
-  if (protocol === "anthropic_messages") return "anthropic";
+  if (protocol === "anthropic_messages") return null;
   return protocol;
 }
