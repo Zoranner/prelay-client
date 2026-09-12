@@ -50,7 +50,6 @@ type ProviderFormOptions = {
 const allProtocols: UpstreamProtocol[] = [
   "openai",
   "responses",
-  "anthropic",
   "images_generations",
 ];
 
@@ -92,7 +91,6 @@ export function useProviderForm(options: ProviderFormOptions) {
   const protocolBaseUrls = reactive<Record<UpstreamProtocol, string>>({
     responses: "",
     openai: "",
-    anthropic: "",
     images_generations: "",
   });
   const toolCalls = ref<boolean | null>(null);

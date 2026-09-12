@@ -9,8 +9,8 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     agents::{
-        claude_code, codex_mcp_server_exists, codex_mcp_server_matches, opencode,
-        remove_codex_mcp_server, upsert_codex_mcp_server, AgentClient,
+        codex_mcp_server_exists, codex_mcp_server_matches, opencode, remove_codex_mcp_server,
+        upsert_codex_mcp_server, AgentClient,
     },
     relay::client::ClientError,
 };
@@ -318,7 +318,6 @@ pub(crate) fn retain_listed_mcp_packages(
 fn mcp_server_exists(home: &Path, client: AgentClient, name: &str) -> Result<bool, ClientError> {
     match client {
         AgentClient::CodexCli => codex_mcp_server_exists(home, name),
-        AgentClient::ClaudeCode => claude_code::mcp_server_exists(home, name),
         AgentClient::OpenCode => opencode::mcp_server_exists(home, name),
         AgentClient::ChatGpt => {
             return Err(ClientError::new(
@@ -337,7 +336,6 @@ fn upsert_mcp_server(
 ) -> Result<(), ClientError> {
     match client {
         AgentClient::CodexCli => upsert_codex_mcp_server(home, manifest),
-        AgentClient::ClaudeCode => claude_code::upsert_mcp_server(home, manifest),
         AgentClient::OpenCode => opencode::upsert_mcp_server(home, manifest),
         AgentClient::ChatGpt => {
             return Err(ClientError::new(
@@ -356,7 +354,6 @@ fn mcp_server_matches(
 ) -> Result<bool, ClientError> {
     match client {
         AgentClient::CodexCli => codex_mcp_server_matches(home, manifest),
-        AgentClient::ClaudeCode => claude_code::mcp_server_matches(home, manifest),
         AgentClient::OpenCode => opencode::mcp_server_matches(home, manifest),
         AgentClient::ChatGpt => {
             return Err(ClientError::new(
@@ -374,7 +371,6 @@ fn remove_mcp_server(home: &Path, client: AgentClient, name: &str) -> Result<(),
     }
     match client {
         AgentClient::CodexCli => remove_codex_mcp_server(home, name),
-        AgentClient::ClaudeCode => claude_code::remove_mcp_server(home, name),
         AgentClient::OpenCode => opencode::remove_mcp_server(home, name),
         AgentClient::ChatGpt => {
             return Err(ClientError::new(
@@ -432,7 +428,6 @@ fn mcp_package_state_path(home: &Path, client: AgentClient) -> Result<PathBuf, C
                 "ChatGPT 当前不支持 MCP 安装。",
             ));
         }
-        AgentClient::ClaudeCode => home.join(".claude"),
         AgentClient::OpenCode => home.join(".config").join("opencode"),
     };
     Ok(root

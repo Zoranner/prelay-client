@@ -75,53 +75,6 @@ fn writes_codex_mcp_configuration_and_tracks_the_package_version() {
 }
 
 #[test]
-fn writes_claude_code_http_mcp_configuration_without_replacing_other_state() {
-    let directory = tempdir().unwrap();
-    fs::write(
-        directory.path().join(".claude.json"),
-        r#"{ "numStartups": 3, "mcpServers": { "keep": { "command": "keep" } } }"#,
-    )
-    .unwrap();
-    let manifest = ExtensionMcpManifest {
-        name: "remote-docs".to_string(),
-        transport: ExtensionMcpTransport::Http {
-            url: "https://mcp.example.test".to_string(),
-            headers: [("Authorization".to_string(), "MCP_AUTHORIZATION".to_string())].into(),
-            enabled: true,
-            timeout_ms: Some(45_000),
-        },
-    };
-
-    install_mcp(
-        directory.path(),
-        &[AgentClient::ClaudeCode],
-        "docs-mcp",
-        "v1.0.0",
-        "commit",
-        &manifest,
-        false,
-    )
-    .unwrap();
-
-    let config: serde_json::Value =
-        serde_json::from_slice(&fs::read(directory.path().join(".claude.json")).unwrap()).unwrap();
-    assert_eq!(config["numStartups"], 3);
-    assert!(config["mcpServers"]["keep"].is_object());
-    assert_eq!(config["mcpServers"]["remote-docs"]["type"], "http");
-    assert_eq!(
-        config["mcpServers"]["remote-docs"]["headers"]["Authorization"],
-        "${MCP_AUTHORIZATION}"
-    );
-    assert_eq!(config["mcpServers"]["remote-docs"]["timeout"], 45_000);
-    assert!(directory
-        .path()
-        .join(".claude")
-        .join(".prelay")
-        .join("mcp.json")
-        .is_file());
-}
-
-#[test]
 fn writes_opencode_stdio_mcp_configuration_without_replacing_other_state() {
     let directory = tempdir().unwrap();
     fs::create_dir_all(directory.path().join(".config").join("opencode")).unwrap();

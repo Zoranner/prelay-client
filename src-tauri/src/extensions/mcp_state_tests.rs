@@ -256,11 +256,16 @@ fn reports_update_when_legacy_mcp_state_has_no_manifest_snapshot() {
 #[test]
 fn rejects_a_multi_client_install_before_writing_any_target_with_a_conflict() {
     let directory = tempdir().unwrap();
+    fs::create_dir_all(directory.path().join(".config").join("opencode")).unwrap();
     fs::write(
-        directory.path().join(".claude.json"),
+        directory
+            .path()
+            .join(".config")
+            .join("opencode")
+            .join("opencode.jsonc"),
         r#"{
-            "mcpServers": {
-                "filesystem": { "type": "stdio", "command": "manual-command" }
+            "mcp": {
+                "filesystem": { "type": "local", "command": ["manual-command"] }
             }
         }"#,
     )
@@ -278,7 +283,7 @@ fn rejects_a_multi_client_install_before_writing_any_target_with_a_conflict() {
 
     assert!(install_mcp(
         directory.path(),
-        &[AgentClient::CodexCli, AgentClient::ClaudeCode],
+        &[AgentClient::CodexCli, AgentClient::OpenCode],
         "filesystem-mcp",
         "v1.0.0",
         "commit",

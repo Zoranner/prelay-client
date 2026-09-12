@@ -36,25 +36,10 @@ export type OpenCodeSettingsDraft = {
   rules: string;
 };
 
-export type ClaudeCodeSettingsDraft = {
-  endpoint: string;
-  model: string;
-  opusModel: string;
-  sonnetModel: string;
-  haikuModel: string;
-  subagentModel: string;
-  apiTimeoutMs: number | null;
-  maxOutputTokens: number | null;
-  toolSearchEnabled: boolean;
-  nonessentialTrafficDisabled: boolean;
-  rules: string;
-};
-
 export type AgentConfiguration = {
   codexCli: CodexSettingsDraft;
   chatgpt: ChatGptSettingsDraft;
   openCode: OpenCodeSettingsDraft;
-  claudeCode: ClaudeCodeSettingsDraft;
 };
 
 export type AgentSettingsSaveRequest = {
@@ -101,19 +86,6 @@ export function createAgentConfiguration(): AgentConfiguration {
       model: "",
       rules: "",
     },
-    claudeCode: {
-      endpoint: "",
-      model: "",
-      opusModel: "",
-      sonnetModel: "",
-      haikuModel: "",
-      subagentModel: "",
-      apiTimeoutMs: null,
-      maxOutputTokens: null,
-      toolSearchEnabled: false,
-      nonessentialTrafficDisabled: false,
-      rules: "",
-    },
   };
 }
 
@@ -130,10 +102,8 @@ export function copyAgentClientSettings(
     Object.assign(target.chatgpt, source.chatgpt, {
       features: { ...source.chatgpt.features },
     });
-  } else if (client === "openCode") {
-    Object.assign(target.openCode, source.openCode);
   } else {
-    Object.assign(target.claudeCode, source.claudeCode);
+    Object.assign(target.openCode, source.openCode);
   }
 }
 
@@ -154,9 +124,5 @@ export function codexSettingsPayload(
 }
 
 export function openCodeSettingsPayload(settings: OpenCodeSettingsDraft) {
-  return { ...settings };
-}
-
-export function claudeCodeSettingsPayload(settings: ClaudeCodeSettingsDraft) {
   return { ...settings };
 }

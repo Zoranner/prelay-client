@@ -13,6 +13,9 @@ test("智能体页面只编排路由级状态，展示和设置由领域组件�
   const sidebar = source("components/agents/AgentSidebar.vue");
   const content = source("components/agents/AgentWorkspaceContent.vue");
   const drawer = source("components/agents/AgentSettingsDrawer.vue");
+  const installDrawer = source(
+    "components/extensions/ExtensionInstallDrawer.vue",
+  );
 
   expect(shell).toContain(
     '{ label: "智能体", path: "/agents", icon: "ph:robot" }',
@@ -34,7 +37,8 @@ test("智能体页面只编排路由级状态，展示和设置由领域组件�
   expect(drawer).toContain("CodexSettingsForm");
   expect(drawer).toContain("ChatGptSettingsForm");
   expect(drawer).toContain("OpenCodeSettingsForm");
-  expect(drawer).toContain("ClaudeCodeSettingsForm");
+  expect(drawer).not.toContain("ClaudeCodeSettingsForm");
+  expect(installDrawer).not.toContain("claudeCode");
   expect(drawer).toContain("agent-settings-form");
 });
 
@@ -58,10 +62,8 @@ test("进入智能体页面时默认选中客户端列表第一项", () => {
 test("接入点目录或服务地址晚于本机配置返回时重新反推智能体接入点", () => {
   const settings = source("composables/useAgentSettings.ts");
 
-  expect(settings).toContain("() => options.settings.value.claudeCode");
   expect(settings).toContain("endpointOptionsForClient");
   expect(settings).toContain("watch(");
-  expect(settings).toContain("() => options.settings.value.claudeCode");
   expect(settings).toContain("if (codexCli) hydrate(codexCli);");
   expect(settings).toContain("if (chatgpt) hydrate(chatgpt);");
   expect(settings).toContain("if (openCode) hydrate(openCode);");

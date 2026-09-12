@@ -51,8 +51,10 @@ test("切换供应商模板时同步回填模板名称", () => {
 
 test("供应商表单将 Chat Completions 排在支持协议首位并包含图像生成", () => {
   expect(providerSource).toMatch(
-    /const allProtocols: UpstreamProtocol\[\] = \[\s*"openai",\s*"responses",\s*"anthropic",\s*"images_generations",\s*\]/,
+    /const allProtocols: UpstreamProtocol\[\] = \[\s*"openai",\s*"responses",\s*"images_generations",\s*\]/,
   );
+  expect(providerSource).not.toContain('"anthropic"');
+  expect(providerSource).not.toContain("anthropic:");
   expect(providerSource).toContain('images_generations: "",');
   expect(providerSource).toContain(
     "const orderedUpstreamProtocols = computed(() =>",

@@ -370,7 +370,7 @@ fn mcp_agent_clients(clients: &[AgentClient]) -> Vec<AgentClient> {
         .filter(|client| {
             matches!(
                 client,
-                AgentClient::CodexCli | AgentClient::ClaudeCode | AgentClient::OpenCode
+                AgentClient::CodexCli | AgentClient::OpenCode
             )
         })
         .collect()
