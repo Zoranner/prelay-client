@@ -1,7 +1,7 @@
 use base64::{engine::general_purpose::STANDARD as BASE64, Engine};
 use prelay_protocol::{ExtensionFile, ExtensionInstallBundle, ExtensionKind, ExtensionVersion};
 
-use super::{validate_package_bundle, ExtensionInstallAction, ExtensionPackage};
+use super::{install::validate_package_bundle, ExtensionInstallAction, ExtensionPackage};
 
 fn mcp_package() -> ExtensionPackage {
     ExtensionPackage {
