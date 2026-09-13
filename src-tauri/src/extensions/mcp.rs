@@ -151,12 +151,11 @@ pub(crate) fn mcp_installation_status(
     version: &str,
     commit_sha: &str,
 ) -> Result<McpInstallationStatus, ClientError> {
-    let mut installed_clients = Vec::new();
+    let mut installed_hosts = BTreeSet::new();
     let mut missing = false;
     let mut outdated = false;
 
-    for client in clients {
-        let host = mcp_host(*client);
+    for host in mcp_hosts(clients) {
         let mut installed = read_installed_mcp_packages(home, host)?;
         let Some(current) = installed.0.get(package) else {
             missing = true;
@@ -168,7 +167,7 @@ pub(crate) fn mcp_installation_status(
             missing = true;
             continue;
         }
-        installed_clients.push(*client);
+        installed_hosts.insert(host);
         if current.version != version || current.commit_sha != commit_sha {
             outdated = true;
         }
@@ -183,19 +182,21 @@ pub(crate) fn mcp_installation_status(
         }
     }
 
+    let clients = clients
+        .iter()
+        .copied()
+        .filter(|client| installed_hosts.contains(&mcp_host(*client)))
+        .collect::<Vec<_>>();
     let action = if outdated {
         McpInstallAction::Update
-    } else if !installed_clients.is_empty() && missing {
+    } else if !clients.is_empty() && missing {
         McpInstallAction::Partial
-    } else if installed_clients.is_empty() {
+    } else if clients.is_empty() {
         McpInstallAction::Install
     } else {
         McpInstallAction::Installed
     };
-    Ok(McpInstallationStatus {
-        action,
-        clients: installed_clients,
-    })
+    Ok(McpInstallationStatus { action, clients })
 }
 
 pub(crate) fn retain_listed_mcp_packages(

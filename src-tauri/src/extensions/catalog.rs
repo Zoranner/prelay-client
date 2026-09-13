@@ -11,7 +11,7 @@ use super::{
 use crate::{
     agents::{
         agent_rule_targets_with_clients, agent_skill_target_roots, agent_skill_targets,
-        installed_agent_clients, AgentClient,
+        installed_agent_clients,
     },
     identity::registration::authenticated_api,
     relay::client::ClientError,
@@ -82,7 +82,6 @@ pub async fn list_extensions(
             }
         }
         ExtensionKind::Mcp => {
-            let clients = mcp_agent_clients(&clients);
             let listed = packages
                 .iter()
                 .map(|package| package.name.clone())
@@ -161,14 +160,6 @@ pub async fn update_all_skill_extensions(
     Ok(super::model::ExtensionInstallResult {
         message: format!("已更新 {} 个扩展。", targets.len()),
     })
-}
-
-fn mcp_agent_clients(clients: &[AgentClient]) -> Vec<AgentClient> {
-    clients
-        .iter()
-        .copied()
-        .filter(|client| matches!(client, AgentClient::CodexCli | AgentClient::OpenCode))
-        .collect()
 }
 
 impl From<rules::RuleInstallAction> for ExtensionInstallAction {
