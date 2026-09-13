@@ -3,7 +3,6 @@ use std::path::Path;
 use prelay_protocol::{ExtensionInstallBundle, ExtensionKind};
 
 use super::{
-    local::{local_mcp_test_manifest, LOCAL_MCP_TEST_REPOSITORY},
     mcp, mcp_manifest,
     model::{ExtensionInstallRequest, ExtensionInstallResult, ExtensionPackage, McpInstallPreview},
     rules, skills,
@@ -26,15 +25,6 @@ pub async fn read_mcp_install_manifest(
             "invalid_request",
             "只有 MCP 扩展可以读取安装配置。",
         ));
-    }
-    if package.repository == LOCAL_MCP_TEST_REPOSITORY {
-        let manifest = local_mcp_test_manifest();
-        return Ok(McpInstallPreview {
-            name: package.name.clone(),
-            version: package.version.clone(),
-            commit_sha: package.commit_sha.clone(),
-            manifest,
-        });
     }
     let client = authenticated_api(state).await?;
     let bundle: ExtensionInstallBundle = client
@@ -59,27 +49,6 @@ pub async fn install_extension(
     state: &NativeState,
     request: &ExtensionInstallRequest,
 ) -> Result<ExtensionInstallResult, ClientError> {
-    if request.package.repository == LOCAL_MCP_TEST_REPOSITORY {
-        if request.package.kind != ExtensionKind::Mcp {
-            return Err(ClientError::new(
-                "invalid_request",
-                "本地测试包必须是 MCP。",
-            ));
-        }
-        let manifest = local_mcp_test_manifest();
-        mcp::install_mcp(
-            home,
-            &request.clients,
-            &request.package.name,
-            &request.package.version,
-            &request.package.commit_sha,
-            &manifest,
-            request.overwrite,
-        )?;
-        return Ok(ExtensionInstallResult {
-            message: format!("已安装{}。", request.package.name),
-        });
-    }
     let client = authenticated_api(state).await?;
     let bundle: ExtensionInstallBundle = client
         .get(&format!(

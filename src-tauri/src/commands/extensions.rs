@@ -2,10 +2,9 @@ use std::path::PathBuf;
 
 use crate::{
     extensions::{
-        install_extension, list_extensions, local_mcp_test_package, read_extension_readme,
-        read_mcp_install_manifest, update_all_skill_extensions, ExtensionCatalogSnapshot,
-        ExtensionInstallRequest, ExtensionInstallResult, ExtensionKind, ExtensionPackage,
-        McpInstallPreview,
+        install_extension, list_extensions, read_extension_readme, read_mcp_install_manifest,
+        update_all_skill_extensions, ExtensionCatalogSnapshot, ExtensionInstallRequest,
+        ExtensionInstallResult, ExtensionKind, ExtensionPackage, McpInstallPreview,
     },
     relay::client::ClientError,
     NativeState,
@@ -24,11 +23,6 @@ pub async fn extensions_list(
 ) -> Result<ExtensionCatalogSnapshot, ClientError> {
     let home = user_home()?;
     list_extensions(&home, &state, kind).await
-}
-
-#[tauri::command]
-pub fn extensions_mcp_test_package() -> ExtensionPackage {
-    local_mcp_test_package()
 }
 
 #[tauri::command]
