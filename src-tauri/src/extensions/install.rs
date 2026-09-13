@@ -4,7 +4,7 @@ use prelay_protocol::{ExtensionInstallBundle, ExtensionKind};
 
 use super::{
     local::{local_mcp_test_manifest, LOCAL_MCP_TEST_REPOSITORY},
-    mcp,
+    mcp, mcp_manifest,
     model::{ExtensionInstallRequest, ExtensionInstallResult, ExtensionPackage, McpInstallPreview},
     rules, skills,
 };
@@ -48,7 +48,7 @@ pub async fn read_mcp_install_manifest(
         name: bundle.name,
         version: bundle.version.tag,
         commit_sha: bundle.version.commit_sha,
-        manifest: mcp::read_mcp_manifest(
+        manifest: mcp_manifest::read_mcp_manifest(
             bundle.files.first().expect("validated MCP install bundle"),
         )?,
     })
@@ -115,7 +115,7 @@ pub async fn install_extension(
             }
         }
         ExtensionKind::Mcp => {
-            let manifest = mcp::read_mcp_manifest(
+            let manifest = mcp_manifest::read_mcp_manifest(
                 bundle.files.first().expect("validated MCP install bundle"),
             )?;
             mcp::install_mcp(
@@ -164,7 +164,7 @@ fn validate_bundle(bundle: &ExtensionInstallBundle) -> Result<(), ClientError> {
             Ok(())
         }
         ExtensionKind::Mcp if bundle.files.len() == 1 => {
-            mcp::read_mcp_manifest(&bundle.files[0]).map(|_| ())
+            mcp_manifest::read_mcp_manifest(&bundle.files[0]).map(|_| ())
         }
         _ => Err(ClientError::new(
             "invalid_response",
