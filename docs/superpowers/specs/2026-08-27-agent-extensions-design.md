@@ -24,7 +24,7 @@
 
 ## 本机写入
 
-规则包读取仓库根 `AGENTS.md`，以带包标识的 Prelay 托管 Markdown 段落合并到 `~/.codex/AGENTS.md` 和 `~/.claude/CLAUDE.md`。合并只替换同一包的托管段落，保留所有非托管内容。
+规则包读取仓库根 `AGENTS.md`，整篇写入 `~/.codex/AGENTS.md`（Codex CLI 与 ChatGPT 共用）和 OpenCode 配置目录的 `AGENTS.md`。写入会替换目标文件的原有内容，`~/.codex/AGENTS.md` 同时是设置页规则文本的落点；写入后把包名、版本与 commit 记到目标文件同级的 `.prelay/rule.json`，设置页保存后规则文本发生变化时清除该记录。
 
 Skill 包读取 `skills/` 下的完整目录。Codex CLI 和 ChatGPT 共享复制到 `~/.agents/skills/`；Claude Code 复制到 `~/.claude/skills/`。每个包的解析 commit SHA、仓库 URL、版本、文件清单与安装目标保存在 Prelay 应用数据目录中，以支持后续安全更新和卸载，但首期不在扩展库中展示该状态。
 
@@ -32,4 +32,4 @@ Skill 包读取 `skills/` 下的完整目录。Codex CLI 和 ChatGPT 共享复�
 
 ## 验证
 
-Rust 单元测试覆盖 manifest 过滤、固定 commit 解析、规则托管段落合并和 Skill 目标映射。前端测试覆盖扩展库入口、四类分段表格、详情抽屉和安装模态框的结构与交互契约。完成代码后执行仓库规定的 Bun 测试、类型检查、Cargo 格式化、clippy 与测试；运行中的桌面客户端锁阻断 all-targets 测试时如实报告。
+Rust 单元测试覆盖 manifest 过滤、固定 commit 解析、规则整篇写入与安装状态、Skill 目标映射。前端测试覆盖扩展库入口、四类分段表格、详情抽屉和安装抽屉的结构与交互契约。完成代码后执行仓库规定的 Bun 测试、类型检查、Cargo 格式化、clippy 与测试；运行中的桌面客户端锁阻断 all-targets 测试时如实报告。
