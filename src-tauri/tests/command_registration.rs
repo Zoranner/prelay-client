@@ -55,3 +55,11 @@ fn registers_the_mcp_preview_command() {
     assert!(command.contains("pub async fn extensions_mcp_preview("));
     assert!(command.contains("read_mcp_install_manifest"));
 }
+
+#[test]
+fn local_mcp_test_package_covers_twenty_environment_variable_references() {
+    let extensions = source_file("src/extensions/local.rs");
+
+    assert!(extensions.contains("1..=20"));
+    assert!(extensions.contains("MCP_TEST_API_KEY_{index:02}"));
+}

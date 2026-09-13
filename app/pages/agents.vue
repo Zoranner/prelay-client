@@ -201,6 +201,19 @@ function openExtensionInstall(extension: ExtensionCatalogPackage) {
   showExtensionInstall.value = true;
 }
 
+async function openMcpTestInstall() {
+  try {
+    const extension = await invokeLocalCommand<ExtensionCatalogPackage>(
+      "extensions_mcp_test_package",
+      {},
+      { notify: false },
+    );
+    openExtensionInstall(extension);
+  } catch {
+    // The local command composable exposes the stable error to this view.
+  }
+}
+
 function requestCloseSettings() {
   if (settingsExitRegistration) {
     void settingsExitRegistration.requestExit();
@@ -388,6 +401,7 @@ onBeforeUnmount(() => {
           :workspace="activeWorkspace"
           @detail="openExtensionDetails"
           @install="openExtensionInstall"
+          @install-test="openMcpTestInstall"
           @update-all="extensionActions.updateAll"
           @open-settings="openSettings(activeClientDetected)"
           @uninstall="uninstallAgentItem"

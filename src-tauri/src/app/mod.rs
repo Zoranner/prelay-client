@@ -44,6 +44,7 @@ pub fn run() {
             crate::commands::agents::agent_settings_get,
             crate::commands::agents::agent_settings_save,
             crate::commands::extensions::extensions_list,
+            crate::commands::extensions::extensions_mcp_test_package,
             crate::commands::extensions::extension_readme,
             crate::commands::extensions::extensions_mcp_preview,
             crate::commands::extensions::extensions_install,

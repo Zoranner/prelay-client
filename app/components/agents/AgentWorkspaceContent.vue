@@ -57,6 +57,7 @@ const showItemStatus = computed(() => activeSection !== "skill");
 const emit = defineEmits<{
   detail: [extension: ExtensionCatalogPackage];
   install: [extension: ExtensionCatalogPackage];
+  installTest: [];
   updateAll: [];
   openSettings: [];
   uninstall: [item: AgentItem];
@@ -75,6 +76,10 @@ function updateExtensionSection(value: string | number | boolean | null) {
     emit("update:activeExtensionSection", value as ExtensionCatalogKind);
   }
 }
+
+function installFirstExtension() {
+  emit("installTest");
+}
 </script>
 
 <template>
@@ -87,20 +92,27 @@ function updateExtensionSection(value: string | number | boolean | null) {
           variant="button"
           @update:model-value="updateExtensionSection"
         />
-        <div
-          v-if="activeExtensionSection === 'skill' && extensionUpdates > 0"
-          class="agent-toolbar__actions"
-        >
-          <span class="extension-update-hint">
-            可更新
-          </span>
+        <div class="agent-toolbar__actions">
           <Button
-            icon="ph:arrow-circle-down"
-            :disabled="extensionUpdating"
-            @click="emit('updateAll')"
+            v-if="activeExtensionSection === 'mcp'"
+            icon="ph:download-simple"
+            :disabled="extensionLoading"
+            @click="installFirstExtension"
           >
-            {{ extensionUpdating ? "更新中..." : "全部更新" }}
+            安装
           </Button>
+          <template
+            v-if="activeExtensionSection === 'skill' && extensionUpdates > 0"
+          >
+            <span class="extension-update-hint"> 可更新 </span>
+            <Button
+              icon="ph:arrow-circle-down"
+              :disabled="extensionUpdating"
+              @click="emit('updateAll')"
+            >
+              {{ extensionUpdating ? "更新中..." : "全部更新" }}
+            </Button>
+          </template>
         </div>
       </div>
       <div class="item-results">
@@ -213,5 +225,4 @@ function updateExtensionSection(value: string | number | boolean | null) {
 .extension-update-hint {
   white-space: nowrap;
 }
-
 </style>
