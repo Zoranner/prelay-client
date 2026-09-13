@@ -59,8 +59,8 @@ test("扩展库沿用智能体工作区的分类表格与单层操作表面", ()
   const detailDrawer = source(
     "components/extensions/ExtensionDetailDrawer.vue",
   );
-  const installModal = source(
-    "components/extensions/ExtensionInstallModal.vue",
+  const installDrawer = source(
+    "components/extensions/ExtensionInstallDrawer.vue",
   );
   const catalog = source("composables/useExtensionCatalog.ts");
   const updates = source("composables/useExtensionUpdates.ts");
@@ -71,6 +71,11 @@ test("扩展库沿用智能体工作区的分类表格与单层操作表面", ()
   expect(sidebar).toContain("extensionUpdates");
   expect(sidebar).toContain('semantic="error"');
   expect(workspace).toContain("<ExtensionCatalogTable");
+  expect(workspace).toContain("installFirstExtension");
+  expect(workspace).toContain("activeExtensionSection === 'mcp'");
+  expect(workspace).toContain('icon="ph:download-simple"');
+  expect(workspace).toContain('emit("installTest")');
+  expect(page).toContain("extensions_mcp_test_package");
   expect(workspace).toContain('class="extension-update-hint"');
   expect(workspace).toContain("可更新");
   expect(workspace).toContain(
@@ -85,7 +90,7 @@ test("扩展库沿用智能体工作区的分类表格与单层操作表面", ()
   expect(workspace).toContain('icon="ph:arrow-circle-down"');
   expect(workspace).toContain("@click=\"emit('updateAll')\"");
   expect(page).toContain("<ExtensionDetailDrawer");
-  expect(page).toContain("<ExtensionInstallModal");
+  expect(page).toContain("<ExtensionInstallDrawer");
   expect(page).toContain("agentSectionOptions");
   expect(page).not.toContain("ph:plugs-connected");
   expect(page).toContain('@refreshed="extensionActions.refresh"');
@@ -146,43 +151,90 @@ test("扩展库沿用智能体工作区的分类表格与单层操作表面", ()
   expect(detailDrawer).toContain(".extension-detail__readme :deep(h2)");
   expect(detailDrawer).toContain(".extension-detail__readme :deep(p)");
   expect(detailDrawer).not.toContain("white-space: pre-wrap");
-  expect(installModal).toContain("<Select");
-  expect(installModal).toContain("const actionLabel");
-  expect(installModal).toContain('props.extension?.installAction === "update"');
-  expect(installModal).toContain(
+  expect(installDrawer).toContain("<Drawer");
+  expect(installDrawer).not.toContain("<Modal");
+  expect(installDrawer).toContain("const actionLabel");
+  expect(installDrawer).toContain(
+    'props.extension?.installAction === "update"',
+  );
+  expect(installDrawer).toContain(
     'selectedClients.value = ["partial", "update"].includes(',
   );
-  expect(installModal).toContain(
-    ":title=\"extension ? `${actionLabel} ${extension.name}` : '安装扩展'\"",
+  expect(installDrawer).toContain("`${actionLabel}扩展`");
+  expect(installDrawer).toContain('label="安装到智能体"');
+  expect(installDrawer).toContain('placeholder="选择智能体"');
+  expect(installDrawer).toContain("multiple");
+  expect(installDrawer).toContain("synchronizeExtensionInstallSelection");
+  expect(installDrawer).toContain("function selectClients");
+  expect(installDrawer).toContain("extension_target_exists");
+  expect(installDrawer).toContain('confirmText: "覆盖"');
+  expect(installDrawer).toContain("overwrite");
+  expect(installDrawer).toContain("mcpEnvironmentValues");
+  expect(installDrawer).toContain("McpInstallForm");
+  expect(installDrawer).toContain("extension-install-drawer__footer");
+  expect(installDrawer).toContain("extension-install-drawer__identity");
+  expect(installDrawer).toContain("extension-install-drawer__identity-icon");
+  expect(installDrawer).toContain("extension-install-drawer__identity-name");
+  expect(installDrawer).toContain("extension-install-drawer__identity-version");
+  expect(installDrawer).toContain(
+    "extension-install-drawer__identity-transport",
   );
-  expect(installModal).toContain('label="安装到智能体"');
-  expect(installModal).toContain('placeholder="选择智能体"');
-  expect(installModal).toContain("multiple");
-  expect(installModal).toContain("synchronizeExtensionInstallSelection");
-  expect(installModal).toContain("function selectClients");
-  expect(installModal).toContain("extension_target_exists");
-  expect(installModal).toContain('confirmText: "覆盖"');
-  expect(installModal).toContain("overwrite");
-  expect(installModal).toContain("Checkbox");
-  expect(installModal).toContain("extensions_mcp_preview");
-  expect(installModal).toContain("首次使用时可能下载依赖或启动本地进程。");
-  expect(installModal).toContain("mcpRiskAccepted");
-  expect(installModal).toContain("mcpPreview");
-  expect(installModal).toContain('emit("refreshed", props.extension.kind)');
+  expect(installDrawer).toContain("kindIcon");
+  expect(installDrawer).toContain("agentSectionOptions");
+  expect(installDrawer).toContain("props.extension?.version");
+  expect((installDrawer.match(/<Badge/g) ?? []).length).toBe(1);
+  expect(installDrawer).toContain("extension-install-drawer__preview");
+  expect(installDrawer).toContain("extension-install-drawer__target");
+  expect(installDrawer).toMatch(
+    /extension-install-drawer__identity[\s\S]*extension-install-drawer__target[\s\S]*extension-install-drawer__preview[\s\S]*<template #footer>/,
+  );
+  expect(installDrawer).not.toMatch(/<template #footer>[\s\S]*安装到智能体/);
+  expect(installDrawer).toMatch(
+    /\.extension-install-drawer__target \{[^}]*flex: 0 0 auto/,
+  );
+  expect(installDrawer).toMatch(
+    /\.extension-install-drawer__preview \{[^}]*overflow-y: auto/,
+  );
+  const mcpInstallForm = source("components/extensions/McpInstallForm.vue");
+  expect(mcpInstallForm).not.toContain("<Badge");
+  expect(mcpInstallForm).not.toContain("mcp-install-identity");
+  expect(mcpInstallForm).toContain("mcp-install-spec");
+  expect(mcpInstallForm).toContain("mcp-install-items");
+  expect(mcpInstallForm).toContain("mcp-install-mapping");
+  expect(mcpInstallForm).toContain("argumentsList");
+  expect(mcpInstallForm).toContain("启动命令");
+  expect(mcpInstallForm).toContain("启动参数");
+  expect(mcpInstallForm).not.toContain("CodeBlock");
+  expect(mcpInstallForm).not.toContain("navigator.clipboard");
+  expect(mcpInstallForm).toContain("FormField");
+  expect(mcpInstallForm).toContain("#label");
+  expect(mcpInstallForm).toContain(':label="name"');
+  expect(mcpInstallForm).toContain("mcp-install-environment__name");
+  expect(mcpInstallForm).toMatch(
+    /mcp-install-environment[\s\S]*grid-template-columns: minmax\(0, 1fr\)/,
+  );
+  expect(mcpInstallForm).not.toContain("mcp-install-environment-row");
+  expect(mcpInstallForm).not.toContain("mcp-install-argument-list");
+  expect(mcpInstallForm).not.toContain("mcp-install-command-block");
+  expect(installDrawer).not.toContain("mcpPreview.manifest.transport.enabled");
+  expect(installDrawer).not.toContain("mcpRiskAccepted");
+  expect(installDrawer).not.toContain("首次使用时可能下载依赖或启动本地进程。");
+  expect(installDrawer).toContain("extensions_mcp_preview");
+  expect(installDrawer).toContain("mcpPreview");
+  expect(installDrawer).toContain('emit("refreshed", props.extension.kind)');
   expect(updates).toContain("async function refresh");
-  expect(installModal).toContain('client.value !== "chatgpt"');
-  expect(installModal).toContain("MCP 配置");
-  expect(installModal).toContain("MCP 环境变量");
-  expect(installModal).toContain("服务名");
-  expect(installModal).toContain("mcpPreview.manifest.name");
-  expect(installModal).toContain("mcpHeaders");
-  expect(installModal).toContain("工作目录");
-  expect(installModal).toContain("超时时间");
-  expect(installModal).toContain("mcpPreview.manifest.transport.enabled");
-  expect(installModal).toContain("var(--text-sm)");
-  expect(installModal).toContain("var(--st-warning)");
-  expect(installModal).toContain("var(--st-semantic-error)");
-  expect(installModal).not.toContain("var(--font-size-sm)");
-  expect(installModal).not.toContain("var(--st-text-warning)");
-  expect(installModal).not.toContain("var(--st-text-error)");
+  expect(installDrawer).not.toContain('client !== "chatgpt"');
+  expect(installDrawer).toContain("MCP 服务");
+  expect(installDrawer).toContain("manifest.name");
+  expect(installDrawer).toContain("manifest.transport.type");
+  expect(mcpInstallForm).toContain("headers");
+  expect(mcpInstallForm).not.toContain("工作目录");
+  expect(mcpInstallForm).not.toContain("超时时间");
+  expect(mcpInstallForm).toContain('isStdio ? "启动配置" : "连接配置"');
+  expect(mcpInstallForm).toContain("环境变量");
+  expect(mcpInstallForm).toContain("var(--text-sm)");
+  expect(installDrawer).toContain("var(--st-semantic-error)");
+  expect(installDrawer).not.toContain("var(--font-size-sm)");
+  expect(installDrawer).not.toContain("var(--st-text-warning)");
+  expect(installDrawer).not.toContain("var(--st-text-error)");
 });

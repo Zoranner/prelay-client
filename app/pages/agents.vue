@@ -19,7 +19,7 @@ import AgentSidebar from "~/components/agents/AgentSidebar.vue";
 import AgentWorkspaceContent from "~/components/agents/AgentWorkspaceContent.vue";
 import AgentSettingsDrawer from "~/components/agents/AgentSettingsDrawer.vue";
 import ExtensionDetailDrawer from "~/components/extensions/ExtensionDetailDrawer.vue";
-import ExtensionInstallModal from "~/components/extensions/ExtensionInstallModal.vue";
+import ExtensionInstallDrawer from "~/components/extensions/ExtensionInstallDrawer.vue";
 import PanelSection from "~/components/shell/PanelSection.vue";
 
 type AgentSection = "rules" | AgentItemKind;
@@ -425,7 +425,7 @@ onBeforeUnmount(() => {
     v-model:visible="showExtensionDetails"
     :extension="selectedExtension"
   />
-  <ExtensionInstallModal
+  <ExtensionInstallDrawer
     v-model:visible="showExtensionInstall"
     :extension="selectedExtension"
     :detected-clients="
