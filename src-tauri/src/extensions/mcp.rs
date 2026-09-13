@@ -98,14 +98,15 @@ pub(super) fn install_mcp(
     manifest: &ExtensionMcpManifest,
     overwrite: bool,
 ) -> Result<(), ClientError> {
+    let expanded = expand_manifest(manifest, home);
     let mut targets = Vec::new();
     for host in mcp_hosts(clients) {
-        let exists = mcp_server_exists(home, host, &manifest.name)?;
+        let exists = mcp_server_exists(home, host, &expanded.name)?;
         let installed = read_installed_mcp_packages(home, host)?;
         let owned = installed
             .0
             .get(package)
-            .is_some_and(|entry| entry.server_name == manifest.name);
+            .is_some_and(|entry| entry.server_name == expanded.name);
         if exists && !owned && !overwrite {
             return Err(ClientError::new(
                 "extension_target_exists",
@@ -115,10 +116,12 @@ pub(super) fn install_mcp(
         let previous_server = if let Some(previous) = installed
             .0
             .get(package)
-            .filter(|entry| entry.server_name != manifest.name)
+            .filter(|entry| entry.server_name != expanded.name)
         {
             match previous.manifest.as_ref() {
-                Some(current) if mcp_server_matches(home, host, current)? => {
+                Some(current)
+                    if mcp_server_matches(home, host, &expand_manifest(current, home))? =>
+                {
                     Some(previous.server_name.clone())
                 }
                 _ => None,
@@ -138,13 +141,13 @@ pub(super) fn install_mcp(
             remove_mcp_server(home, target.host, &previous_server)?;
         }
         target.installed.0.retain(|installed_package, entry| {
-            installed_package == package || entry.server_name != manifest.name
+            installed_package == package || entry.server_name != expanded.name
         });
-        upsert_mcp_server(home, target.host, manifest)?;
+        upsert_mcp_server(home, target.host, &expanded)?;
         target.installed.0.insert(
             package.to_string(),
             InstalledMcpPackage {
-                server_name: manifest.name.clone(),
+                server_name: expanded.name.clone(),
                 version: version.to_string(),
                 commit_sha: commit_sha.to_string(),
                 manifest: Some(manifest.clone()),
@@ -297,7 +300,9 @@ pub(crate) fn mcp_installation_status(
             outdated = true;
         }
         match current.manifest.as_ref() {
-            Some(manifest) if !mcp_server_matches(home, host, manifest)? => {
+            Some(manifest)
+                if !mcp_server_matches(home, host, &expand_manifest(manifest, home))? =>
+            {
                 outdated = true;
             }
             None => outdated = true,
@@ -425,6 +430,56 @@ fn mcp_package_state_path(home: &Path, host: McpHost) -> PathBuf {
     };
     root.join(PRELAY_STATE_DIRECTORY)
         .join(MCP_PACKAGE_STATE_FILE)
+}
+
+fn expand_manifest(manifest: &ExtensionMcpManifest, home: &Path) -> ExtensionMcpManifest {
+    let mut expanded = manifest.clone();
+    if let ExtensionMcpTransport::Stdio { command, .. } = &mut expanded.transport {
+        for argument in command.iter_mut().skip(1) {
+            *argument = expand_user_directories(argument, home);
+        }
+    }
+    expanded
+}
+
+fn expand_user_directories(value: &str, home: &Path) -> String {
+    let variables = [
+        ("%USERPROFILE%".to_string(), home.display().to_string()),
+        (
+            "%APPDATA%".to_string(),
+            home.join("AppData").join("Roaming").display().to_string(),
+        ),
+        (
+            "%LOCALAPPDATA%".to_string(),
+            home.join("AppData").join("Local").display().to_string(),
+        ),
+    ];
+    let mut expanded = String::with_capacity(value.len());
+    let mut rest = value;
+    while let Some(index) = rest.find('%') {
+        expanded.push_str(&rest[..index]);
+        let tail = &rest[index..];
+        if let Some(stripped) = tail.strip_prefix("%%") {
+            expanded.push('%');
+            rest = stripped;
+            continue;
+        }
+        match variables
+            .iter()
+            .find(|(name, _)| tail.starts_with(name.as_str()))
+        {
+            Some((name, replacement)) => {
+                expanded.push_str(replacement);
+                rest = &tail[name.len()..];
+            }
+            None => {
+                expanded.push('%');
+                rest = &tail[1..];
+            }
+        }
+    }
+    expanded.push_str(rest);
+    expanded
 }
 
 #[cfg(test)]
