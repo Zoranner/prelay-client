@@ -143,6 +143,82 @@ fn writes_opencode_stdio_mcp_configuration_without_replacing_other_state() {
 }
 
 #[test]
+fn expands_user_directory_variables_in_command_arguments() {
+    let directory = tempdir().unwrap();
+    let manifest = ExtensionMcpManifest {
+        name: "filesystem".to_string(),
+        transport: ExtensionMcpTransport::Stdio {
+            command: vec![
+                "uvx".to_string(),
+                "mcp-server-filesystem".to_string(),
+                "%USERPROFILE%\\Documents".to_string(),
+                "%APPDATA%\\SomeTool".to_string(),
+                "%%USERPROFILE%%\\Documents".to_string(),
+            ],
+            cwd: None,
+            environment: Default::default(),
+            enabled: true,
+            timeout_ms: None,
+        },
+    };
+
+    install_mcp(
+        directory.path(),
+        &[AgentClient::CodexCli],
+        "filesystem-mcp",
+        "v1.0.0",
+        "commit",
+        &manifest,
+        false,
+    )
+    .unwrap();
+
+    let config: toml::Value = toml::from_str(
+        &fs::read_to_string(directory.path().join(".codex").join("config.toml")).unwrap(),
+    )
+    .unwrap();
+    let args = config["mcp_servers"]["filesystem"]["args"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter_map(toml::Value::as_str)
+        .collect::<Vec<_>>();
+    let home = directory.path().display().to_string();
+    let documents = format!("{home}\\Documents");
+    let tool = format!("{home}\\AppData\\Roaming\\SomeTool");
+    assert_eq!(args[0], "mcp-server-filesystem");
+    assert_eq!(args[1], documents.as_str());
+    assert_eq!(args[2], tool.as_str());
+    assert_eq!(args[3], "%USERPROFILE%\\Documents");
+
+    let state: serde_json::Value = serde_json::from_slice(
+        &fs::read(
+            directory
+                .path()
+                .join(".codex")
+                .join(".prelay")
+                .join("mcp.json"),
+        )
+        .unwrap(),
+    )
+    .unwrap();
+    assert_eq!(
+        state["filesystem-mcp"]["manifest"]["transport"]["command"][2],
+        "%USERPROFILE%\\Documents"
+    );
+
+    let status = mcp_installation_status(
+        directory.path(),
+        &[AgentClient::CodexCli],
+        "filesystem-mcp",
+        "v1.0.0",
+        "commit",
+    )
+    .unwrap();
+    assert_eq!(status.action, McpInstallAction::Installed);
+}
+
+#[test]
 fn shares_codex_mcp_configuration_between_codex_cli_and_chatgpt() {
     let directory = tempdir().unwrap();
     let manifest = ExtensionMcpManifest {
