@@ -36,7 +36,6 @@ const installing = ref(false);
 const mcpPreview = ref<ExtensionMcpPreview | null>(null);
 const mcpPreviewLoading = ref(false);
 const mcpPreviewError = ref("");
-const mcpEnvironmentValues = ref<Record<string, string>>({});
 let mcpPreviewRequest = 0;
 const actionLabel = computed(() =>
   props.extension?.installAction === "update"
@@ -171,7 +170,6 @@ watch(
     const extension = props.extension;
     mcpPreview.value = null;
     mcpPreviewError.value = "";
-    mcpEnvironmentValues.value = {};
     selectedClients.value = ["partial", "update"].includes(
       extension?.installAction ?? "",
     )
@@ -259,11 +257,7 @@ watch(
       </div>
       <div v-if="isMcp" class="extension-install-drawer__preview">
         <Loading v-if="mcpPreviewLoading" visible text="正在读取 MCP 配置..." />
-        <McpInstallForm
-          v-else-if="mcpPreview"
-          v-model:environment-values="mcpEnvironmentValues"
-          :preview="mcpPreview"
-        />
+        <McpInstallForm v-else-if="mcpPreview" :preview="mcpPreview" />
         <p v-else class="extension-install-drawer__error">
           {{ mcpPreviewError }}
         </p>
