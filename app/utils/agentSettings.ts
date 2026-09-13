@@ -13,7 +13,6 @@ export type CodexSettingsDraft = {
   personality: string;
   webSearch: boolean;
   sandbox: string;
-  disableResponseStorage: boolean;
   maxThreads: number;
   maxDepth: number;
   jobMaxRuntimeSeconds: number;
@@ -61,7 +60,6 @@ function createCodexSettingsDraft(): CodexSettingsDraft {
     personality: "pragmatic",
     webSearch: true,
     sandbox: "workspace-write",
-    disableResponseStorage: true,
     maxThreads: 16,
     maxDepth: 1,
     jobMaxRuntimeSeconds: 1800,

@@ -125,6 +125,137 @@ fn empty_reasoning_override_removes_the_config_value() {
     assert!(config.get("model_reasoning_effort").is_none());
 }
 
+#[test]
+fn saving_generates_desktop_enabled_reasoning_efforts_by_default() {
+    let directory = tempdir().unwrap();
+    let codex_root = prepare_codex_root(directory.path(), "model = \"team\"\n");
+    let connection = prelay_connection(vec![catalog_model("team", vec!["low", "high", "max"])]);
+    let settings = CodexSettings {
+        model: Some("team".to_string()),
+        ..Default::default()
+    };
+
+    save_user_settings(
+        directory.path(),
+        &AgentSettings::CodexCli(settings),
+        Some(&AgentConnection::CodexCli(connection)),
+    )
+    .unwrap();
+
+    let config: toml::Value =
+        toml::from_str(&fs::read_to_string(codex_root.join("config.toml")).unwrap()).unwrap();
+    let efforts = config["desktop"]["enabled-reasoning-efforts"]
+        .as_array()
+        .expect("desktop enabled reasoning efforts must be an array")
+        .iter()
+        .filter_map(toml::Value::as_str)
+        .collect::<Vec<_>>();
+    assert_eq!(
+        efforts,
+        [
+            "low",
+            "medium",
+            "high",
+            "xhigh",
+            "ultra",
+            "persistent",
+            "max"
+        ]
+    );
+}
+
+#[test]
+fn saving_preserves_existing_desktop_settings() {
+    let directory = tempdir().unwrap();
+    let codex_root = prepare_codex_root(
+        directory.path(),
+        "model = \"team\"\n\n[desktop]\nfollowUpQueueMode = \"queue\"\nenabled-reasoning-efforts = [\"low\"]\n",
+    );
+    let connection = prelay_connection(vec![catalog_model("team", vec!["low", "high", "max"])]);
+    let settings = CodexSettings {
+        model: Some("team".to_string()),
+        ..Default::default()
+    };
+
+    save_user_settings(
+        directory.path(),
+        &AgentSettings::CodexCli(settings),
+        Some(&AgentConnection::CodexCli(connection)),
+    )
+    .unwrap();
+
+    let config: toml::Value =
+        toml::from_str(&fs::read_to_string(codex_root.join("config.toml")).unwrap()).unwrap();
+    let efforts = config["desktop"]["enabled-reasoning-efforts"]
+        .as_array()
+        .expect("desktop enabled reasoning efforts must be an array")
+        .iter()
+        .filter_map(toml::Value::as_str)
+        .collect::<Vec<_>>();
+    assert_eq!(efforts, ["low"]);
+    assert_eq!(
+        config["desktop"]["followUpQueueMode"].as_str(),
+        Some("queue")
+    );
+}
+
+#[test]
+fn saving_writes_feature_defaults_only_when_absent() {
+    let directory = tempdir().unwrap();
+    let codex_root = prepare_codex_root(
+        directory.path(),
+        "model = \"team\"\n\n[features]\nplugins = false\n",
+    );
+    let connection = prelay_connection(vec![catalog_model("team", vec!["low", "high", "max"])]);
+    let settings = CodexSettings {
+        model: Some("team".to_string()),
+        ..Default::default()
+    };
+
+    save_user_settings(
+        directory.path(),
+        &AgentSettings::CodexCli(settings),
+        Some(&AgentConnection::CodexCli(connection)),
+    )
+    .unwrap();
+
+    let config: toml::Value =
+        toml::from_str(&fs::read_to_string(codex_root.join("config.toml")).unwrap()).unwrap();
+    let features = &config["features"];
+    assert_eq!(features["plugins"].as_bool(), Some(false));
+    assert_eq!(features["multi_agent_v2"].as_bool(), Some(true));
+    assert_eq!(features["memories"].as_bool(), Some(true));
+    assert_eq!(features["goals"].as_bool(), Some(true));
+    assert_eq!(features["workspace_dependencies"].as_bool(), Some(false));
+}
+
+#[test]
+fn saving_removes_deprecated_config_keys() {
+    let directory = tempdir().unwrap();
+    let codex_root = prepare_codex_root(
+        directory.path(),
+        "disable_response_storage = true\nmodel = \"team\"\n\n[features]\njs_repl = false\nplugins = true\n",
+    );
+    let connection = prelay_connection(vec![catalog_model("team", vec!["low", "high", "max"])]);
+    let settings = CodexSettings {
+        model: Some("team".to_string()),
+        ..Default::default()
+    };
+
+    save_user_settings(
+        directory.path(),
+        &AgentSettings::CodexCli(settings),
+        Some(&AgentConnection::CodexCli(connection)),
+    )
+    .unwrap();
+
+    let config: toml::Value =
+        toml::from_str(&fs::read_to_string(codex_root.join("config.toml")).unwrap()).unwrap();
+    assert!(config.get("disable_response_storage").is_none());
+    assert!(config["features"].get("js_repl").is_none());
+    assert_eq!(config["features"]["plugins"].as_bool(), Some(true));
+}
+
 fn prepare_codex_root(home: &std::path::Path, config: &str) -> std::path::PathBuf {
     let codex_root = home.join(".codex");
     fs::create_dir_all(&codex_root).unwrap();

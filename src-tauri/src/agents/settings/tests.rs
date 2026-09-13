@@ -197,7 +197,6 @@ fn deserializes_the_settings_save_payload_sent_by_the_desktop_console() {
         "personality": "pragmatic",
         "webSearch": true,
         "sandbox": "workspace-write",
-        "disableResponseStorage": true,
         "maxThreads": 16,
         "maxDepth": 1,
         "jobMaxRuntimeSeconds": 1800,

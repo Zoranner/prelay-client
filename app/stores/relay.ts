@@ -384,7 +384,6 @@ export type CodexSettings = Partial<{
   personality: string;
   webSearch: boolean;
   sandbox: string;
-  disableResponseStorage: boolean;
   maxThreads: number;
   maxDepth: number;
   jobMaxRuntimeSeconds: number;

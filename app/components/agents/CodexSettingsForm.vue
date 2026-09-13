@@ -187,13 +187,6 @@ function updateModel(value: string | number) {
     <div class="agent-settings__group-header"><h3>运行环境</h3></div>
     <div class="agent-settings__rows">
       <div class="agent-settings__row">
-        <span class="agent-settings__label">禁用响应存储</span>
-        <Toggle
-          v-model="model.disableResponseStorage"
-          aria-label="禁用响应存储"
-        />
-      </div>
-      <div class="agent-settings__row">
         <span class="agent-settings__label">Shell 环境继承</span>
         <Select
           v-model="model.shellEnvironmentInherit"
