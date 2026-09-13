@@ -57,7 +57,6 @@ const showItemStatus = computed(() => activeSection !== "skill");
 const emit = defineEmits<{
   detail: [extension: ExtensionCatalogPackage];
   install: [extension: ExtensionCatalogPackage];
-  installTest: [];
   updateAll: [];
   openSettings: [];
   uninstall: [item: AgentItem];
@@ -76,10 +75,6 @@ function updateExtensionSection(value: string | number | boolean | null) {
     emit("update:activeExtensionSection", value as ExtensionCatalogKind);
   }
 }
-
-function installFirstExtension() {
-  emit("installTest");
-}
 </script>
 
 <template>
@@ -93,14 +88,6 @@ function installFirstExtension() {
           @update:model-value="updateExtensionSection"
         />
         <div class="agent-toolbar__actions">
-          <Button
-            v-if="activeExtensionSection === 'mcp'"
-            icon="ph:download-simple"
-            :disabled="extensionLoading"
-            @click="installFirstExtension"
-          >
-            安装
-          </Button>
           <template
             v-if="activeExtensionSection === 'skill' && extensionUpdates > 0"
           >

@@ -71,11 +71,8 @@ test("扩展库沿用智能体工作区的分类表格与单层操作表面", ()
   expect(sidebar).toContain("extensionUpdates");
   expect(sidebar).toContain('semantic="error"');
   expect(workspace).toContain("<ExtensionCatalogTable");
-  expect(workspace).toContain("installFirstExtension");
-  expect(workspace).toContain("activeExtensionSection === 'mcp'");
-  expect(workspace).toContain('icon="ph:download-simple"');
-  expect(workspace).toContain('emit("installTest")');
-  expect(page).toContain("extensions_mcp_test_package");
+  expect(workspace).not.toContain("installTest");
+  expect(page).not.toContain("extensions_mcp_test_package");
   expect(workspace).toContain('class="extension-update-hint"');
   expect(workspace).toContain("可更新");
   expect(workspace).toContain(
