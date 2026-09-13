@@ -1,14 +1,9 @@
 <script setup lang="ts">
-import { FormField, Input } from "@stellar/ui";
 import type { ExtensionMcpPreview } from "~/stores/relay";
 
 const props = defineProps<{
   preview: ExtensionMcpPreview;
 }>();
-const environmentValues = defineModel<Record<string, string>>(
-  "environmentValues",
-  { required: true },
-);
 
 const transport = computed(() => props.preview.manifest.transport);
 const isStdio = computed(() => transport.value.type === "stdio");
@@ -85,18 +80,17 @@ const environmentNames = computed<string[]>(() => {
           {{ environmentNames.length }}
         </span>
       </div>
+      <p class="mcp-install-environment__hint">
+        安装只写入变量名引用，取值由本机环境变量提供。
+      </p>
       <div class="mcp-install-environment">
-        <FormField v-for="name in environmentNames" :key="name" :label="name">
-          <template #label>
-            <code class="mcp-install-environment__name">{{ name }}</code>
-          </template>
-          <Input
-            v-model="environmentValues[name]"
-            type="password"
-            autocomplete="off"
-            placeholder="输入值"
-          />
-        </FormField>
+        <code
+          v-for="name in environmentNames"
+          :key="name"
+          class="mcp-install-environment__name"
+        >
+          {{ name }}
+        </code>
       </div>
     </section>
   </div>
@@ -188,7 +182,14 @@ const environmentNames = computed<string[]>(() => {
   display: grid;
   min-width: 0;
   grid-template-columns: minmax(0, 1fr);
-  gap: var(--spacing-md);
+  gap: var(--spacing-2xs);
+}
+
+.mcp-install-environment__hint {
+  margin: 0 0 var(--spacing-md);
+  color: var(--st-text-muted);
+  font-size: var(--text-xs);
+  line-height: 1.5rem;
 }
 
 .mcp-install-environment__name {

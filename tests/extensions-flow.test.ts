@@ -166,7 +166,8 @@ test("扩展库沿用智能体工作区的分类表格与单层操作表面", ()
   expect(installDrawer).toContain("extension_target_exists");
   expect(installDrawer).toContain('confirmText: "覆盖"');
   expect(installDrawer).toContain("overwrite");
-  expect(installDrawer).toContain("mcpEnvironmentValues");
+  expect(installDrawer).not.toContain("mcpEnvironmentValues");
+  expect(installDrawer).not.toContain("environment-values");
   expect(installDrawer).toContain("McpInstallForm");
   expect(installDrawer).toContain("extension-install-drawer__footer");
   expect(installDrawer).toContain("extension-install-drawer__identity");
@@ -203,9 +204,10 @@ test("扩展库沿用智能体工作区的分类表格与单层操作表面", ()
   expect(mcpInstallForm).toContain("启动参数");
   expect(mcpInstallForm).not.toContain("CodeBlock");
   expect(mcpInstallForm).not.toContain("navigator.clipboard");
-  expect(mcpInstallForm).toContain("FormField");
-  expect(mcpInstallForm).toContain("#label");
-  expect(mcpInstallForm).toContain(':label="name"');
+  expect(mcpInstallForm).not.toContain("FormField");
+  expect(mcpInstallForm).not.toContain('type="password"');
+  expect(mcpInstallForm).toContain("mcp-install-environment__hint");
+  expect(mcpInstallForm).toContain("取值由本机环境变量提供");
   expect(mcpInstallForm).toContain("mcp-install-environment__name");
   expect(mcpInstallForm).toMatch(
     /mcp-install-environment[\s\S]*grid-template-columns: minmax\(0, 1fr\)/,
