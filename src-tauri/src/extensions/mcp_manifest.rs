@@ -92,10 +92,9 @@ fn is_safe_http_url(value: &str) -> bool {
 }
 
 fn command_has_plaintext_secret(command: &[String]) -> bool {
-    command
-        .iter()
-        .skip(1)
-        .any(|argument| is_sensitive_command_option(argument))
+    command.iter().skip(1).any(|argument| {
+        is_sensitive_command_option(argument) || contains_plaintext_credential(argument)
+    })
 }
 
 fn is_sensitive_command_option(argument: &str) -> bool {
@@ -104,6 +103,23 @@ fn is_sensitive_command_option(argument: &str) -> bool {
         .split_once('=')
         .map_or(argument.trim_start_matches('-'), |(name, _)| name);
     is_sensitive_name(option)
+}
+
+/// 位置参数里直接写成 URL 时，内嵌用户名密码或敏感 query 键同样属于明文凭据。
+fn contains_plaintext_credential(argument: &str) -> bool {
+    url_has_plaintext_credential(argument)
+        || argument
+            .split_once('=')
+            .is_some_and(|(_, value)| url_has_plaintext_credential(value))
+}
+
+fn url_has_plaintext_credential(value: &str) -> bool {
+    let Ok(url) = reqwest::Url::parse(value) else {
+        return false;
+    };
+    !url.username().is_empty()
+        || url.password().is_some()
+        || url.query_pairs().any(|(name, _)| is_sensitive_name(&name))
 }
 
 fn is_sensitive_name(value: &str) -> bool {
@@ -115,13 +131,24 @@ fn is_sensitive_name(value: &str) -> bool {
             | "access-key"
             | "accesskey"
             | "token"
+            | "access-token"
+            | "auth-token"
+            | "refresh-token"
             | "secret"
+            | "secret-key"
+            | "client-secret"
+            | "private-key"
             | "password"
             | "authorization"
             | "auth"
+            | "bearer"
             | "credential"
             | "credentials"
             | "key"
+            | "header"
+            | "headers"
+            | "signature"
+            | "sig"
     )
 }
 
@@ -130,3 +157,7 @@ fn is_environment_variable_name(value: &str) -> bool {
     matches!(characters.next(), Some('A'..='Z' | 'a'..='z' | '_'))
         && characters.all(|character| character.is_ascii_alphanumeric() || character == '_')
 }
+
+#[cfg(test)]
+#[path = "mcp_manifest_tests.rs"]
+mod tests;
