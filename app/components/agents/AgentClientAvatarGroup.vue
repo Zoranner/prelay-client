@@ -12,8 +12,9 @@ const cell = computed(() => {
     .map((client) =>
       agentClientDefinitions.find((definition) => definition.client === client),
     )
-    .filter((definition): definition is (typeof agentClientDefinitions)[number] =>
-      Boolean(definition),
+    .filter(
+      (definition): definition is (typeof agentClientDefinitions)[number] =>
+        Boolean(definition),
     );
   const items: AvatarGroupItem[] = clients.map((client) => ({
     src: client.icon,
