@@ -2,7 +2,7 @@
 import type { ExtensionCatalogPackage } from "~/stores/relay";
 import AgentClientAvatarGroup from "~/components/agents/AgentClientAvatarGroup.vue";
 
-const props = defineProps<{
+defineProps<{
   package: ExtensionCatalogPackage;
 }>();
 
