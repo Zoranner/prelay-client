@@ -143,6 +143,102 @@ fn writes_opencode_stdio_mcp_configuration_without_replacing_other_state() {
 }
 
 #[test]
+fn shares_codex_mcp_configuration_between_codex_cli_and_chatgpt() {
+    let directory = tempdir().unwrap();
+    let manifest = ExtensionMcpManifest {
+        name: "filesystem".to_string(),
+        transport: ExtensionMcpTransport::Stdio {
+            command: vec!["uvx".to_string(), "mcp-server-filesystem".to_string()],
+            cwd: None,
+            environment: Default::default(),
+            enabled: true,
+            timeout_ms: None,
+        },
+    };
+
+    install_mcp(
+        directory.path(),
+        &[AgentClient::CodexCli, AgentClient::ChatGpt],
+        "filesystem-mcp",
+        "v1.0.0",
+        "commit",
+        &manifest,
+        false,
+    )
+    .unwrap();
+
+    let config: toml::Value = toml::from_str(
+        &fs::read_to_string(directory.path().join(".codex").join("config.toml")).unwrap(),
+    )
+    .unwrap();
+    assert_eq!(
+        config["mcp_servers"]["filesystem"]["command"].as_str(),
+        Some("uvx")
+    );
+    assert!(directory
+        .path()
+        .join(".codex")
+        .join(".prelay")
+        .join("mcp.json")
+        .is_file());
+    assert!(!directory
+        .path()
+        .join(".config")
+        .join("opencode")
+        .join("opencode.jsonc")
+        .exists());
+
+    let status = mcp_installation_status(
+        directory.path(),
+        &[AgentClient::CodexCli, AgentClient::ChatGpt],
+        "filesystem-mcp",
+        "v1.0.0",
+        "commit",
+    )
+    .unwrap();
+    assert_eq!(status.action, McpInstallAction::Installed);
+    assert_eq!(
+        status.clients,
+        vec![AgentClient::CodexCli, AgentClient::ChatGpt]
+    );
+}
+
+#[test]
+fn installs_chatgpt_target_into_codex_configuration() {
+    let directory = tempdir().unwrap();
+    let manifest = ExtensionMcpManifest {
+        name: "filesystem".to_string(),
+        transport: ExtensionMcpTransport::Stdio {
+            command: vec!["uvx".to_string(), "mcp-server-filesystem".to_string()],
+            cwd: None,
+            environment: Default::default(),
+            enabled: true,
+            timeout_ms: None,
+        },
+    };
+
+    install_mcp(
+        directory.path(),
+        &[AgentClient::ChatGpt],
+        "filesystem-mcp",
+        "v1.0.0",
+        "commit",
+        &manifest,
+        false,
+    )
+    .unwrap();
+
+    let config: toml::Value = toml::from_str(
+        &fs::read_to_string(directory.path().join(".codex").join("config.toml")).unwrap(),
+    )
+    .unwrap();
+    assert_eq!(
+        config["mcp_servers"]["filesystem"]["command"].as_str(),
+        Some("uvx")
+    );
+}
+
+#[test]
 fn rejects_unsafe_mcp_bundles() {
     for content in [
         r#"{

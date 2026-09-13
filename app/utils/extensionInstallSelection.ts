@@ -7,8 +7,7 @@ export function linkedAgentsForExtension(
   kind: ExtensionCatalogKind,
 ): AgentClient[] {
   if (kind === "skill") return allAgents;
-  if (kind === "rule") return codexHostAgents;
-  return [];
+  return codexHostAgents;
 }
 
 export function synchronizeExtensionInstallSelection({

@@ -20,6 +20,28 @@ use super::{atomic_write, decode_extension_file};
 const PRELAY_STATE_DIRECTORY: &str = ".prelay";
 const MCP_PACKAGE_STATE_FILE: &str = "mcp.json";
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+enum McpHost {
+    Codex,
+    OpenCode,
+}
+
+fn mcp_host(client: AgentClient) -> McpHost {
+    match client {
+        AgentClient::CodexCli | AgentClient::ChatGpt => McpHost::Codex,
+        AgentClient::OpenCode => McpHost::OpenCode,
+    }
+}
+
+fn mcp_hosts(clients: &[AgentClient]) -> Vec<McpHost> {
+    clients
+        .iter()
+        .map(|client| mcp_host(*client))
+        .collect::<BTreeSet<_>>()
+        .into_iter()
+        .collect()
+}
+
 #[derive(Debug, Default, Deserialize, Serialize)]
 #[serde(transparent)]
 struct InstalledMcpPackages(BTreeMap<String, InstalledMcpPackage>);
@@ -35,7 +57,7 @@ struct InstalledMcpPackage {
 }
 
 struct PreparedMcpInstallation {
-    client: AgentClient,
+    host: McpHost,
     installed: InstalledMcpPackages,
     previous_server: Option<String>,
 }
@@ -76,10 +98,10 @@ pub(super) fn install_mcp(
     manifest: &ExtensionMcpManifest,
     overwrite: bool,
 ) -> Result<(), ClientError> {
-    let mut targets = Vec::with_capacity(clients.len());
-    for client in clients {
-        let exists = mcp_server_exists(home, *client, &manifest.name)?;
-        let installed = read_installed_mcp_packages(home, *client)?;
+    let mut targets = Vec::new();
+    for host in mcp_hosts(clients) {
+        let exists = mcp_server_exists(home, host, &manifest.name)?;
+        let installed = read_installed_mcp_packages(home, host)?;
         let owned = installed
             .0
             .get(package)
@@ -96,7 +118,7 @@ pub(super) fn install_mcp(
             .filter(|entry| entry.server_name != manifest.name)
         {
             match previous.manifest.as_ref() {
-                Some(current) if mcp_server_matches(home, *client, current)? => {
+                Some(current) if mcp_server_matches(home, host, current)? => {
                     Some(previous.server_name.clone())
                 }
                 _ => None,
@@ -105,7 +127,7 @@ pub(super) fn install_mcp(
             None
         };
         targets.push(PreparedMcpInstallation {
-            client: *client,
+            host,
             installed,
             previous_server,
         });
@@ -113,12 +135,12 @@ pub(super) fn install_mcp(
 
     for mut target in targets {
         if let Some(previous_server) = target.previous_server {
-            remove_mcp_server(home, target.client, &previous_server)?;
+            remove_mcp_server(home, target.host, &previous_server)?;
         }
         target.installed.0.retain(|installed_package, entry| {
             installed_package == package || entry.server_name != manifest.name
         });
-        upsert_mcp_server(home, target.client, manifest)?;
+        upsert_mcp_server(home, target.host, manifest)?;
         target.installed.0.insert(
             package.to_string(),
             InstalledMcpPackage {
@@ -128,7 +150,7 @@ pub(super) fn install_mcp(
                 manifest: Some(manifest.clone()),
             },
         );
-        write_installed_mcp_packages(home, target.client, &target.installed)?;
+        write_installed_mcp_packages(home, target.host, &target.installed)?;
     }
     Ok(())
 }
@@ -258,14 +280,15 @@ pub(crate) fn mcp_installation_status(
     let mut outdated = false;
 
     for client in clients {
-        let mut installed = read_installed_mcp_packages(home, *client)?;
+        let host = mcp_host(*client);
+        let mut installed = read_installed_mcp_packages(home, host)?;
         let Some(current) = installed.0.get(package) else {
             missing = true;
             continue;
         };
-        if !mcp_server_exists(home, *client, &current.server_name)? {
+        if !mcp_server_exists(home, host, &current.server_name)? {
             installed.0.remove(package);
-            write_installed_mcp_packages(home, *client, &installed)?;
+            write_installed_mcp_packages(home, host, &installed)?;
             missing = true;
             continue;
         }
@@ -274,7 +297,7 @@ pub(crate) fn mcp_installation_status(
             outdated = true;
         }
         match current.manifest.as_ref() {
-            Some(manifest) if !mcp_server_matches(home, *client, manifest)? => {
+            Some(manifest) if !mcp_server_matches(home, host, manifest)? => {
                 outdated = true;
             }
             None => outdated = true,
@@ -302,91 +325,67 @@ pub(crate) fn retain_listed_mcp_packages(
     clients: &[AgentClient],
     listed_packages: &BTreeSet<String>,
 ) -> Result<(), ClientError> {
-    for client in clients {
-        let mut installed = read_installed_mcp_packages(home, *client)?;
+    for host in mcp_hosts(clients) {
+        let mut installed = read_installed_mcp_packages(home, host)?;
         let initial_len = installed.0.len();
         installed
             .0
             .retain(|package, _| listed_packages.contains(package));
         if installed.0.len() != initial_len {
-            write_installed_mcp_packages(home, *client, &installed)?;
+            write_installed_mcp_packages(home, host, &installed)?;
         }
     }
     Ok(())
 }
 
-fn mcp_server_exists(home: &Path, client: AgentClient, name: &str) -> Result<bool, ClientError> {
-    match client {
-        AgentClient::CodexCli => codex_mcp_server_exists(home, name),
-        AgentClient::OpenCode => opencode::mcp_server_exists(home, name),
-        AgentClient::ChatGpt => {
-            return Err(ClientError::new(
-                "extension_client_unavailable",
-                "ChatGPT 当前不支持 MCP 安装。",
-            ));
-        }
+fn mcp_server_exists(home: &Path, host: McpHost, name: &str) -> Result<bool, ClientError> {
+    match host {
+        McpHost::Codex => codex_mcp_server_exists(home, name),
+        McpHost::OpenCode => opencode::mcp_server_exists(home, name),
     }
     .map_err(|error| ClientError::new("local_extensions_error", error))
 }
 
 fn upsert_mcp_server(
     home: &Path,
-    client: AgentClient,
+    host: McpHost,
     manifest: &ExtensionMcpManifest,
 ) -> Result<(), ClientError> {
-    match client {
-        AgentClient::CodexCli => upsert_codex_mcp_server(home, manifest),
-        AgentClient::OpenCode => opencode::upsert_mcp_server(home, manifest),
-        AgentClient::ChatGpt => {
-            return Err(ClientError::new(
-                "extension_client_unavailable",
-                "ChatGPT 当前不支持 MCP 安装。",
-            ));
-        }
+    match host {
+        McpHost::Codex => upsert_codex_mcp_server(home, manifest),
+        McpHost::OpenCode => opencode::upsert_mcp_server(home, manifest),
     }
     .map_err(|error| ClientError::new("local_extensions_error", error))
 }
 
 fn mcp_server_matches(
     home: &Path,
-    client: AgentClient,
+    host: McpHost,
     manifest: &ExtensionMcpManifest,
 ) -> Result<bool, ClientError> {
-    match client {
-        AgentClient::CodexCli => codex_mcp_server_matches(home, manifest),
-        AgentClient::OpenCode => opencode::mcp_server_matches(home, manifest),
-        AgentClient::ChatGpt => {
-            return Err(ClientError::new(
-                "extension_client_unavailable",
-                "ChatGPT 当前不支持 MCP 安装。",
-            ));
-        }
+    match host {
+        McpHost::Codex => codex_mcp_server_matches(home, manifest),
+        McpHost::OpenCode => opencode::mcp_server_matches(home, manifest),
     }
     .map_err(|error| ClientError::new("local_extensions_error", error))
 }
 
-fn remove_mcp_server(home: &Path, client: AgentClient, name: &str) -> Result<(), ClientError> {
-    if !mcp_server_exists(home, client, name)? {
+fn remove_mcp_server(home: &Path, host: McpHost, name: &str) -> Result<(), ClientError> {
+    if !mcp_server_exists(home, host, name)? {
         return Ok(());
     }
-    match client {
-        AgentClient::CodexCli => remove_codex_mcp_server(home, name),
-        AgentClient::OpenCode => opencode::remove_mcp_server(home, name),
-        AgentClient::ChatGpt => {
-            return Err(ClientError::new(
-                "extension_client_unavailable",
-                "ChatGPT 当前不支持 MCP 安装。",
-            ));
-        }
+    match host {
+        McpHost::Codex => remove_codex_mcp_server(home, name),
+        McpHost::OpenCode => opencode::remove_mcp_server(home, name),
     }
     .map_err(|error| ClientError::new("local_extensions_error", error))
 }
 
 fn read_installed_mcp_packages(
     home: &Path,
-    client: AgentClient,
+    host: McpHost,
 ) -> Result<InstalledMcpPackages, ClientError> {
-    let path = mcp_package_state_path(home, client)?;
+    let path = mcp_package_state_path(home, host);
     match fs::read(path) {
         Ok(contents) => serde_json::from_slice(&contents).map_err(|error| {
             ClientError::new(
@@ -406,10 +405,10 @@ fn read_installed_mcp_packages(
 
 fn write_installed_mcp_packages(
     home: &Path,
-    client: AgentClient,
+    host: McpHost,
     packages: &InstalledMcpPackages,
 ) -> Result<(), ClientError> {
-    let path = mcp_package_state_path(home, client)?;
+    let path = mcp_package_state_path(home, host);
     let contents = serde_json::to_vec(packages).map_err(|error| {
         ClientError::new(
             "local_extensions_error",
@@ -419,20 +418,13 @@ fn write_installed_mcp_packages(
     atomic_write(&path, &contents)
 }
 
-fn mcp_package_state_path(home: &Path, client: AgentClient) -> Result<PathBuf, ClientError> {
-    let root = match client {
-        AgentClient::CodexCli => home.join(".codex"),
-        AgentClient::ChatGpt => {
-            return Err(ClientError::new(
-                "extension_client_unavailable",
-                "ChatGPT 当前不支持 MCP 安装。",
-            ));
-        }
-        AgentClient::OpenCode => home.join(".config").join("opencode"),
+fn mcp_package_state_path(home: &Path, host: McpHost) -> PathBuf {
+    let root = match host {
+        McpHost::Codex => home.join(".codex"),
+        McpHost::OpenCode => home.join(".config").join("opencode"),
     };
-    Ok(root
-        .join(PRELAY_STATE_DIRECTORY)
-        .join(MCP_PACKAGE_STATE_FILE))
+    root.join(PRELAY_STATE_DIRECTORY)
+        .join(MCP_PACKAGE_STATE_FILE)
 }
 
 #[cfg(test)]

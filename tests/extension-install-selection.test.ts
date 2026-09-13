@@ -9,6 +9,10 @@ test("规则只联动 Codex CLI 与 ChatGPT", () => {
   expect(linkedAgentsForExtension("rule")).toEqual(["codexCli", "chatgpt"]);
 });
 
+test("MCP 只联动 Codex CLI 与 ChatGPT", () => {
+  expect(linkedAgentsForExtension("mcp")).toEqual(["codexCli", "chatgpt"]);
+});
+
 test("Skill 联动所有可用智能体", () => {
   expect(linkedAgentsForExtension("skill")).toEqual([
     "codexCli",
@@ -26,6 +30,28 @@ test("勾选规则的 Codex CLI 会同时勾选已检测的 ChatGPT", () => {
       previous: [],
     }),
   ).toEqual(["codexCli", "chatgpt"]);
+});
+
+test("勾选 MCP 的 Codex CLI 会同时勾选已检测的 ChatGPT", () => {
+  expect(
+    synchronizeExtensionInstallSelection({
+      detected: ["codexCli", "chatgpt", "openCode"],
+      kind: "mcp",
+      next: ["codexCli"],
+      previous: [],
+    }),
+  ).toEqual(["codexCli", "chatgpt"]);
+});
+
+test("取消 MCP 的共享目标会同时取消 Codex CLI 与 ChatGPT", () => {
+  expect(
+    synchronizeExtensionInstallSelection({
+      detected: ["codexCli", "chatgpt", "openCode"],
+      kind: "mcp",
+      next: ["chatgpt"],
+      previous: ["codexCli", "chatgpt"],
+    }),
+  ).toEqual([]);
 });
 
 test("勾选 Skill 的任一智能体会同时勾选全部已检测智能体", () => {
