@@ -4,8 +4,9 @@ use base64::{engine::general_purpose::STANDARD as BASE64, Engine};
 use prelay_protocol::{ExtensionFile, ExtensionMcpManifest, ExtensionMcpTransport};
 use tempfile::tempdir;
 
-use super::{install_mcp, mcp_installation_status, read_mcp_manifest, McpInstallAction};
+use super::{install_mcp, mcp_installation_status, McpInstallAction};
 use crate::agents::AgentClient;
+use crate::extensions::mcp_manifest::read_mcp_manifest;
 
 #[test]
 fn writes_codex_mcp_configuration_and_tracks_the_package_version() {
