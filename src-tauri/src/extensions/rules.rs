@@ -9,7 +9,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{agents::AgentClient, relay::client::ClientError};
 
-use super::{atomic_write, decode_extension_file};
+use super::{atomic_write, decode_extension_file, ExtensionInstallAction};
 
 const PRELAY_STATE_DIRECTORY: &str = ".prelay";
 const RULE_PACKAGE_STATE_FILE: &str = "rule.json";
@@ -23,16 +23,8 @@ struct InstalledRulePackage {
 }
 
 pub(crate) struct RuleInstallationStatus {
-    pub action: RuleInstallAction,
+    pub action: ExtensionInstallAction,
     pub clients: Vec<AgentClient>,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) enum RuleInstallAction {
-    Install,
-    Partial,
-    Update,
-    Installed,
 }
 
 pub(super) fn install_rule(
@@ -87,13 +79,13 @@ pub(crate) fn rule_installation_status(
         }
     }
     let action = if outdated {
-        RuleInstallAction::Update
+        ExtensionInstallAction::Update
     } else if !clients.is_empty() && missing {
-        RuleInstallAction::Partial
+        ExtensionInstallAction::Partial
     } else if clients.is_empty() {
-        RuleInstallAction::Install
+        ExtensionInstallAction::Install
     } else {
-        RuleInstallAction::Installed
+        ExtensionInstallAction::Installed
     };
     Ok(RuleInstallationStatus { action, clients })
 }
@@ -188,7 +180,8 @@ mod tests {
 
     use crate::agents::AgentClient;
 
-    use super::{install_rule, rule_installation_status, RuleInstallAction};
+    use super::{install_rule, rule_installation_status};
+    use crate::extensions::ExtensionInstallAction;
 
     #[test]
     fn replaces_the_complete_rule_document() {
@@ -219,7 +212,7 @@ mod tests {
             "commit",
         )
         .unwrap();
-        assert_eq!(status.action, RuleInstallAction::Installed);
+        assert_eq!(status.action, ExtensionInstallAction::Installed);
     }
 
     #[test]
@@ -271,7 +264,7 @@ mod tests {
         )
         .unwrap();
 
-        assert_eq!(status.action, RuleInstallAction::Partial);
+        assert_eq!(status.action, ExtensionInstallAction::Partial);
         assert_eq!(status.clients, vec![AgentClient::CodexCli]);
     }
 }

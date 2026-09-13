@@ -20,7 +20,7 @@ pub struct ExtensionPackage {
     pub installed_clients: Vec<AgentClient>,
 }
 
-#[derive(Debug, Clone, Copy, Default, Deserialize, Serialize)]
+#[derive(Debug, Clone, Copy, Default, Deserialize, Serialize, PartialEq, Eq)]
 #[serde(rename_all = "lowercase")]
 pub enum ExtensionInstallAction {
     #[default]
