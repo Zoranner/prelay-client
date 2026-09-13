@@ -4,9 +4,10 @@ use base64::{engine::general_purpose::STANDARD as BASE64, Engine};
 use prelay_protocol::{ExtensionFile, ExtensionMcpManifest, ExtensionMcpTransport};
 use tempfile::tempdir;
 
-use super::{install_mcp, mcp_installation_status, McpInstallAction};
+use super::{install_mcp, mcp_installation_status};
 use crate::agents::AgentClient;
 use crate::extensions::mcp_manifest::read_mcp_manifest;
+use crate::extensions::ExtensionInstallAction;
 
 #[test]
 fn writes_codex_mcp_configuration_and_tracks_the_package_version() {
@@ -71,7 +72,7 @@ fn writes_codex_mcp_configuration_and_tracks_the_package_version() {
         "commit",
     )
     .unwrap();
-    assert_eq!(status.action, McpInstallAction::Installed);
+    assert_eq!(status.action, ExtensionInstallAction::Installed);
     assert_eq!(status.clients, vec![AgentClient::CodexCli]);
 }
 
@@ -216,7 +217,7 @@ fn expands_user_directory_variables_in_command_arguments() {
         "commit",
     )
     .unwrap();
-    assert_eq!(status.action, McpInstallAction::Installed);
+    assert_eq!(status.action, ExtensionInstallAction::Installed);
 }
 
 #[test]
@@ -273,7 +274,7 @@ fn shares_codex_mcp_configuration_between_codex_cli_and_chatgpt() {
         "commit",
     )
     .unwrap();
-    assert_eq!(status.action, McpInstallAction::Installed);
+    assert_eq!(status.action, ExtensionInstallAction::Installed);
     assert_eq!(
         status.clients,
         vec![AgentClient::CodexCli, AgentClient::ChatGpt]

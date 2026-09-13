@@ -5,10 +5,7 @@ use prelay_protocol::ExtensionFile;
 use tempfile::tempdir;
 
 use super::super::{ExtensionInstallAction, ExtensionKind, ExtensionPackage};
-use super::{
-    install_skill_files, outdated_skill_package_targets, skill_installation_status,
-    SkillInstallAction,
-};
+use super::{install_skill_files, outdated_skill_package_targets, skill_installation_status};
 use crate::agents::AgentClient;
 
 fn skill_file(path: &str, content: &str) -> ExtensionFile {
@@ -251,7 +248,7 @@ fn reports_partial_installation_for_detected_clients_missing_a_skill_root() {
     )
     .unwrap();
 
-    assert_eq!(status.action, SkillInstallAction::Partial);
+    assert_eq!(status.action, ExtensionInstallAction::Partial);
     assert_eq!(
         status.clients,
         vec![AgentClient::CodexCli, AgentClient::ChatGpt]

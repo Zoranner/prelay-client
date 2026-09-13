@@ -15,7 +15,7 @@ use crate::{
     relay::client::ClientError,
 };
 
-use super::atomic_write;
+use super::{atomic_write, ExtensionInstallAction};
 
 const PRELAY_STATE_DIRECTORY: &str = ".prelay";
 const MCP_PACKAGE_STATE_FILE: &str = "mcp.json";
@@ -63,16 +63,8 @@ struct PreparedMcpInstallation {
 }
 
 pub(crate) struct McpInstallationStatus {
-    pub action: McpInstallAction,
+    pub action: ExtensionInstallAction,
     pub clients: Vec<AgentClient>,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) enum McpInstallAction {
-    Install,
-    Partial,
-    Update,
-    Installed,
 }
 
 pub(super) fn install_mcp(
@@ -188,13 +180,13 @@ pub(crate) fn mcp_installation_status(
         .filter(|client| installed_hosts.contains(&mcp_host(*client)))
         .collect::<Vec<_>>();
     let action = if outdated {
-        McpInstallAction::Update
+        ExtensionInstallAction::Update
     } else if !clients.is_empty() && missing {
-        McpInstallAction::Partial
+        ExtensionInstallAction::Partial
     } else if clients.is_empty() {
-        McpInstallAction::Install
+        ExtensionInstallAction::Install
     } else {
-        McpInstallAction::Installed
+        ExtensionInstallAction::Installed
     };
     Ok(McpInstallationStatus { action, clients })
 }

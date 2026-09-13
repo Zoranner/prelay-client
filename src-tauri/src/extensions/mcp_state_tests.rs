@@ -3,8 +3,9 @@ use std::{collections::BTreeSet, fs};
 use prelay_protocol::{ExtensionMcpManifest, ExtensionMcpTransport};
 use tempfile::tempdir;
 
-use super::{install_mcp, mcp_installation_status, retain_listed_mcp_packages, McpInstallAction};
+use super::{install_mcp, mcp_installation_status, retain_listed_mcp_packages};
 use crate::agents::AgentClient;
+use crate::extensions::ExtensionInstallAction;
 
 #[test]
 fn removing_an_unpublished_package_clears_only_its_mcp_state() {
@@ -94,7 +95,7 @@ fn replacing_a_managed_mcp_server_transfers_its_version_record() {
         "first",
     )
     .unwrap();
-    assert_eq!(first.action, McpInstallAction::Install);
+    assert_eq!(first.action, ExtensionInstallAction::Install);
     let second = mcp_installation_status(
         directory.path(),
         &[AgentClient::CodexCli],
@@ -103,7 +104,7 @@ fn replacing_a_managed_mcp_server_transfers_its_version_record() {
         "second",
     )
     .unwrap();
-    assert_eq!(second.action, McpInstallAction::Installed);
+    assert_eq!(second.action, ExtensionInstallAction::Installed);
 }
 
 #[test]
@@ -198,7 +199,7 @@ enabled = true
         "commit",
     )
     .unwrap();
-    assert_eq!(status.action, McpInstallAction::Update);
+    assert_eq!(status.action, ExtensionInstallAction::Update);
     assert_eq!(status.clients, vec![AgentClient::CodexCli]);
 }
 
@@ -249,7 +250,7 @@ fn reports_update_when_legacy_mcp_state_has_no_manifest_snapshot() {
         "commit",
     )
     .unwrap();
-    assert_eq!(status.action, McpInstallAction::Update);
+    assert_eq!(status.action, ExtensionInstallAction::Update);
     assert_eq!(status.clients, vec![AgentClient::CodexCli]);
 }
 
@@ -328,6 +329,6 @@ fn reports_chatgpt_only_installation_as_installed() {
     )
     .unwrap();
 
-    assert_eq!(status.action, McpInstallAction::Installed);
+    assert_eq!(status.action, ExtensionInstallAction::Installed);
     assert_eq!(status.clients, vec![AgentClient::ChatGpt]);
 }

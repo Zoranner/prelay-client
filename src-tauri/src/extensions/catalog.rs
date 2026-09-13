@@ -58,7 +58,7 @@ pub async fn list_extensions(
                     &package.version,
                     &package.commit_sha,
                 )?;
-                package.install_action = status.action.into();
+                package.install_action = status.action;
                 package.installed_clients = status.clients;
             }
         }
@@ -77,7 +77,7 @@ pub async fn list_extensions(
                     &package.version,
                     &package.commit_sha,
                 )?;
-                package.install_action = status.action.into();
+                package.install_action = status.action;
                 package.installed_clients = status.clients;
             }
         }
@@ -95,7 +95,7 @@ pub async fn list_extensions(
                     &package.version,
                     &package.commit_sha,
                 )?;
-                package.install_action = status.action.into();
+                package.install_action = status.action;
                 package.installed_clients = status.clients;
             }
         }
@@ -160,37 +160,4 @@ pub async fn update_all_skill_extensions(
     Ok(super::model::ExtensionInstallResult {
         message: format!("已更新 {} 个扩展。", targets.len()),
     })
-}
-
-impl From<rules::RuleInstallAction> for ExtensionInstallAction {
-    fn from(action: rules::RuleInstallAction) -> Self {
-        match action {
-            rules::RuleInstallAction::Install => Self::Install,
-            rules::RuleInstallAction::Partial => Self::Partial,
-            rules::RuleInstallAction::Update => Self::Update,
-            rules::RuleInstallAction::Installed => Self::Installed,
-        }
-    }
-}
-
-impl From<skills::SkillInstallAction> for ExtensionInstallAction {
-    fn from(action: skills::SkillInstallAction) -> Self {
-        match action {
-            skills::SkillInstallAction::Install => Self::Install,
-            skills::SkillInstallAction::Partial => Self::Partial,
-            skills::SkillInstallAction::Update => Self::Update,
-            skills::SkillInstallAction::Installed => Self::Installed,
-        }
-    }
-}
-
-impl From<mcp::McpInstallAction> for ExtensionInstallAction {
-    fn from(action: mcp::McpInstallAction) -> Self {
-        match action {
-            mcp::McpInstallAction::Install => Self::Install,
-            mcp::McpInstallAction::Partial => Self::Partial,
-            mcp::McpInstallAction::Update => Self::Update,
-            mcp::McpInstallAction::Installed => Self::Installed,
-        }
-    }
 }

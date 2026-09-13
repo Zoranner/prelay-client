@@ -9,7 +9,10 @@ use serde::{Deserialize, Serialize};
 
 use crate::{agents::AgentClient, relay::client::ClientError};
 
-use super::{atomic_write, decode_extension_file, storage_error, ExtensionPackage, SKILLS_PREFIX};
+use super::{
+    atomic_write, decode_extension_file, storage_error, ExtensionInstallAction, ExtensionPackage,
+    SKILLS_PREFIX,
+};
 
 const PRELAY_STATE_DIRECTORY: &str = ".prelay";
 const SKILL_PACKAGE_STATE_FILE: &str = "skill.json";
@@ -189,7 +192,7 @@ pub(crate) fn retain_listed_skill_packages(
 }
 
 pub(crate) struct SkillInstallationStatus {
-    pub action: SkillInstallAction,
+    pub action: ExtensionInstallAction,
     pub clients: Vec<AgentClient>,
 }
 
@@ -222,13 +225,13 @@ pub(crate) fn skill_installation_status(
         }
     }
     let action = if outdated {
-        SkillInstallAction::Update
+        ExtensionInstallAction::Update
     } else if !clients.is_empty() && missing {
-        SkillInstallAction::Partial
+        ExtensionInstallAction::Partial
     } else if clients.is_empty() {
-        SkillInstallAction::Install
+        ExtensionInstallAction::Install
     } else {
-        SkillInstallAction::Installed
+        ExtensionInstallAction::Installed
     };
     Ok(SkillInstallationStatus { action, clients })
 }
@@ -275,16 +278,6 @@ pub(crate) fn skill_installation_metadata(target_root: &Path) -> BTreeMap<String
                 .map(move |skill| (skill, package.version.clone()))
         })
         .collect()
-}
-
-#[derive(Debug, Clone, Copy, Default, Deserialize, Serialize, PartialEq, Eq)]
-#[serde(rename_all = "lowercase")]
-pub(crate) enum SkillInstallAction {
-    #[default]
-    Install,
-    Partial,
-    Update,
-    Installed,
 }
 
 fn migrate_legacy_skill_packages(
