@@ -8,7 +8,7 @@
 
 ## 边界
 
-- 当前安装目标为 Codex CLI 与 OpenCode；ChatGPT 目标尚未接入，按与 Codex CLI 共享配置的方向处理。
+- 安装目标为 Codex CLI、ChatGPT 与 OpenCode；Codex CLI 与 ChatGPT 共用一套 MCP 配置，属于同一个安装目标。
 - 支持 `stdio` 和 HTTP MCP。
 - `stdio` 只写入命令配置，不启动命令。
 - 不下载 `uvx`、`bunx`、`npx` 或其他运行时。
@@ -52,6 +52,8 @@ Prelay 读取清单后，转换为内部安装描述。内部安装描述只在�
 状态：~/.codex/.prelay/mcp.json
 ```
 
+ChatGPT 与 Codex CLI 属于同一个安装目标：同时选择两者只写入一次配置、只写入一份状态记录；状态计算时同一份记录可以同时代表两个客户端。只检测到 ChatGPT 时，安装仍然写入 Codex 配置。
+
 写入 `mcp_servers` 下以服务名命名的表：
 
 ```toml
@@ -92,6 +94,20 @@ HTTP 传输改为写入 `url` 和 `env_http_headers`（请求头名到环境变�
 HTTP 传输改为写入 `type: "remote"`、`url` 和 `headers`（请求头名到 `{env:变量名}` 的映射）。超时时间按毫秒写入 `timeout`。
 
 写入保留文件中的其他用户内容；解析后重新序列化可能丢失原有 JSONC 注释与排版。
+
+## 宿主联动
+
+安装界面按安装目标联动选择：
+
+```text
+勾选 Codex CLI
+    -> 同时勾选已检测到的 ChatGPT
+
+取消共享目标中的任一客户端
+    -> 同时取消 Codex CLI 与 ChatGPT
+```
+
+底层按安装目标去重，只执行一次 Codex 配置写入和一次状态写入。OpenCode 不参与联动，独立选择。
 
 ## 本地状态
 
@@ -205,9 +221,7 @@ OpenCode    "API_KEY": "{env:API_KEY}"
 
 ## 用户目录变量
 
-当前不展开：清单参数由安装流程原样写入宿主配置。清单中的 `%USERPROFILE%\Documents` 会原样写入。
-
-拟定的展开规则（尚未实现）：
+清单参数可以使用 Prelay 定义的用户目录模板，安装时由客户端展开：
 
 ```text
 %USERPROFILE%    -> 当前用户目录
@@ -215,13 +229,21 @@ OpenCode    "API_KEY": "{env:API_KEY}"
 %LOCALAPPDATA%   -> 当前用户 Local 目录
 ```
 
+例如清单中的 `%USERPROFILE%\Documents` 在写入宿主配置时展开为当前用户目录下的路径。
+
 双百分号表示转义，不展开：
 
 ```text
 %%USERPROFILE%%\Documents
 ```
 
-展开规则只作用于命令参数，不作用于环境变量名称。
+安装后保留为：
+
+```text
+%USERPROFILE%\Documents
+```
+
+展开规则只作用于命令参数，不作用于启动命令本身，也不作用于环境变量名称。安装状态中的清单快照保留原始模板，宿主配置的漂移判断按展开后的结果比较。
 
 ## 参数展示
 
@@ -333,15 +355,16 @@ MCP 没有已发布的旧状态格式。本地状态缺少 `manifest` 快照的�
 
 ## 当前未落实
 
-- ChatGPT 目标：界面仍可勾选，客户端安装路径返回「ChatGPT 当前不支持 MCP 安装」；与 Codex CLI 的共享目标分组和界面联动尚未实现。
-- 用户目录变量展开：`%USERPROFILE%` 等模板不展开，按原样写入宿主配置。
 - 环境变量输入值：界面收集的取值不进入安装请求，也不写入宿主配置。
 - 真实链路未验证：扩展库组织当前没有 MCP 包（仓库根 `server.json`），服务端 `/api/extensions/mcp` 返回空列表；服务端 MCP 清单校验收紧的提交尚未推送与部署。
 
 ## 验收标准
 
 - Codex CLI 的 `stdio` 和 HTTP MCP 只写入 `mcp_servers` 下对应服务表；
+- Codex CLI 与 ChatGPT 同时安装时，只写入一次共享配置和一份状态记录；
+- 只检测到 ChatGPT 时，安装仍然写入 Codex 配置；
 - OpenCode 可以独立选择，只写入 `mcp` 下对应服务对象；
+- 命令参数中的 `%USERPROFILE%` 等模板在写入时展开，`%%` 转义保留为字面量；
 - MCP 列表为空时，正式扩展列表显示空状态；
 - 临时测试入口可以打开真实安装抽屉；
 - 启动命令与参数逐项展示；
