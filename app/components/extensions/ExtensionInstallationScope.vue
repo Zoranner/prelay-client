@@ -5,7 +5,6 @@ import AgentClientAvatarGroup from "~/components/agents/AgentClientAvatarGroup.v
 defineProps<{
   package: ExtensionCatalogPackage;
 }>();
-
 </script>
 
 <template>
