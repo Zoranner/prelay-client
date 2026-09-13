@@ -101,7 +101,6 @@ test("Codex 设置表单独立承载连接、执行和运行环境字段", () =>
   expect(form).toContain("执行与网络");
   expect(form).toContain("协作与记忆");
   expect(form).toContain("运行环境");
-  expect(form).toContain("禁用响应存储");
   expect(form).toContain("最大并发智能体");
   expect(form).toContain("工作区网络访问");
   expect(form).toContain("Shell 环境继承");

@@ -90,8 +90,6 @@ pub struct CodexSettings {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub sandbox: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub disable_response_storage: Option<bool>,
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub max_threads: Option<u64>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub max_depth: Option<u64>,
@@ -119,7 +117,6 @@ impl Default for CodexSettings {
             personality: Some("pragmatic".to_string()),
             web_search: Some(true),
             sandbox: Some("workspace-write".to_string()),
-            disable_response_storage: Some(true),
             max_threads: Some(16),
             max_depth: Some(1),
             job_max_runtime_seconds: Some(1800),

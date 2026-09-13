@@ -96,12 +96,9 @@ pub(super) fn set_item(document: &mut DocumentMut, key: &str, setting: Option<&s
     }
 }
 
-pub(super) fn set_bool(document: &mut DocumentMut, key: &str, setting: Option<bool>) {
-    match setting {
-        Some(setting) => document[key] = value(setting),
-        None => {
-            document.as_table_mut().remove(key);
-        }
+pub(super) fn ensure_table_bool(table: &mut Table, key: &str, default: bool) {
+    if !table.contains_key(key) {
+        table[key] = value(default);
     }
 }
 

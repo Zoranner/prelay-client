@@ -7,8 +7,8 @@ use super::codex_catalog::codex_model_profile;
 
 use super::{
     document::{
-        json_string, read_json, read_json_document, read_optional_text, read_toml,
-        read_toml_document, set_bool, set_item, set_table_bool, set_table_integer,
+        ensure_table_bool, json_string, read_json, read_json_document, read_optional_text,
+        read_toml, read_toml_document, set_item, set_table_bool, set_table_integer,
         set_table_string, table_mut, toml_bool, toml_integer, toml_string, toml_web_search,
         write_text,
     },
@@ -35,11 +35,8 @@ pub(super) fn save_codex_settings(
         settings.personality.as_deref(),
     );
     set_item(&mut document, "sandbox_mode", settings.sandbox.as_deref());
-    set_bool(
-        &mut document,
-        "disable_response_storage",
-        settings.disable_response_storage,
-    );
+    // disable_response_storage 已不被当前 Codex 版本识别，保存时清理。
+    document.as_table_mut().remove("disable_response_storage");
     set_item(
         &mut document,
         "web_search",
@@ -65,6 +62,13 @@ pub(super) fn save_codex_settings(
         "workspace_dependencies",
         settings.features.workspace_dependencies,
     );
+    ensure_table_bool(features, "memories", true);
+    ensure_table_bool(features, "goals", true);
+    ensure_table_bool(features, "workspace_dependencies", false);
+    ensure_table_bool(features, "plugins", true);
+    ensure_table_bool(features, "multi_agent_v2", true);
+    // js_repl 已从特性列表移除，保存时清理。
+    features.remove("js_repl");
 
     let workspace = table_mut(&mut document, "sandbox_workspace_write");
     set_table_bool(workspace, "network_access", settings.network_access);
@@ -76,6 +80,8 @@ pub(super) fn save_codex_settings(
     );
     let windows = table_mut(&mut document, "windows");
     set_table_string(windows, "sandbox", settings.windows_sandbox.as_deref());
+
+    ensure_desktop_enabled_reasoning_efforts(&mut document);
 
     apply_codex_connection(home, &mut document, settings.model.as_deref(), connection)?;
 
@@ -91,6 +97,28 @@ pub(super) fn save_codex_settings(
         &home.join(".codex").join("AGENTS.md"),
         settings.rules.as_deref().unwrap_or_default().as_bytes(),
     )
+}
+
+const DEFAULT_DESKTOP_ENABLED_REASONING_EFFORTS: [&str; 7] = [
+    "low",
+    "medium",
+    "high",
+    "xhigh",
+    "ultra",
+    "persistent",
+    "max",
+];
+
+fn ensure_desktop_enabled_reasoning_efforts(document: &mut DocumentMut) {
+    let desktop = table_mut(document, "desktop");
+    if desktop.contains_key("enabled-reasoning-efforts") {
+        return;
+    }
+    let mut efforts = toml_edit::Array::new();
+    for effort in DEFAULT_DESKTOP_ENABLED_REASONING_EFFORTS {
+        efforts.push(effort);
+    }
+    desktop["enabled-reasoning-efforts"] = value(efforts);
 }
 
 fn apply_codex_connection(
@@ -274,7 +302,6 @@ pub(super) fn read_codex_settings(home: &Path) -> CodexSettings {
         personality: toml_string(config.as_ref(), &["personality"]),
         web_search: toml_web_search(config.as_ref()),
         sandbox: toml_string(config.as_ref(), &["sandbox_mode"]),
-        disable_response_storage: toml_bool(config.as_ref(), &["disable_response_storage"]),
         max_threads: toml_integer(config.as_ref(), &["agents", "max_threads"]),
         max_depth: toml_integer(config.as_ref(), &["agents", "max_depth"]),
         job_max_runtime_seconds: toml_integer(
