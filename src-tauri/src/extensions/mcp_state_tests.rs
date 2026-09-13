@@ -293,3 +293,41 @@ fn rejects_a_multi_client_install_before_writing_any_target_with_a_conflict() {
     .is_err());
     assert!(!directory.path().join(".codex").join("config.toml").exists());
 }
+
+#[test]
+fn reports_chatgpt_only_installation_as_installed() {
+    let directory = tempdir().unwrap();
+    let manifest = ExtensionMcpManifest {
+        name: "filesystem".to_string(),
+        transport: ExtensionMcpTransport::Stdio {
+            command: vec!["uvx".to_string(), "mcp-server-filesystem".to_string()],
+            cwd: None,
+            environment: Default::default(),
+            enabled: true,
+            timeout_ms: None,
+        },
+    };
+
+    install_mcp(
+        directory.path(),
+        &[AgentClient::ChatGpt],
+        "filesystem-mcp",
+        "v1.0.0",
+        "commit",
+        &manifest,
+        false,
+    )
+    .unwrap();
+
+    let status = mcp_installation_status(
+        directory.path(),
+        &[AgentClient::ChatGpt],
+        "filesystem-mcp",
+        "v1.0.0",
+        "commit",
+    )
+    .unwrap();
+
+    assert_eq!(status.action, McpInstallAction::Installed);
+    assert_eq!(status.clients, vec![AgentClient::ChatGpt]);
+}
