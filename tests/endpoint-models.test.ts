@@ -1,6 +1,7 @@
 import { expect, test } from "bun:test";
 import {
   availableEndpointModelsForProvider,
+  checkEndpointMapping,
   endpointModelsForProvider,
   groupEndpointModels,
   moveEndpointMapping,
@@ -76,12 +77,16 @@ test("接入点按对外模型 ID 归组并保留全部供应商路由", () => {
   expect(groups[0]?.mappings.map((mapping) => mapping.index)).toEqual([0, 1]);
 });
 
-test("接入点新增候选使用供应商目录模型", () => {
+test("接入点新增候选使用供应商目录模型并排除已禁用模型", () => {
   setModelCatalog({
     language_models: [
       {
         id: "provider-model-a",
         display_name: "Provider Model A",
+      } as never,
+      {
+        id: "provider-model-b",
+        display_name: "Provider Model B",
       } as never,
     ],
     image_generation_models: [],
@@ -93,7 +98,7 @@ test("接入点新增候选使用供应商目录模型", () => {
         base_url: "https://example.test",
         protocols: ["chat_completions"],
         protocol_base_urls: [],
-        language_models: ["provider-model-a"],
+        language_models: ["provider-model-a", "provider-model-b"],
         image_generation_models: [],
       },
     ],
@@ -107,6 +112,7 @@ test("接入点新增候选使用供应商目录模型", () => {
     api_key_masked: "********",
     capabilities: {},
     upstream_protocols: ["openai"],
+    disabled_models: ["provider-model-b"],
     created_at: "2026-09-04T00:00:00Z",
   });
 
@@ -207,4 +213,54 @@ test("共享 Provider 选项保留原始 ID并标记只读来源", () => {
   expect(source).toContain("const readOnly = provider.can_manage === false");
   expect(source).toContain("read_only: readOnly");
   expect(source).toContain("provider.id");
+});
+
+test("接入点新增候选按对外模型 ID 排除已绑定模型，忽略供应商上游名差异", () => {
+  const providerModels = [
+    { model_name: "k3", display_name: "Kimi K3" },
+    { model_name: "k3-256k", display_name: "Kimi K3 256K" },
+  ];
+  const endpointModels = [
+    {
+      provider_id: "provider-a",
+      model_name: "k3",
+      upstream_model: "kimi-k3",
+    },
+  ];
+
+  expect(
+    availableEndpointModelsForProvider(
+      providerModels,
+      endpointModels,
+      "provider-a",
+    ).map((model) => model.model_name),
+  ).toEqual(["k3-256k"]);
+});
+
+test("接入点映射校验按对外模型 ID 判定重复", () => {
+  const providerModels = [{ model_name: "k3", display_name: "Kimi K3" }];
+  const endpointModels = [
+    {
+      provider_id: "provider-a",
+      model_name: "k3",
+      upstream_model: "kimi-k3",
+    },
+  ];
+
+  expect(
+    checkEndpointMapping({
+      providerId: "provider-a",
+      upstreamModel: "k3",
+      providerModels,
+      endpointModels,
+    }),
+  ).toEqual({ message: "该供应商已经绑定此模型。", title: "模型已存在" });
+  expect(
+    checkEndpointMapping({
+      providerId: "provider-b",
+      upstreamModel: "k3",
+      providerModels,
+      endpointModels,
+    }),
+  ).toBeNull();
 });

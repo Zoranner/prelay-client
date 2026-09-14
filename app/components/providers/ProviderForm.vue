@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Button, FormField, Input, Select, Tag } from "@stellar/ui";
+import { Button, FormField, Input, Select } from "@stellar/ui";
 import type { CatalogProvider, Provider } from "~/stores/relay";
 import {
   type ProviderFormPayload,
@@ -28,6 +28,7 @@ const emit = defineEmits<{
       base_url: string;
       api_key: string;
       capabilities: ProviderFormPayload["capabilities"];
+      disabled_models: string[];
     },
   ];
   cancel: [];
@@ -37,6 +38,7 @@ const emit = defineEmits<{
 const {
   apiKey,
   baseUrl,
+  disabledModels,
   imageGenerationModelOptions,
   languageModelOptions,
   models,
@@ -49,6 +51,7 @@ const {
   requestProtocolTest,
   selectProviderTemplate,
   submit: createPayload,
+  toggleModelEnabled,
 } = useProviderForm({
   provider: () => props.provider,
   catalogProviders: () => props.catalogProviders,
@@ -60,6 +63,15 @@ function submit() {
   if (props.canEdit === false) return;
   const payload = createPayload();
   if (payload) emit("save", payload);
+}
+
+function enabledCount(options: { value: string }[]) {
+  const disabled = options.filter((option) =>
+    disabledModels.value.includes(option.value),
+  ).length;
+  return disabled
+    ? `${options.length - disabled} / ${options.length}`
+    : options.length;
 }
 </script>
 
@@ -136,20 +148,14 @@ function submit() {
         >
           <h4 class="model-group__header">
             <span>语言模型</span>
-            <small>{{ languageModelOptions.length }}</small>
+            <small>{{ enabledCount(languageModelOptions) }}</small>
           </h4>
-          <div class="model-tags">
-            <Tag
-              v-for="modelOption in languageModelOptions"
-              :key="`language-${modelOption.value}`"
-              class="model-tag model-tag--language"
-              size="small"
-              semantic="primary"
-              variant="soft"
-            >
-              {{ modelOption.label }}
-            </Tag>
-          </div>
+          <ProviderModelToggles
+            :options="languageModelOptions"
+            :disabled-models="disabledModels"
+            :can-toggle="canEdit !== false && !pending"
+            @toggle="toggleModelEnabled"
+          />
         </div>
         <div
           v-if="imageGenerationModelOptions.length"
@@ -157,20 +163,14 @@ function submit() {
         >
           <h4 class="model-group__header">
             <span>图像生成模型</span>
-            <small>{{ imageGenerationModelOptions.length }}</small>
+            <small>{{ enabledCount(imageGenerationModelOptions) }}</small>
           </h4>
-          <div class="model-tags">
-            <Tag
-              v-for="modelOption in imageGenerationModelOptions"
-              :key="`image-${modelOption.value}`"
-              class="model-tag model-tag--image"
-              size="small"
-              semantic="warning"
-              variant="soft"
-            >
-              {{ modelOption.label }}
-            </Tag>
-          </div>
+          <ProviderModelToggles
+            :options="imageGenerationModelOptions"
+            :disabled-models="disabledModels"
+            :can-toggle="canEdit !== false && !pending"
+            @toggle="toggleModelEnabled"
+          />
         </div>
         <p v-if="!models.length" class="empty-text">暂无模型。</p>
       </div>

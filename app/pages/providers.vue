@@ -121,6 +121,7 @@ async function saveProvider(payload: ProviderFormPayload) {
         base_url: payload.base_url,
         api_key: payload.api_key,
         capabilities: payload.capabilities,
+        disabled_models: payload.disabled_models,
       },
     });
     showForm.value = false;
