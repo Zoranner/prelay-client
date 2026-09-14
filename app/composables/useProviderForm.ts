@@ -36,6 +36,7 @@ export type ProviderFormPayload = {
   base_url: string;
   api_key: string;
   capabilities: ProviderCapabilities;
+  disabled_models: string[];
 };
 
 type ProviderFormOptions = {
@@ -82,10 +83,15 @@ export function useProviderForm(options: ProviderFormOptions) {
       Boolean(option.model && !("reasoning_efforts" in option.model)),
     ),
   );
-  const upstreamProtocols = ref<UpstreamProtocol[]>([]);
+  // 协议集合由供应商目录定义，表单只读展示；协议地址可以按协议覆盖，缺省用 Base URL。
+  const currentTemplate = computed(() =>
+    providerTemplates(options.catalogProviders()).find(
+      (item) => item.providerType === providerType.value,
+    ),
+  );
   const orderedUpstreamProtocols = computed(() =>
     allProtocols.filter((protocol) =>
-      upstreamProtocols.value.includes(protocol),
+      currentTemplate.value?.protocols.includes(protocol),
     ),
   );
   const protocolBaseUrls = reactive<Record<UpstreamProtocol, string>>({
@@ -103,8 +109,15 @@ export function useProviderForm(options: ProviderFormOptions) {
   const maxContextTokens = ref<number | null>(null);
   const maxOutputTokens = ref<number | null>(null);
   const preservedCapabilities = ref<ProviderCapabilities>({});
+  const disabledModels = ref<string[]>([]);
   const notifications = useNotification();
   let initialDraft = "";
+
+  function toggleModelEnabled(modelId: string) {
+    disabledModels.value = disabledModels.value.includes(modelId)
+      ? disabledModels.value.filter((id) => id !== modelId)
+      : [...disabledModels.value, modelId];
+  }
 
   function catalogModelIds(providerType: string, template?: ProviderTemplate) {
     const catalogModels = modelCatalogProviderModels(providerType);
@@ -131,7 +144,7 @@ export function useProviderForm(options: ProviderFormOptions) {
       baseUrl: baseUrl.value,
       apiKey: apiKey.value,
       models: models.value,
-      upstreamProtocols: upstreamProtocols.value,
+      disabledModels: disabledModels.value,
       protocolBaseUrls,
       toolCalls: toolCalls.value,
       reasoning: reasoning.value,
@@ -143,10 +156,6 @@ export function useProviderForm(options: ProviderFormOptions) {
       maxContextTokens: maxContextTokens.value,
       maxOutputTokens: maxOutputTokens.value,
     });
-  }
-
-  function isProtocol(value: string): value is UpstreamProtocol {
-    return allProtocols.includes(value as UpstreamProtocol);
   }
 
   function resetDraft(provider: Provider | null | undefined) {
@@ -165,11 +174,6 @@ export function useProviderForm(options: ProviderFormOptions) {
     const modelIds = catalogModelIds(providerType.value, template);
     languageModels.value = modelIds.language;
     imageGenerationModels.value = modelIds.image;
-    upstreamProtocols.value = (
-      provider?.capabilities?.upstream_protocols ??
-      template?.protocols ??
-      []
-    ).filter(isProtocol);
     for (const protocol of allProtocols) {
       protocolBaseUrls[protocol] =
         provider?.capabilities?.protocol_base_urls?.[protocol] ??
@@ -177,6 +181,7 @@ export function useProviderForm(options: ProviderFormOptions) {
         "";
     }
     preservedCapabilities.value = provider?.capabilities ?? {};
+    disabledModels.value = [...(provider?.disabled_models ?? [])];
     toolCalls.value = provider?.capabilities?.tool_calls ?? null;
     reasoning.value = provider?.capabilities?.reasoning ?? null;
     toolChoice.value = provider?.capabilities?.tool_choice ?? null;
@@ -203,7 +208,7 @@ export function useProviderForm(options: ProviderFormOptions) {
     const modelIds = catalogModelIds(providerType.value, template);
     languageModels.value = modelIds.language;
     imageGenerationModels.value = modelIds.image;
-    upstreamProtocols.value = [...template.protocols];
+    disabledModels.value = [];
     for (const protocol of allProtocols) {
       protocolBaseUrls[protocol] = template.protocolBaseUrls[protocol] ?? "";
     }
@@ -264,9 +269,9 @@ export function useProviderForm(options: ProviderFormOptions) {
       provider_type: providerType.value,
       base_url: baseUrl.value.trim(),
       api_key: apiKey.value,
+      disabled_models: [...disabledModels.value],
       capabilities: {
         ...preservedCapabilities.value,
-        upstream_protocols: orderedUpstreamProtocols.value,
         protocol_base_urls: Object.fromEntries(
           allProtocols.map((protocol) => [
             protocol,
@@ -297,6 +302,7 @@ export function useProviderForm(options: ProviderFormOptions) {
     allProtocols,
     apiKey,
     baseUrl,
+    disabledModels,
     languageModels,
     imageGenerationModels,
     imageGenerationModelOptions,
@@ -311,6 +317,6 @@ export function useProviderForm(options: ProviderFormOptions) {
     requestProtocolTest,
     selectProviderTemplate,
     submit,
-    upstreamProtocols,
+    toggleModelEnabled,
   };
 }

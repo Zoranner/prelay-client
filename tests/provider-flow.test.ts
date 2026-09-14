@@ -9,6 +9,13 @@ const providerSource = [
 ]
   .map((path) => readFileSync(new URL(path, import.meta.url), "utf8"))
   .join("\n");
+
+function pageSource() {
+  return readFileSync(
+    new URL("../app/pages/providers.vue", import.meta.url),
+    "utf8",
+  );
+}
 const providerListSource = readFileSync(
   new URL("../app/components/providers/ProviderList.vue", import.meta.url),
   "utf8",
@@ -49,22 +56,21 @@ test("切换供应商模板时同步回填模板名称", () => {
   expect(providerSource).toContain("name.value = template.label;");
 });
 
-test("供应商表单将 Chat Completions 排在支持协议首位并包含图像生成", () => {
+test("供应商表单按目录展示协议且不提交协议集合", () => {
   expect(providerSource).toMatch(
     /const allProtocols: UpstreamProtocol\[\] = \[\s*"openai",\s*"responses",\s*"images_generations",\s*\]/,
   );
   expect(providerSource).not.toContain('"anthropic"');
   expect(providerSource).not.toContain("anthropic:");
-  expect(providerSource).toContain('images_generations: "",');
+  expect(providerSource).toContain("const currentTemplate = computed(");
   expect(providerSource).toContain(
     "const orderedUpstreamProtocols = computed(() =>",
   );
   expect(providerSource).toContain(
     'v-for="protocol in orderedUpstreamProtocols"',
   );
-  expect(providerSource).toContain(
-    "upstream_protocols: orderedUpstreamProtocols.value",
-  );
+  expect(providerSource).not.toContain("upstream_protocols:");
+  expect(providerSource).toContain("protocol_base_urls:");
 });
 
 test("图像生成协议不提供会产生实际调用的测试按钮", () => {
@@ -258,8 +264,9 @@ test("供应商模型清单与接入点使用同一类列表工作流", () => {
     "grid-template-columns: repeat(2, minmax(0, 1fr));",
   );
   expect(providerSource).toContain("model-group__header");
-  expect(providerSource).toContain("model-tags");
-  expect(providerSource).toContain("<Tag");
+  expect(providerSource).toContain("<ProviderModelToggles");
+  expect(providerSource).toContain("toggleModelEnabled");
+  expect(providerSource).not.toContain("<Tag");
   expect(providerSource).not.toContain('class="model-row"');
   expect(providerSource).not.toContain(
     "border-top: 1px solid var(--st-border-divider);",
@@ -358,9 +365,10 @@ test("身份目录命令只读取非敏感展示字段", () => {
   expect(relayCommand).toContain('"identity_directory_list"');
 });
 
-test("供应商表单允许覆盖各协议 Base URL", () => {
+test("供应商表单允许覆盖各协议 Base URL，缺省用 Base URL", () => {
   expect(providerSource).toContain('label="Base URL"');
   expect(providerSource).toContain('v-model="protocolBaseUrls[protocol]"');
+  expect(providerSource).toContain("protocolBaseUrls[protocol].trim() || null");
   expect(providerSource).not.toContain("默认 Base URL");
 });
 
@@ -424,18 +432,3 @@ test("供应商模型字符串 ID 关联完整目录对象并以显示名称生�
     { value: "image-model", label: "image-model", model: undefined },
   ]);
 });
-
-test("供应商模型清单使用目录显示名但保留模型 ID", () => {
-  expect(providerSource).toContain("providerModelOptions");
-  expect(providerSource).toContain("modelOption.label");
-  expect(providerSource).toContain("modelOption.value");
-  expect(providerSource).not.toMatch(/v-for="model in languageModels"/);
-  expect(providerSource).not.toMatch(/v-for="model in imageGenerationModels"/);
-});
-
-function pageSource() {
-  return readFileSync(
-    new URL("../app/pages/providers.vue", import.meta.url),
-    "utf8",
-  );
-}

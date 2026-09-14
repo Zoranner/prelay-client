@@ -6,6 +6,7 @@ import {
   modelCatalogProviderModels,
 } from "~/utils/modelCatalog";
 
+// 接入点模型按目录模型 id 归组，供应商上游名由服务端按目录映射解析后落在 upstream_model。
 export type EndpointModelGroup = {
   name: string;
   displayName: string;
@@ -43,10 +44,13 @@ export function providerOptionLabel(
 }
 
 export function endpointModelsForProvider(provider: Provider) {
-  return modelCatalogProviderModels(provider.provider_type).map((model) => ({
-    model_name: model.id,
-    display_name: model.display_name,
-  }));
+  const disabled = new Set(provider.disabled_models ?? []);
+  return modelCatalogProviderModels(provider.provider_type)
+    .filter((model) => !disabled.has(model.id))
+    .map((model) => ({
+      model_name: model.id,
+      display_name: model.display_name,
+    }));
 }
 
 export function availableEndpointModelsForProvider(
@@ -55,15 +59,15 @@ export function availableEndpointModelsForProvider(
   providerId: string,
   groupName?: string,
 ) {
-  const usedUpstreamModels = new Set(
+  const usedModelNames = new Set(
     endpointModels
       .filter((model) => model.provider_id === providerId)
-      .map((model) => model.upstream_model.trim()),
+      .map((model) => modelGroupName(model)),
   );
   return providerModels.filter(
     (model) =>
       (!groupName || model.model_name === groupName) &&
-      !usedUpstreamModels.has(model.model_name),
+      !usedModelNames.has(model.model_name),
   );
 }
 
@@ -148,7 +152,7 @@ export function checkEndpointMapping(
     check.endpointModels.some(
       (mapping) =>
         mapping.provider_id === check.providerId &&
-        mapping.upstream_model === check.upstreamModel,
+        modelGroupName(mapping) === check.upstreamModel,
     )
   ) {
     return { message: "该供应商已经绑定此模型。", title: "模型已存在" };
