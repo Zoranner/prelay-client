@@ -159,9 +159,8 @@ test("非创建人供应商保留连通性测试，禁用编辑、删除和协�
     "void Promise.all(providers.value.map(pingProvider));",
   );
   expect(providerListSource).not.toContain("emit('share'");
-  expect(page).toContain(
-    ':can-edit="editingProvider ? editingProvider.can_manage : true"',
-  );
+  expect(page).toContain("editingProvider.can_manage && !editingRetired");
+  expect(page).toContain(':retired="editingRetired"');
   expect(page).toContain(
     ':can-test="editingProvider ? editingProvider.can_manage : true"',
   );
@@ -245,7 +244,9 @@ test("供应商模型清单与接入点使用同一类列表工作流", () => {
   expect(providerSource).not.toContain("Popover");
   expect(providerSource).not.toContain("showAddModel");
   expect(providerSource).not.toContain("setModelPopover");
-  expect(providerSource).toContain("<span>{{ models.length }} 个</span>");
+  expect(providerSource).toContain(
+    "<span>{{ enabledModels.length }} 个</span>",
+  );
   expect(providerSource).not.toContain("新增模型");
   expect(providerSource).not.toContain("model-popover");
   expect(providerSource).not.toContain("removeModel");
@@ -265,7 +266,7 @@ test("供应商模型清单与接入点使用同一类列表工作流", () => {
   );
   expect(providerSource).toContain("model-group__header");
   expect(providerSource).toContain("<ProviderModelToggles");
-  expect(providerSource).toContain("toggleModelEnabled");
+  expect(providerSource).toContain("toggleModel");
   expect(providerSource).not.toContain("<Tag");
   expect(providerSource).not.toContain('class="model-row"');
   expect(providerSource).not.toContain(
@@ -273,7 +274,7 @@ test("供应商模型清单与接入点使用同一类列表工作流", () => {
   );
 });
 
-test("供应商模型清单来自目录而不是供应商保存副本", () => {
+test("供应商模型清单保存在供应商记录里", () => {
   const relay = readFileSync(
     new URL("../app/stores/relay.ts", import.meta.url),
     "utf8",
@@ -284,12 +285,13 @@ test("供应商模型清单来自目录而不是供应商保存副本", () => {
   );
   const page = pageSource();
 
-  expect(relay).not.toContain("models: ProviderModel[]");
+  expect(relay).toContain("models: string[]");
   expect(form).toContain(
     "const catalogModels = modelCatalogProviderModels(providerType)",
   );
-  expect(form).not.toContain("provider?.models.map");
-  expect(page).not.toContain("models: payload.models");
+  expect(form).toContain("enabledModels.value = provider");
+  expect(form).toContain("models: [...enabledModels.value]");
+  expect(page).toContain("models: payload.models");
 });
 
 test("供应商分享命令通过已认证管理 API 使用协议 DTO", () => {

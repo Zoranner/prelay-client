@@ -77,7 +77,7 @@ test("接入点按对外模型 ID 归组并保留全部供应商路由", () => {
   expect(groups[0]?.mappings.map((mapping) => mapping.index)).toEqual([0, 1]);
 });
 
-test("接入点新增候选使用供应商目录模型并排除已禁用模型", () => {
+test("接入点新增候选使用供应商自己的模型清单", () => {
   setModelCatalog({
     language_models: [
       {
@@ -112,11 +112,11 @@ test("接入点新增候选使用供应商目录模型并排除已禁用模型",
     api_key_masked: "********",
     capabilities: {},
     upstream_protocols: ["openai"],
-    disabled_models: ["provider-model-b"],
+    models: ["provider-model-b"],
     created_at: "2026-09-04T00:00:00Z",
   });
 
-  expect(models.map((model) => model.model_name)).toEqual(["provider-model-a"]);
+  expect(models.map((model) => model.model_name)).toEqual(["provider-model-b"]);
 });
 
 test("接入点新增候选排除当前供应商已绑定模型但保留其他供应商候选", () => {

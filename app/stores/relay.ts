@@ -122,7 +122,7 @@ export interface Provider {
   api_key_masked?: string;
   capabilities: ProviderCapabilities;
   upstream_protocols: string[];
-  disabled_models: string[];
+  models: string[];
   created_at: string;
 }
 
@@ -140,7 +140,7 @@ export interface ProviderListItem {
   base_url: string;
   capabilities: ProviderCapabilities;
   upstream_protocols: string[];
-  disabled_models: string[];
+  models: string[];
   owner_identity_id: string;
   owner_display_name: string;
   visibility: ProviderVisibility;

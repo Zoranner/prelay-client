@@ -1,10 +1,6 @@
 import type { EndpointModel, Provider, ProviderListItem } from "~/stores/relay";
 import type { CatalogModelResponse } from "~/stores/relay";
-import {
-  modelCatalogEntry,
-  modelCatalogLabel,
-  modelCatalogProviderModels,
-} from "~/utils/modelCatalog";
+import { modelCatalogEntry, modelCatalogLabel } from "~/utils/modelCatalog";
 
 // 接入点模型按目录模型 id 归组，供应商上游名由服务端按目录映射解析后落在 upstream_model。
 export type EndpointModelGroup = {
@@ -44,13 +40,10 @@ export function providerOptionLabel(
 }
 
 export function endpointModelsForProvider(provider: Provider) {
-  const disabled = new Set(provider.disabled_models ?? []);
-  return modelCatalogProviderModels(provider.provider_type)
-    .filter((model) => !disabled.has(model.id))
-    .map((model) => ({
-      model_name: model.id,
-      display_name: model.display_name,
-    }));
+  return (provider.models ?? []).map((modelId) => ({
+    model_name: modelId,
+    display_name: modelCatalogLabel(modelId),
+  }));
 }
 
 export function availableEndpointModelsForProvider(
