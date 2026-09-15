@@ -204,14 +204,13 @@ test("实际智能体保存门禁只允许目录可用的 Prelay 保存", async 
   expect(saves).toBe(1);
 });
 
-test("Provider 和 Endpoint 模型选项都使用目录", () => {
+test("供应商表单用目录条目做可选清单，接入点选项读供应商模型清单", () => {
   const provider = source("composables/useProviderForm.ts");
   const endpoint = source("components/endpoints/EndpointForm.vue");
   const endpointModels = source("utils/endpointModels.ts");
   expect(provider).toContain("modelCatalogProviderModels");
   expect(provider).not.toContain("providers_discover_models");
-  expect(endpointModels).toContain(
-    "modelCatalogProviderModels(provider.provider_type)",
-  );
+  expect(endpointModels).toContain("provider.models");
+  expect(endpointModels).not.toContain("modelCatalogProviderModels");
   expect(endpoint).not.toContain('label="对外模型名"');
 });

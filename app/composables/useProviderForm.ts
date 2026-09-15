@@ -36,7 +36,7 @@ export type ProviderFormPayload = {
   base_url: string;
   api_key: string;
   capabilities: ProviderCapabilities;
-  disabled_models: string[];
+  models: string[];
 };
 
 type ProviderFormOptions = {
@@ -109,14 +109,35 @@ export function useProviderForm(options: ProviderFormOptions) {
   const maxContextTokens = ref<number | null>(null);
   const maxOutputTokens = ref<number | null>(null);
   const preservedCapabilities = ref<ProviderCapabilities>({});
-  const disabledModels = ref<string[]>([]);
+  // 供应商自己保存的启用清单；目录条目只是可选的"菜单"。
+  const enabledModels = ref<string[]>([]);
+  const catalogModelIdOptions = computed(() => [
+    ...languageModels.value,
+    ...imageGenerationModels.value,
+  ]);
+  const retiredModels = computed(() =>
+    enabledModels.value.filter(
+      (modelId) => !catalogModelIdOptions.value.includes(modelId),
+    ),
+  );
+  const retiredProvider = computed(
+    () => Boolean(options.provider()) && !currentTemplate.value,
+  );
   const notifications = useNotification();
   let initialDraft = "";
 
-  function toggleModelEnabled(modelId: string) {
-    disabledModels.value = disabledModels.value.includes(modelId)
-      ? disabledModels.value.filter((id) => id !== modelId)
-      : [...disabledModels.value, modelId];
+  function isModelEnabled(modelId: string) {
+    return enabledModels.value.includes(modelId);
+  }
+
+  function toggleModel(modelId: string) {
+    enabledModels.value = isModelEnabled(modelId)
+      ? enabledModels.value.filter((id) => id !== modelId)
+      : [...enabledModels.value, modelId];
+  }
+
+  function removeRetiredModel(modelId: string) {
+    enabledModels.value = enabledModels.value.filter((id) => id !== modelId);
   }
 
   function catalogModelIds(providerType: string, template?: ProviderTemplate) {
@@ -143,8 +164,7 @@ export function useProviderForm(options: ProviderFormOptions) {
       providerType: providerType.value,
       baseUrl: baseUrl.value,
       apiKey: apiKey.value,
-      models: models.value,
-      disabledModels: disabledModels.value,
+      enabledModels: enabledModels.value,
       protocolBaseUrls,
       toolCalls: toolCalls.value,
       reasoning: reasoning.value,
@@ -181,7 +201,9 @@ export function useProviderForm(options: ProviderFormOptions) {
         "";
     }
     preservedCapabilities.value = provider?.capabilities ?? {};
-    disabledModels.value = [...(provider?.disabled_models ?? [])];
+    enabledModels.value = provider
+      ? [...provider.models]
+      : [...modelIds.language, ...modelIds.image];
     toolCalls.value = provider?.capabilities?.tool_calls ?? null;
     reasoning.value = provider?.capabilities?.reasoning ?? null;
     toolChoice.value = provider?.capabilities?.tool_choice ?? null;
@@ -208,7 +230,7 @@ export function useProviderForm(options: ProviderFormOptions) {
     const modelIds = catalogModelIds(providerType.value, template);
     languageModels.value = modelIds.language;
     imageGenerationModels.value = modelIds.image;
-    disabledModels.value = [];
+    enabledModels.value = [...modelIds.language, ...modelIds.image];
     for (const protocol of allProtocols) {
       protocolBaseUrls[protocol] = template.protocolBaseUrls[protocol] ?? "";
     }
@@ -221,7 +243,11 @@ export function useProviderForm(options: ProviderFormOptions) {
         protocolBaseUrls[protocol ?? "openai"].trim() || baseUrl.value.trim(),
       api_key: apiKey.value.trim(),
       ...(protocol ? { protocol } : {}),
-      ...(models.value[0] ? { model: models.value[0] } : {}),
+      ...(enabledModels.value[0]
+        ? { model: enabledModels.value[0] }
+        : models.value[0]
+          ? { model: models.value[0] }
+          : {}),
     };
   }
 
@@ -263,13 +289,26 @@ export function useProviderForm(options: ProviderFormOptions) {
       });
       return null;
     }
+    if (retiredProvider.value) {
+      notifications.error("该供应商的目录条目已下架，只能删除。", {
+        title: "无法保存供应商配置",
+      });
+      return null;
+    }
+    if (retiredModels.value.length) {
+      notifications.error(
+        `请先移除目录里已下架的模型：${retiredModels.value.join("、")}`,
+        { title: "无法保存供应商配置" },
+      );
+      return null;
+    }
     const payload = {
       ...(provider ? { id: provider.id } : {}),
       name: name.value.trim(),
       provider_type: providerType.value,
       base_url: baseUrl.value.trim(),
       api_key: apiKey.value,
-      disabled_models: [...disabledModels.value],
+      models: [...enabledModels.value],
       capabilities: {
         ...preservedCapabilities.value,
         protocol_base_urls: Object.fromEntries(
@@ -302,7 +341,12 @@ export function useProviderForm(options: ProviderFormOptions) {
     allProtocols,
     apiKey,
     baseUrl,
-    disabledModels,
+    enabledModels,
+    isModelEnabled,
+    removeRetiredModel,
+    retiredModels,
+    retiredProvider,
+    toggleModel,
     languageModels,
     imageGenerationModels,
     imageGenerationModelOptions,
@@ -317,6 +361,5 @@ export function useProviderForm(options: ProviderFormOptions) {
     requestProtocolTest,
     selectProviderTemplate,
     submit,
-    toggleModelEnabled,
   };
 }

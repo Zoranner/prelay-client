@@ -112,7 +112,7 @@ test("供应商表单不提供模型发现失败或手工添加提示", () => {
   expect(form).not.toContain("可手工添加模型后保存供应商");
 });
 
-test("供应商保存命令不再发送模型副本", () => {
+test("供应商保存命令发送启用清单", () => {
   const page = readFileSync(
     new URL("../app/pages/providers.vue", import.meta.url),
     "utf8",
@@ -122,10 +122,9 @@ test("供应商保存命令不再发送模型副本", () => {
     "utf8",
   );
 
-  expect(page).not.toContain("models: payload.models");
-  expect(command).not.toContain("pub models: Vec<String>");
-  expect(command).not.toContain("models: Some(input.models)");
-  expect(command).not.toContain("models: input.models");
+  expect(page).toContain("models: payload.models");
+  expect(command).toContain("pub models: Option<Vec<String>>");
+  expect(command).toContain("models: input.models");
 });
 
 test("共享供应商前端类型只保留可见元数据和统计展示字段", () => {

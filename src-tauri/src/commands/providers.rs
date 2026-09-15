@@ -19,8 +19,8 @@ pub struct ProviderSaveInput {
     pub base_url: String,
     pub api_key: String,
     pub capabilities: Option<ProviderCapabilityOverrides>,
-    /// 该供应商禁用的目录模型 id；禁用后不再提供给接入点，已有接入点也会被拦。
-    pub disabled_models: Option<Vec<String>>,
+    /// 该供应商启用的目录模型 id；缺省表示启用目录条目的全部模型。
+    pub models: Option<Vec<String>>,
 }
 
 #[tauri::command]
@@ -73,7 +73,7 @@ pub async fn providers_save(
                 base_url: Some(input.base_url),
                 api_key: non_empty(input.api_key),
                 capabilities: input.capabilities,
-                disabled_models: input.disabled_models,
+                models: input.models,
             };
             client
                 .patch(&format!("/api/providers/{provider_id}"), &input)
@@ -92,7 +92,7 @@ pub async fn providers_save(
                 base_url: input.base_url,
                 api_key,
                 capabilities: input.capabilities,
-                disabled_models: input.disabled_models,
+                models: input.models,
             };
             client.post("/api/providers", &input).await
         }

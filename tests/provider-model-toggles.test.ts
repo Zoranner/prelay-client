@@ -21,32 +21,43 @@ const pageSource = readFileSync(
   new URL("../app/pages/providers.vue", import.meta.url),
   "utf8",
 );
+const providerFormSource = readFileSync(
+  new URL("../app/components/providers/ProviderForm.vue", import.meta.url),
+  "utf8",
+);
 
 test("供应商模型清单使用目录显示名但保留模型 ID", () => {
   expect(providerSource).toContain("providerModelOptions");
-  expect(togglesSource).toContain("option.label");
-  expect(togglesSource).toContain("option.value");
+  expect(togglesSource).toContain("model.label");
   expect(providerSource).not.toMatch(/v-for="model in languageModels"/);
   expect(providerSource).not.toMatch(/v-for="model in imageGenerationModels"/);
 });
 
-test("供应商模型可以点击启停并随表单提交禁用清单", () => {
-  expect(providerSource).toContain(':disabled-models="disabledModels"');
-  expect(providerSource).toContain('@toggle="toggleModelEnabled"');
-  expect(providerSource).toContain(
-    "disabled_models: [...disabledModels.value]",
-  );
-  expect(pageSource).toContain("disabled_models: payload.disabled_models");
+test("供应商模型点击启停并随表单提交启用清单", () => {
+  expect(providerSource).toContain(':models="languageToggleModels"');
+  expect(providerSource).toContain('@toggle="toggleModel"');
+  expect(providerSource).toContain("models: [...enabledModels.value]");
+  expect(pageSource).toContain("models: payload.models");
 });
 
-test("禁用状态通过独立组件呈现，不改动 Tag 用途", () => {
+test("三种模型状态通过独立组件呈现，不改动 Tag 用途", () => {
   expect(togglesSource).toContain('type="button"');
   expect(togglesSource).toContain(":aria-pressed=");
-  expect(togglesSource).toContain("model-toggle--off");
+  expect(togglesSource).toContain("model-toggle--available");
+  expect(togglesSource).toContain("model-toggle--retired");
+  expect(togglesSource).toContain('emit("remove"');
   expect(togglesSource).not.toContain("@stellar/ui");
 });
 
-test("接入点候选排除供应商已禁用的模型", () => {
+test("已下架模型必须移除后才能保存", () => {
+  expect(providerSource).toContain("retiredModels");
+  expect(providerSource).toContain("请先移除目录里已下架的模型");
+  expect(providerFormSource).toContain("目录已下架");
+  expect(providerFormSource).toContain("该供应商的目录条目已下架");
+  expect(pageSource).toContain("editingRetired");
+});
+
+test("接入点候选来自供应商自己的模型清单", () => {
   setModelCatalog({
     language_models: [
       { id: "provider-model-a", display_name: "Provider Model A" } as never,
@@ -76,9 +87,12 @@ test("接入点候选排除供应商已禁用的模型", () => {
     api_key_masked: "********",
     capabilities: {},
     upstream_protocols: ["openai"],
-    disabled_models: ["provider-model-b"],
+    models: ["provider-model-b"],
     created_at: "2026-09-14T00:00:00Z",
   });
 
-  expect(models.map((model) => model.model_name)).toEqual(["provider-model-a"]);
+  expect(models.map((model) => model.model_name)).toEqual(["provider-model-b"]);
+  expect(models.map((model) => model.display_name)).toEqual([
+    "Provider Model B",
+  ]);
 });

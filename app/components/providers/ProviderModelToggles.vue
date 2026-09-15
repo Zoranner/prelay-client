@@ -1,35 +1,60 @@
 <script setup lang="ts">
-import type { ProviderModelOption } from "~/utils/providerTemplates";
+export type ProviderModelState = "enabled" | "available" | "retired";
+
+export type ProviderModelToggle = {
+  id: string;
+  label: string;
+  state: ProviderModelState;
+};
 
 const props = defineProps<{
-  options: ProviderModelOption[];
-  disabledModels: string[];
+  models: ProviderModelToggle[];
   canToggle?: boolean;
 }>();
 
-const emit = defineEmits<{ toggle: [modelId: string] }>();
+const emit = defineEmits<{
+  toggle: [modelId: string];
+  remove: [modelId: string];
+}>();
 
-function isDisabled(modelId: string) {
-  return props.disabledModels.includes(modelId);
+function stateLabel(state: ProviderModelState) {
+  if (state === "enabled") return "已启用";
+  if (state === "available") return "未启用";
+  return "目录已下架";
+}
+
+function stateTitle(state: ProviderModelState) {
+  if (state === "enabled") return "点击停用";
+  if (state === "available") return "点击启用";
+  return "目录条目里已没有这个模型，保存前必须移除";
+}
+
+function activate(model: ProviderModelToggle) {
+  if (props.canToggle === false) return;
+  if (model.state === "retired") {
+    emit("remove", model.id);
+    return;
+  }
+  emit("toggle", model.id);
 }
 </script>
 
 <template>
   <div class="model-toggles">
     <button
-      v-for="option in options"
-      :key="option.value"
+      v-for="model in models"
+      :key="model.id"
       type="button"
       class="model-toggle"
-      :class="{ 'model-toggle--off': isDisabled(option.value) }"
-      :aria-pressed="!isDisabled(option.value)"
-      :title="isDisabled(option.value) ? '点击启用' : '点击禁用'"
+      :class="`model-toggle--${model.state}`"
+      :aria-pressed="model.state === 'enabled'"
+      :title="stateTitle(model.state)"
       :disabled="canToggle === false"
-      @click="emit('toggle', option.value)"
+      @click="activate(model)"
     >
-      <span class="model-toggle__name">{{ option.label }}</span>
+      <span class="model-toggle__name">{{ model.label }}</span>
       <span class="model-toggle__state">
-        {{ isDisabled(option.value) ? "已禁用" : "已启用" }}
+        {{ stateLabel(model.state) }}
       </span>
     </button>
   </div>
@@ -70,12 +95,23 @@ function isDisabled(modelId: string) {
   font-size: 11px;
   white-space: nowrap;
 }
-.model-toggle--off {
+.model-toggle--available {
   border-style: dashed;
   background: transparent;
 }
-.model-toggle--off .model-toggle__name {
+.model-toggle--available .model-toggle__name {
+  color: var(--st-text-muted);
+}
+.model-toggle--retired {
+  border-style: dashed;
+  border-color: var(--st-warning);
+  background: transparent;
+}
+.model-toggle--retired .model-toggle__name {
   color: var(--st-text-muted);
   text-decoration: line-through;
+}
+.model-toggle--retired .model-toggle__state {
+  color: var(--st-warning);
 }
 </style>

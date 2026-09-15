@@ -7,6 +7,8 @@ import {
   useProviderForm,
 } from "~/composables/useProviderForm";
 import type { ProviderOperationResult } from "~/utils/providerOperations";
+import { modelCatalogLabel } from "~/utils/modelCatalog";
+import type { ProviderModelToggle } from "~/components/providers/ProviderModelToggles.vue";
 
 const props = defineProps<{
   provider?: Provider | null;
@@ -14,6 +16,7 @@ const props = defineProps<{
   pending?: boolean;
   canEdit?: boolean;
   canTest?: boolean;
+  retired?: boolean;
   testProtocol: (
     input: ProviderOperationInput,
   ) => Promise<ProviderOperationResult>;
@@ -28,7 +31,7 @@ const emit = defineEmits<{
       base_url: string;
       api_key: string;
       capabilities: ProviderFormPayload["capabilities"];
-      disabled_models: string[];
+      models: string[];
     },
   ];
   cancel: [];
@@ -38,7 +41,8 @@ const emit = defineEmits<{
 const {
   apiKey,
   baseUrl,
-  disabledModels,
+  enabledModels,
+  isModelEnabled,
   imageGenerationModelOptions,
   languageModelOptions,
   models,
@@ -48,10 +52,13 @@ const {
   protocolLabel,
   providerTemplate,
   providerTemplateOptions,
+  removeRetiredModel,
   requestProtocolTest,
+  retiredModels,
+  retiredProvider,
   selectProviderTemplate,
   submit: createPayload,
-  toggleModelEnabled,
+  toggleModel,
 } = useProviderForm({
   provider: () => props.provider,
   catalogProviders: () => props.catalogProviders,
@@ -66,17 +73,45 @@ function submit() {
 }
 
 function enabledCount(options: { value: string }[]) {
-  const disabled = options.filter((option) =>
-    disabledModels.value.includes(option.value),
+  const enabled = options.filter((option) =>
+    isModelEnabled(option.value),
   ).length;
-  return disabled
-    ? `${options.length - disabled} / ${options.length}`
-    : options.length;
+  return enabled === options.length
+    ? options.length
+    : `${enabled} / ${options.length}`;
 }
+
+function toggleRows(
+  options: { value: string; label: string }[],
+): ProviderModelToggle[] {
+  return options.map((option) => ({
+    id: option.value,
+    label: option.label,
+    state: isModelEnabled(option.value) ? "enabled" : "available",
+  }));
+}
+
+const languageToggleModels = computed(() =>
+  toggleRows(languageModelOptions.value),
+);
+const imageToggleModels = computed(() =>
+  toggleRows(imageGenerationModelOptions.value),
+);
+const retiredToggleModels = computed<ProviderModelToggle[]>(() =>
+  retiredModels.value.map((modelId) => ({
+    id: modelId,
+    label: modelCatalogLabel(modelId),
+    state: "retired",
+  })),
+);
+const retiredNotice = computed(() => props.retired || retiredProvider.value);
 </script>
 
 <template>
   <form id="provider-form" class="provider-form" @submit.prevent="submit">
+    <p v-if="retiredNotice" class="retired-notice">
+      该供应商的目录条目已下架：现有模型可以继续使用，配置不能再修改，只能删除。
+    </p>
     <section class="form-section">
       <h3>连接配置</h3>
       <div class="form-fields">
@@ -138,7 +173,7 @@ function enabledCount(options: { value: string }[]) {
       <div class="section-header">
         <h3>模型清单</h3>
         <div class="section-header__actions">
-          <span>{{ models.length }} 个</span>
+          <span>{{ enabledModels.length }} 个</span>
         </div>
       </div>
       <div class="model-list">
@@ -151,10 +186,9 @@ function enabledCount(options: { value: string }[]) {
             <small>{{ enabledCount(languageModelOptions) }}</small>
           </h4>
           <ProviderModelToggles
-            :options="languageModelOptions"
-            :disabled-models="disabledModels"
+            :models="languageToggleModels"
             :can-toggle="canEdit !== false && !pending"
-            @toggle="toggleModelEnabled"
+            @toggle="toggleModel"
           />
         </div>
         <div
@@ -166,11 +200,25 @@ function enabledCount(options: { value: string }[]) {
             <small>{{ enabledCount(imageGenerationModelOptions) }}</small>
           </h4>
           <ProviderModelToggles
-            :options="imageGenerationModelOptions"
-            :disabled-models="disabledModels"
+            :models="imageToggleModels"
             :can-toggle="canEdit !== false && !pending"
-            @toggle="toggleModelEnabled"
+            @toggle="toggleModel"
           />
+        </div>
+        <div
+          v-if="retiredToggleModels.length"
+          class="model-group model-group--retired"
+        >
+          <h4 class="model-group__header">
+            <span>目录已下架</span>
+            <small>{{ retiredToggleModels.length }}</small>
+          </h4>
+          <ProviderModelToggles
+            :models="retiredToggleModels"
+            :can-toggle="canEdit !== false && !pending"
+            @remove="removeRetiredModel"
+          />
+          <p class="retired-hint">这些模型必须移除后才能保存。</p>
         </div>
         <p v-if="!models.length" class="empty-text">暂无模型。</p>
       </div>
@@ -294,6 +342,19 @@ function enabledCount(options: { value: string }[]) {
   max-width: 100%;
   white-space: normal;
   overflow-wrap: anywhere;
+}
+.model-group--retired h4 {
+  color: var(--st-warning);
+}
+.retired-notice,
+.retired-hint {
+  margin: 0;
+  color: var(--st-warning);
+}
+.retired-notice {
+  padding: var(--spacing-sm);
+  border: 1px solid var(--st-warning);
+  border-radius: var(--radius-sm);
 }
 .empty-text {
   grid-column: 1 / -1;

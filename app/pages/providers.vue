@@ -47,6 +47,15 @@ type EditableProvider = ProviderListItem & {
   api_key_masked?: string;
 };
 
+// 目录条目已下架：现有模型继续可用，但不能再编辑，只能删除。
+const editingRetired = computed(
+  () =>
+    Boolean(editingProvider.value) &&
+    !catalogProviders.value.some(
+      (provider) => provider.id === editingProvider.value?.provider_type,
+    ),
+);
+
 async function loadProviders() {
   loadingProviders.value = true;
   try {
@@ -121,7 +130,7 @@ async function saveProvider(payload: ProviderFormPayload) {
         base_url: payload.base_url,
         api_key: payload.api_key,
         capabilities: payload.capabilities,
-        disabled_models: payload.disabled_models,
+        models: payload.models,
       },
     });
     showForm.value = false;
@@ -327,8 +336,11 @@ onMounted(loadProviders);
         :provider="editingProvider"
         :catalog-providers="catalogProviders"
         :pending="pending"
-        :can-edit="editingProvider ? editingProvider.can_manage : true"
+        :can-edit="
+          editingProvider ? editingProvider.can_manage && !editingRetired : true
+        "
         :can-test="editingProvider ? editingProvider.can_manage : true"
+        :retired="editingRetired"
         :test-protocol="testProtocolFromForm"
         @save="saveProvider"
         @dirty-change="formDirty = $event"
@@ -341,7 +353,7 @@ onMounted(loadProviders);
           type="submit"
           semantic="primary"
           variant="solid"
-          :disabled="pending"
+          :disabled="pending || editingRetired"
         >
           {{ pending ? "保存中..." : "保存" }}
         </Button>
