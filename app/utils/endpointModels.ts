@@ -86,6 +86,29 @@ export function modelGroupName(model: EndpointModelLike) {
   return model.model_name?.trim() || model.upstream_model.trim();
 }
 
+// 保存接口的 upstream_model 承载模型标识，服务端再换算上游名；
+// 编辑回程里的上游名要还原成目录模型 id，否则再保存会被清单校验拒绝。
+export function normalizeEndpointModelIdentities<T extends EndpointModelLike>(
+  models: readonly T[],
+  providerType: (providerId: string) => string | undefined,
+  catalogModelsForProvider: (providerType: string) => Array<{ id: string }>,
+): T[] {
+  return models.map((model) => {
+    const providerTypeId = providerType(model.provider_id);
+    if (!providerTypeId) return { ...model };
+    const catalogModels = catalogModelsForProvider(providerTypeId);
+    const storedIdentity = model.model_name?.trim();
+    const catalogModel =
+      catalogModels.find((candidate) => candidate.id === storedIdentity) ??
+      catalogModels.find(
+        (candidate) => candidate.id === model.upstream_model.trim(),
+      );
+    return catalogModel
+      ? { ...model, upstream_model: catalogModel.id }
+      : { ...model };
+  });
+}
+
 export function moveEndpointMapping<T extends EndpointModelLike>(
   models: readonly T[],
   index: number,
