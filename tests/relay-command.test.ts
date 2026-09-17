@@ -1,6 +1,6 @@
 import { expect, mock, test } from "bun:test";
 
-import { toRelayError } from "../app/utils/errors";
+import { errorText, toRelayError } from "../app/utils/errors";
 
 type Deferred<T> = {
   promise: Promise<T>;
@@ -24,6 +24,7 @@ mock.module("@tauri-apps/api/core", () => ({
 }));
 
 mock.module("~/utils/errors", () => ({
+  errorText,
   toRelayError,
 }));
 

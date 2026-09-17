@@ -59,7 +59,8 @@ test("全屏管理服务错误读取嵌套 Ref 的当前值", () => {
   );
   expect(app).toContain("managementApiError && canShowManagementError");
   expect(app).toContain("<Result");
-  expect(app).toContain("{{ managementApiError.message }}");
+  expect(app).toContain("{{ managementErrorText }}");
+  expect(app).toContain("{{ managementErrorDetail }}");
 });
 
 test("Nuxt 页面不直连服务端或读取认证凭据", () => {

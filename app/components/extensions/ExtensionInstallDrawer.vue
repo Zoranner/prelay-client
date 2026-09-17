@@ -18,6 +18,7 @@ import McpInstallForm from "~/components/extensions/McpInstallForm.vue";
 import { agentSectionOptions } from "~/utils/agentClient";
 import { mcpPreviewMatchesExtension } from "~/utils/extensionMcpPreview";
 import { synchronizeExtensionInstallSelection } from "~/utils/extensionInstallSelection";
+import { errorText, toRelayError } from "~/utils/errors";
 
 const visible = defineModel<boolean>("visible", { default: false });
 const props = defineProps<{
@@ -148,7 +149,7 @@ async function install(overwrite = false) {
     if (props.extension?.kind === "mcp") {
       emit("refreshed", props.extension.kind);
     }
-    notifications.error(error.message ?? "扩展安装失败。", {
+    notifications.error(errorText(toRelayError(caught)), {
       title: "扩展安装失败",
     });
   } finally {
@@ -196,9 +197,8 @@ watch(
         mcpPreview.value = preview;
       }
     } catch (caught) {
-      const error = caught as { message?: string };
       if (request === mcpPreviewRequest) {
-        mcpPreviewError.value = error.message ?? "无法读取 MCP 配置。";
+        mcpPreviewError.value = errorText(toRelayError(caught));
       }
     } finally {
       if (request === mcpPreviewRequest) mcpPreviewLoading.value = false;
