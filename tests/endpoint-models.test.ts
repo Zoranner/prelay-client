@@ -5,8 +5,13 @@ import {
   endpointModelsForProvider,
   groupEndpointModels,
   moveEndpointMapping,
+  normalizeEndpointModelIdentities,
 } from "../app/utils/endpointModels";
-import { modelCatalogEntry, setModelCatalog } from "../app/utils/modelCatalog";
+import {
+  modelCatalogEntry,
+  modelCatalogProviderModels,
+  setModelCatalog,
+} from "../app/utils/modelCatalog";
 import { readFileSync } from "node:fs";
 
 test("接入点候选顺序只在同一模型分组内上下调整", () => {
@@ -75,6 +80,39 @@ test("接入点按对外模型 ID 归组并保留全部供应商路由", () => {
     groups[0]?.mappings.map((mapping) => mapping.model.provider_id),
   ).toEqual(["provider-a", "provider-b"]);
   expect(groups[0]?.mappings.map((mapping) => mapping.index)).toEqual([0, 1]);
+});
+
+test("编辑接入点回程把上游名还原为目录模型 id", () => {
+  const catalogModelsForProvider = (providerType: string) =>
+    providerType === "tokenharbor"
+      ? [{ id: "deepseek-flash", display_name: "DeepSeek V4.1 Flash" }]
+      : [];
+  const providerTypeFor = (providerId: string) => {
+    const resolved =
+      providerId === "provider-tokenharbor" ? "tokenharbor" : undefined;
+    return resolved;
+  };
+  const storedMappings = [
+    {
+      provider_id: "provider-tokenharbor",
+      upstream_model: "deepseek-v4.1-flash",
+      model_name: "deepseek-flash",
+    },
+  ];
+  const [mapping] = normalizeEndpointModelIdentities(
+    storedMappings,
+    providerTypeFor,
+    catalogModelsForProvider,
+  );
+
+  expect(mapping.upstream_model).toBe("deepseek-flash");
+  expect(
+    normalizeEndpointModelIdentities(
+      [mapping],
+      providerTypeFor,
+      catalogModelsForProvider,
+    ),
+  ).toEqual([mapping]);
 });
 
 test("接入点新增候选使用供应商自己的模型清单", () => {

@@ -11,6 +11,7 @@ import {
   endpointModelsForProvider,
   groupEndpointModels,
   moveEndpointMapping,
+  normalizeEndpointModelIdentities,
   providerOptionLabel,
   type EndpointModelGroup,
 } from "~/utils/endpointModels";
@@ -75,7 +76,13 @@ watch(
   (current) => {
     name.value = current?.name ?? "";
     protocol.value = current?.protocol ?? "openai";
-    models.value = current?.models.map((model) => ({ ...model })) ?? [];
+    models.value = current
+      ? normalizeEndpointModelIdentities(
+          current.models,
+          providerTypeFor,
+          modelCatalogProviderModels,
+        )
+      : [];
     newModelForm.value = emptyModelForm();
     newProviderForm.value = emptyModelForm();
     showAddModel.value = false;
@@ -108,6 +115,11 @@ function availableUpstreamModels(
 
 function providerForModel(model: Pick<EndpointModel, "provider_id">) {
   return props.providers.find((provider) => provider.id === model.provider_id);
+}
+
+function providerTypeFor(providerId: string) {
+  return props.providers.find((provider) => provider.id === providerId)
+    ?.provider_type;
 }
 
 function providerSourceLabel(provider: ProviderListItem | undefined) {
