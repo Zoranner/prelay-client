@@ -10,6 +10,10 @@ use atomic_write_file::AtomicWriteFile;
 use fs2::FileExt;
 use serde::{Deserialize, Serialize};
 
+use super::credential_protection::{protect, unprotect};
+
+const PROTECTED_RECORD_MAGIC: &[u8] = b"prelay-credential-1\n";
+
 #[derive(Clone, Debug, Deserialize, PartialEq, Eq, Serialize)]
 pub struct CredentialRecord {
     pub current: String,
@@ -117,16 +121,22 @@ impl FileCredentialStore {
     }
 
     fn read_record(&self) -> Result<Option<CredentialRecord>, String> {
-        match fs::read_to_string(&self.path) {
-            Ok(value) => {
-                if value.trim().is_empty() {
-                    return Err("credential record is empty".into());
-                }
-                let record = serde_json::from_str::<CredentialRecord>(&value)
-                    .map_err(|_| "credential record is not valid JSON".to_owned())?;
-                validate_record(&record)?;
+        let Some(contents) = self.read_contents()? else {
+            return Ok(None);
+        };
+        match decode_record(&contents)? {
+            DecodedRecord::Protected(record) => Ok(Some(record)),
+            // 旧版本留下的是明文记录，读到后就地改写为受保护格式。
+            DecodedRecord::Plaintext(record) => {
+                self.write_record(&record)?;
                 Ok(Some(record))
             }
+        }
+    }
+
+    fn read_contents(&self) -> Result<Option<Vec<u8>>, String> {
+        match fs::read(&self.path) {
+            Ok(contents) => Ok(Some(contents)),
             Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(None),
             Err(error) => Err(store_error(error)),
         }
@@ -134,8 +144,7 @@ impl FileCredentialStore {
 
     fn write_record(&self, record: &CredentialRecord) -> Result<(), String> {
         validate_record(record)?;
-        let contents = serde_json::to_vec(record)
-            .map_err(|_| "credential record cannot be serialized".to_owned())?;
+        let contents = encode_record(record)?;
         let mut file = AtomicWriteFile::open(&self.path).map_err(store_error)?;
         file.write_all(&contents).map_err(store_error)?;
         file.sync_all().map_err(store_error)?;
@@ -343,6 +352,40 @@ fn validate_record(record: &CredentialRecord) -> Result<(), String> {
         validate_credential(pending, "pending")?;
     }
     Ok(())
+}
+
+enum DecodedRecord {
+    Protected(CredentialRecord),
+    Plaintext(CredentialRecord),
+}
+
+fn decode_record(contents: &[u8]) -> Result<DecodedRecord, String> {
+    let Some(protected) = contents.strip_prefix(PROTECTED_RECORD_MAGIC) else {
+        return parse_record(contents).map(DecodedRecord::Plaintext);
+    };
+    let plaintext = unprotect(protected)?;
+    parse_record(&plaintext).map(DecodedRecord::Protected)
+}
+
+fn encode_record(record: &CredentialRecord) -> Result<Vec<u8>, String> {
+    let plaintext = serde_json::to_vec(record)
+        .map_err(|_| "credential record cannot be serialized".to_owned())?;
+    let mut contents = Vec::with_capacity(PROTECTED_RECORD_MAGIC.len() + plaintext.len());
+    contents.extend_from_slice(PROTECTED_RECORD_MAGIC);
+    contents.extend_from_slice(&protect(&plaintext)?);
+    Ok(contents)
+}
+
+fn parse_record(plaintext: &[u8]) -> Result<CredentialRecord, String> {
+    let value = std::str::from_utf8(plaintext)
+        .map_err(|_| "credential record is not valid text".to_owned())?;
+    if value.trim().is_empty() {
+        return Err("credential record is empty".into());
+    }
+    let record = serde_json::from_str::<CredentialRecord>(value)
+        .map_err(|_| "credential record is not valid JSON".to_owned())?;
+    validate_record(&record)?;
+    Ok(record)
 }
 
 fn validate_credential(value: &str, field: &str) -> Result<(), String> {
