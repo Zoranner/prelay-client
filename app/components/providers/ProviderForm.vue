@@ -8,7 +8,9 @@ import {
 } from "~/composables/useProviderForm";
 import type { ProviderOperationResult } from "~/utils/providerOperations";
 import { modelCatalogLabel } from "~/utils/modelCatalog";
-import type { ProviderModelToggle } from "~/components/providers/ProviderModelToggles.vue";
+import ProviderModelToggles, {
+  type ProviderModelToggle,
+} from "~/components/providers/ProviderModelToggles.vue";
 
 const props = defineProps<{
   provider?: Provider | null;
