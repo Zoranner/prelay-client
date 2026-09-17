@@ -33,6 +33,14 @@ test("供应商模型清单使用目录显示名但保留模型 ID", () => {
   expect(providerSource).not.toMatch(/v-for="model in imageGenerationModels"/);
 });
 
+test("供应商表单显式导入模型开关组件", () => {
+  // 目录组件名带路径前缀，缺省解析不到这个标签，模板会静默渲染为空。
+  expect(providerFormSource).toContain("import ProviderModelToggles");
+  expect(providerFormSource).toContain(
+    'from "~/components/providers/ProviderModelToggles.vue"',
+  );
+});
+
 test("供应商模型点击启停并随表单提交启用清单", () => {
   expect(providerSource).toContain(':models="languageToggleModels"');
   expect(providerSource).toContain('@toggle="toggleModel"');
