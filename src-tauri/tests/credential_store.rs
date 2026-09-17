@@ -219,7 +219,7 @@ fn file_store_lifecycle_lock_waits_for_an_independent_process_to_release_it() {
 }
 
 #[test]
-fn file_store_writes_complete_json_without_leaving_temporary_files() {
+fn file_store_writes_a_complete_record_without_leaving_temporary_files() {
     let directory = tempdir().unwrap();
     let credential_path = directory.path().join("device-credential.json");
     let store = FileCredentialStore::at(&credential_path);
@@ -227,9 +227,10 @@ fn file_store_writes_complete_json_without_leaving_temporary_files() {
     store.save_initial("credential-old").unwrap();
     store.begin_rotation("credential-new").unwrap();
 
-    let record: CredentialRecord =
-        serde_json::from_str(&fs::read_to_string(&credential_path).unwrap())
-            .expect("credential file must contain a complete JSON record");
+    let record = FileCredentialStore::at(&credential_path)
+        .load()
+        .unwrap()
+        .expect("credential file must contain a complete record");
     assert_eq!(record.current, "credential-old");
     assert_eq!(record.pending.as_deref(), Some("credential-new"));
 
@@ -242,6 +243,71 @@ fn file_store_writes_complete_json_without_leaving_temporary_files() {
         entries,
         vec!["device-credential.json", "device-credential.json.lock"]
     );
+}
+
+#[test]
+fn file_store_rewrites_a_plaintext_record_into_the_protected_format() {
+    let directory = tempdir().unwrap();
+    let credential_path = directory.path().join("device-credential.json");
+    fs::write(
+        &credential_path,
+        r#"{"current":"credential-old","pending":"credential-new"}"#,
+    )
+    .unwrap();
+    let expected = Some(CredentialRecord {
+        current: "credential-old".into(),
+        pending: Some("credential-new".into()),
+    });
+
+    assert_eq!(
+        FileCredentialStore::at(&credential_path).load().unwrap(),
+        expected
+    );
+
+    let contents = fs::read(&credential_path).unwrap();
+    assert_ne!(
+        contents.first(),
+        Some(&b'{'),
+        "credential file must not stay in the plaintext format"
+    );
+    assert_eq!(
+        FileCredentialStore::at(&credential_path).load().unwrap(),
+        expected
+    );
+}
+
+#[cfg(windows)]
+#[test]
+fn file_store_keeps_the_credential_unreadable_in_the_file() {
+    let directory = tempdir().unwrap();
+    let credential_path = directory.path().join("device-credential.json");
+    let store = FileCredentialStore::at(&credential_path);
+
+    store.save_initial("credential-secret").unwrap();
+
+    let contents = String::from_utf8_lossy(&fs::read(&credential_path).unwrap()).into_owned();
+    assert!(
+        !contents.contains("credential-secret"),
+        "credential file must not contain the credential"
+    );
+    assert_eq!(store.load().unwrap().unwrap().current, "credential-secret");
+}
+
+#[cfg(windows)]
+#[test]
+fn file_store_reports_a_credential_file_that_this_account_cannot_decrypt() {
+    let directory = tempdir().unwrap();
+    let credential_path = directory.path().join("device-credential.json");
+    fs::write(
+        &credential_path,
+        b"prelay-credential-1\nnot-a-protected-record",
+    )
+    .unwrap();
+
+    let error = FileCredentialStore::at(&credential_path)
+        .load()
+        .expect_err("a protected record from another account must not load");
+    assert!(error.contains("credential record"), "{error}");
 }
 
 #[test]
