@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { Button, Toggle } from "@stellar/ui";
+
 export type ProviderModelState = "enabled" | "available" | "retired";
 
 export type ProviderModelToggle = {
@@ -17,101 +19,80 @@ const emit = defineEmits<{
   remove: [modelId: string];
 }>();
 
-function stateLabel(state: ProviderModelState) {
-  if (state === "enabled") return "已启用";
-  if (state === "available") return "未启用";
-  return "目录已下架";
+function isOn(model: ProviderModelToggle) {
+  return model.state === "enabled";
 }
 
-function stateTitle(state: ProviderModelState) {
-  if (state === "enabled") return "点击停用";
-  if (state === "available") return "点击启用";
-  return "目录条目里已没有这个模型，保存前必须移除";
+// 目录已下架的模型只能移除，不能再启停。
+function isLocked(model: ProviderModelToggle) {
+  return props.canToggle === false || model.state === "retired";
 }
 
-function activate(model: ProviderModelToggle) {
-  if (props.canToggle === false) return;
-  if (model.state === "retired") {
-    emit("remove", model.id);
-    return;
-  }
-  emit("toggle", model.id);
+function toggleTitle(model: ProviderModelToggle) {
+  if (model.state === "retired") return "目录里已没有这个模型，只能移除";
+  return isOn(model) ? "点击停用" : "点击启用";
 }
 </script>
 
 <template>
   <div class="model-toggles">
-    <button
+    <div
       v-for="model in models"
       :key="model.id"
-      type="button"
-      class="model-toggle"
-      :class="`model-toggle--${model.state}`"
-      :aria-pressed="model.state === 'enabled'"
-      :title="stateTitle(model.state)"
-      :disabled="canToggle === false"
-      @click="activate(model)"
+      class="model-toggles__row"
+      :class="`model-toggles__row--${model.state}`"
     >
-      <span class="model-toggle__name">{{ model.label }}</span>
-      <span class="model-toggle__state">
-        {{ stateLabel(model.state) }}
+      <span class="model-toggles__name" :title="model.label">
+        {{ model.label }}
       </span>
-    </button>
+      <span :title="toggleTitle(model)">
+        <Toggle
+          :model-value="isOn(model)"
+          :semantic="model.state === 'retired' ? 'warning' : 'primary'"
+          :disabled="isLocked(model)"
+          :aria-label="model.label"
+          @update:model-value="emit('toggle', model.id)"
+        />
+      </span>
+      <Button
+        v-if="model.state === 'retired'"
+        square
+        size="small"
+        semantic="error"
+        variant="solid"
+        icon="ph:trash"
+        aria-label="移除目录已下架的模型"
+        title="目录里已没有这个模型，保存前必须移除"
+        :disabled="canToggle === false"
+        @click="emit('remove', model.id)"
+      />
+    </div>
   </div>
 </template>
 
 <style scoped>
 .model-toggles {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
   gap: var(--spacing-xs);
 }
-.model-toggle {
-  display: inline-flex;
+.model-toggles__row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
   align-items: center;
-  gap: var(--spacing-xs);
+  gap: var(--spacing-md);
+  min-height: 32px;
+}
+.model-toggles__name {
   min-width: 0;
-  padding: 2px var(--spacing-sm);
-  border: 1px solid var(--st-border);
-  border-radius: var(--radius-sm);
-  background: var(--st-bg-elevated);
+  overflow: hidden;
   color: var(--st-text-primary);
-  font-size: 12px;
-  font-family: inherit;
-  cursor: pointer;
-}
-.model-toggle:hover:not(:disabled) {
-  border-color: var(--st-border-active);
-}
-.model-toggle:disabled {
-  cursor: default;
-}
-.model-toggle__name {
-  min-width: 0;
-  overflow-wrap: anywhere;
-}
-.model-toggle__state {
-  color: var(--st-text-muted);
-  font-size: 11px;
+  text-overflow: ellipsis;
   white-space: nowrap;
 }
-.model-toggle--available {
-  border-style: dashed;
-  background: transparent;
-}
-.model-toggle--available .model-toggle__name {
+.model-toggles__row--available .model-toggles__name {
   color: var(--st-text-muted);
 }
-.model-toggle--retired {
-  border-style: dashed;
-  border-color: var(--st-warning);
-  background: transparent;
-}
-.model-toggle--retired .model-toggle__name {
-  color: var(--st-text-muted);
-  text-decoration: line-through;
-}
-.model-toggle--retired .model-toggle__state {
+.model-toggles__row--retired .model-toggles__name {
   color: var(--st-warning);
 }
 </style>

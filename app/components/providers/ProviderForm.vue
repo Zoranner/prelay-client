@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Button, FormField, Input, Select } from "@stellar/ui";
+import { Alert, Button, EmptyState, FormField, Input, Select } from "@stellar/ui";
 import type { CatalogProvider, Provider } from "~/stores/relay";
 import {
   type ProviderFormPayload,
@@ -111,9 +111,9 @@ const retiredNotice = computed(() => props.retired || retiredProvider.value);
 
 <template>
   <form id="provider-form" class="provider-form" @submit.prevent="submit">
-    <p v-if="retiredNotice" class="retired-notice">
+    <Alert v-if="retiredNotice" semantic="warning" icon="ph:warning-circle">
       该供应商的目录条目已下架：现有模型可以继续使用，配置不能再修改，只能删除。
-    </p>
+    </Alert>
     <section class="form-section">
       <h3>连接配置</h3>
       <div class="form-fields">
@@ -220,9 +220,15 @@ const retiredNotice = computed(() => props.retired || retiredProvider.value);
             :can-toggle="canEdit !== false && !pending"
             @remove="removeRetiredModel"
           />
-          <p class="retired-hint">这些模型必须移除后才能保存。</p>
+          <Alert semantic="warning" size="small">
+            保存前需要移除这些模型。
+          </Alert>
         </div>
-        <p v-if="!models.length" class="empty-text">暂无模型。</p>
+        <EmptyState
+          v-if="!models.length"
+          size="small"
+          title="该目录条目没有模型"
+        />
       </div>
     </section>
   </form>
@@ -242,17 +248,10 @@ const retiredNotice = computed(() => props.retired || retiredProvider.value);
 .form-section {
   margin: 0;
 }
-.form-section h3,
-.form-section p {
-  margin: 0;
-}
 .form-section h3 {
+  margin: 0;
   color: var(--st-text-primary);
   font-size: 15px;
-}
-.form-section p,
-.empty-text {
-  color: var(--st-text-secondary);
 }
 .protocol-url-row {
   display: flex;
@@ -333,32 +332,5 @@ const retiredNotice = computed(() => props.retired || retiredProvider.value);
   font-family: var(--font-family-mono);
   font-size: 12px;
   font-weight: 500;
-}
-.model-tags {
-  display: flex;
-  min-width: 0;
-  flex-wrap: wrap;
-  gap: var(--spacing-xs);
-}
-.model-tag {
-  max-width: 100%;
-  white-space: normal;
-  overflow-wrap: anywhere;
-}
-.model-group--retired h4 {
-  color: var(--st-warning);
-}
-.retired-notice,
-.retired-hint {
-  margin: 0;
-  color: var(--st-warning);
-}
-.retired-notice {
-  padding: var(--spacing-sm);
-  border: 1px solid var(--st-warning);
-  border-radius: var(--radius-sm);
-}
-.empty-text {
-  grid-column: 1 / -1;
 }
 </style>

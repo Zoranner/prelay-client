@@ -48,13 +48,21 @@ test("供应商模型点击启停并随表单提交启用清单", () => {
   expect(pageSource).toContain("models: payload.models");
 });
 
-test("三种模型状态通过独立组件呈现，不改动 Tag 用途", () => {
-  expect(togglesSource).toContain('type="button"');
-  expect(togglesSource).toContain(":aria-pressed=");
-  expect(togglesSource).toContain("model-toggle--available");
-  expect(togglesSource).toContain("model-toggle--retired");
-  expect(togglesSource).toContain('emit("remove"');
-  expect(togglesSource).not.toContain("@stellar/ui");
+test("模型开关用组件库的 Toggle 呈现状态，不用文字标注启停", () => {
+  expect(togglesSource).toContain('from "@stellar/ui"');
+  expect(togglesSource).toContain("<Toggle");
+  expect(togglesSource).toContain(":disabled=");
+  expect(togglesSource).toContain("emit('remove'");
+  expect(togglesSource).toContain("ph:trash");
+  expect(togglesSource).not.toContain("已启用");
+  expect(togglesSource).not.toContain("未启用");
+});
+
+test("模型清单的提示与空态用组件库组件呈现", () => {
+  expect(providerFormSource).toContain("<Alert");
+  expect(providerFormSource).toContain("<EmptyState");
+  expect(providerFormSource).not.toContain("retired-hint");
+  expect(providerFormSource).not.toContain("empty-text");
 });
 
 test("已下架模型必须移除后才能保存", () => {
