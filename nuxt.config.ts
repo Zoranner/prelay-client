@@ -12,7 +12,9 @@ export default defineNuxtConfig({
     provider: "none",
     componentName: "NuxtIcon",
     clientBundle: {
-      scan: true,
+      scan: {
+        globInclude: ["**/*.{vue,jsx,tsx,ts,md,mdc,mdx,yml,yaml}"],
+      },
     },
   },
   compatibilityDate: "2026-08-19",

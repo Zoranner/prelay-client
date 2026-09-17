@@ -33,16 +33,31 @@ test("Nuxt 将应用图标打包到客户端且不使用远程图标服务", () 
   expect(nuxtConfig).toContain('provider: "none"');
   expect(nuxtConfig).toContain('componentName: "NuxtIcon"');
   expect(nuxtConfig).toContain("clientBundle:");
-  expect(nuxtConfig).toContain("scan: true");
+  expect(nuxtConfig).toContain("scan: {");
+  expect(nuxtConfig).toContain("globInclude:");
   expect(nuxtConfig).not.toContain("icons: [");
   expect(nuxtConfig).not.toContain("stellarStyles");
   expect(nuxtConfig).not.toContain("modules:done");
 });
 
 test("Nuxt 启动扫描能够发现宿主源码中的字面量图标", async () => {
-  const icons = await new IconUsageScanner(true).scanFiles(projectRoot);
+  const nuxtConfig = readFileSync(
+    new URL("../nuxt.config.ts", import.meta.url),
+    "utf8",
+  );
+  const globIncludeMatch = nuxtConfig.match(/globInclude: \[([^\]]*)\]/);
+
+  expect(globIncludeMatch).not.toBeNull();
+
+  const globInclude = JSON.parse(`[${globIncludeMatch?.[1]}]`) as string[];
+  const icons = await new IconUsageScanner({ globInclude }).scanFiles(
+    projectRoot,
+  );
 
   expect(icons).toContain("ph:sliders-horizontal");
+  expect(icons).toContain("ph:notebook");
+  expect(icons).toContain("ph:terminal-window");
+  expect(icons).toContain("ph:book-open-text");
 });
 
 test("生成的离线 bundle 同时包含业务与组件库固定图标", () => {
