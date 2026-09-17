@@ -10,10 +10,17 @@ import DesktopPreferencesDialog from "~/components/settings/DesktopPreferencesDi
 import DashboardShell from "~/components/dashboard/DashboardShell.vue";
 import { setModelCatalog } from "~/utils/modelCatalog";
 import { loadModelCatalogRequest } from "~/utils/modelCatalog";
+import { errorDetail, errorText } from "~/utils/errors";
 
 const managementApi = useRelayManagementApiStatus();
 const { invokeCommand } = useRelayCommand();
 const managementApiError = computed(() => managementApi.error.value);
+const managementErrorText = computed(() =>
+  managementApiError.value ? errorText(managementApiError.value) : "",
+);
+const managementErrorDetail = computed(() =>
+  managementApiError.value ? errorDetail(managementApiError.value) : null,
+);
 const relaySettings = useRelaySettings();
 const desktopPreferences = useDesktopPreferences();
 const desktopPreferencesDialog = useDesktopPreferencesDialog();
@@ -100,7 +107,10 @@ function isDesktopRuntime() {
         title="无法连接服务地址"
         description="当前无法访问配置的服务地址。"
       >
-        <p class="app-error-detail">{{ managementApiError.message }}</p>
+        <p class="app-error-detail">{{ managementErrorText }}</p>
+        <p v-if="managementErrorDetail" class="app-error-detail">
+          {{ managementErrorDetail }}
+        </p>
         <Button @click="switchRelayAddress">切换服务地址</Button>
         <Button semantic="primary" variant="solid" @click="reloadApplication">
           重新加载

@@ -176,3 +176,55 @@ impl ServerErrorBody {
         }
     }
 }
+
+#[cfg(test)]
+mod envelope_tests {
+    use super::ServerErrorEnvelope;
+
+    #[test]
+    fn reads_the_management_error_envelope_with_its_code() {
+        let envelope: ServerErrorEnvelope = serde_json::from_value(serde_json::json!({
+            "error": {
+                "code": "provider_not_visible",
+                "message": "provider is not visible to identity"
+            }
+        }))
+        .expect("management error envelope must parse");
+
+        assert_eq!(
+            envelope.error.into_parts(),
+            (
+                Some("provider_not_visible".to_string()),
+                Some("provider is not visible to identity".to_string())
+            )
+        );
+    }
+
+    #[test]
+    fn keeps_reading_unknown_codes_from_a_newer_server() {
+        let envelope: ServerErrorEnvelope = serde_json::from_value(serde_json::json!({
+            "error": { "code": "code_from_a_newer_server", "message": "future failure" }
+        }))
+        .expect("unknown codes must stay parseable");
+
+        assert_eq!(
+            envelope.error.into_parts(),
+            (
+                Some("code_from_a_newer_server".to_string()),
+                Some("future failure".to_string())
+            )
+        );
+    }
+
+    #[test]
+    fn still_reads_a_message_only_error_body() {
+        let envelope: ServerErrorEnvelope =
+            serde_json::from_value(serde_json::json!({ "error": "上游请求失败: 403 Forbidden" }))
+                .expect("message-only error bodies must stay parseable");
+
+        assert_eq!(
+            envelope.error.into_parts(),
+            (None, Some("上游请求失败: 403 Forbidden".to_string()))
+        );
+    }
+}

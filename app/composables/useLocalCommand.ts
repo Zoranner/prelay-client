@@ -2,7 +2,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { computed, ref } from "vue";
 import { useNotification } from "@stellar/ui";
 
-import { toRelayError, type RelayError } from "~/utils/errors";
+import { errorText, toRelayError, type RelayError } from "~/utils/errors";
 
 export type LocalCommand =
   | "agents_status"
@@ -37,7 +37,7 @@ export function useLocalCommand() {
       const localError = toRelayError(caught);
       if (notify) {
         error.value = localError;
-        notifications.error(localError.message, { title: "本地操作失败" });
+        notifications.error(errorText(localError), { title: "本地操作失败" });
       }
       throw localError;
     } finally {

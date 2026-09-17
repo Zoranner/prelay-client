@@ -1,7 +1,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import { useNotification } from "@stellar/ui";
 
-import { toRelayError } from "~/utils/errors";
+import { errorText, toRelayError } from "~/utils/errors";
 
 interface DownloadedClientUpdate {
   version: string;
@@ -41,7 +41,7 @@ export function useClientUpdate() {
     } catch (caught) {
       const error = toRelayError(caught);
       if (error.code !== "client_update_unavailable") {
-        notifications.warning(error.message, { title: "更新检查失败" });
+        notifications.warning(errorText(error), { title: "更新检查失败" });
       }
       state.value = "idle";
     }
@@ -62,7 +62,7 @@ export function useClientUpdate() {
       visible.value = true;
     } catch (caught) {
       const error = toRelayError(caught);
-      notifications.warning(error.message, { title: "更新下载失败" });
+      notifications.warning(errorText(error), { title: "更新下载失败" });
       state.value = "available";
     }
   }
@@ -87,7 +87,7 @@ export function useClientUpdate() {
       });
     } catch (caught) {
       const error = toRelayError(caught);
-      notifications.error(error.message, { title: "启动安装程序失败" });
+      notifications.error(errorText(error), { title: "启动安装程序失败" });
       installing.value = false;
     }
   }
