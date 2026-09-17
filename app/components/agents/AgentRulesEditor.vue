@@ -82,7 +82,6 @@ onBeforeUnmount(unbindScroll);
   grid-template-rows: minmax(0, 1fr);
   gap: var(--spacing-xl);
   overflow: hidden;
-  padding: 0 0 var(--spacing-lg);
 }
 
 .agent-rules__editor,

@@ -87,7 +87,7 @@ test("规则编辑器独立负责输入、预览和滚动同步", () => {
   expect(rulesEditor).toContain("onBeforeUnmount");
   expect(rulesEditor).toContain("agent-rules__editor");
   expect(rulesEditor).toContain("agent-rules__preview");
-  expect(rulesEditor).toContain("padding: 0 0 var(--spacing-lg);");
+  expect(rulesEditor).not.toContain("padding: 0 0 var(--spacing-lg);");
   expect(source("components/agents/AgentWorkspaceContent.vue")).not.toContain(
     "padding-top: var(--spacing-md);",
   );
