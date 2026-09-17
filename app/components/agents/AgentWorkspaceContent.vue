@@ -145,11 +145,12 @@ function updateExtensionSection(value: string | number | boolean | null) {
             </Button>
           </div>
         </div>
-        <AgentRulesEditor
-          v-if="activeSection === 'rules'"
-          :model-value="rules"
-          @update:model-value="emit('update:rules', $event)"
-        />
+        <div v-if="activeSection === 'rules'" class="item-results">
+          <AgentRulesEditor
+            :model-value="rules"
+            @update:model-value="emit('update:rules', $event)"
+          />
+        </div>
         <div v-else class="item-results">
           <AgentItemList
             :items="sectionItems"
