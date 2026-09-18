@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Button, Table, Tag } from "@stellar/ui";
+import { Button, Table, TagGroup } from "@stellar/ui";
 import type { EndpointModel, RelayEndpoint } from "~/stores/relay";
 import { modelCatalogLabel } from "~/utils/modelCatalog";
 
@@ -41,6 +41,10 @@ function modelLabel(model: EndpointModel) {
     modelCatalogLabel(model.model_name || model.upstream_model)
   );
 }
+
+function modelLabels(row: EndpointRow) {
+  return row.models.map(modelLabel);
+}
 </script>
 
 <template>
@@ -72,18 +76,7 @@ function modelLabel(model: EndpointModel) {
       </Button>
     </template>
     <template #cell-models="{ row }">
-      <div class="endpoint-models">
-        <Tag
-          v-for="model in row.models.slice(0, 3)"
-          :key="model.id ?? `${model.provider_id}-${model.model_name}`"
-          size="small"
-        >
-          {{ modelLabel(model) }}
-        </Tag>
-        <Tag v-if="row.models.length > 3" size="small"
-          >+{{ row.models.length - 3 }}</Tag
-        >
-      </div>
+      <TagGroup :items="modelLabels(row)" />
     </template>
     <template #cell-actions="{ row }">
       <div class="actions">
@@ -149,13 +142,6 @@ function modelLabel(model: EndpointModel) {
   display: flex;
   justify-content: flex-end;
   gap: var(--spacing-xs);
-}
-
-.endpoint-models {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--spacing-xs);
-  white-space: nowrap;
 }
 
 .endpoint-table {
