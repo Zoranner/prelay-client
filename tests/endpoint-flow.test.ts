@@ -159,13 +159,13 @@ test("接入点表格收缩长名称和 Token 列而保持操作列可用", () =
   expect(endpointList).not.toContain('icon="ph:arrows-clockwise"');
 });
 
-test("接入点表格以模型标签展示前三个模型并汇总其余数量", () => {
+test("接入点表格的模型列交给组件库标签组按宽度折叠", () => {
   expect(endpointList).not.toContain('key: "protocol"');
   expect(endpointList).not.toContain("protocolLabel");
   expect(endpointList).toContain('layout="auto"');
-  expect(endpointList).toContain("row.models.slice(0, 3)");
-  expect(endpointList).toContain("+{{ row.models.length - 3 }}");
-  expect(endpointList).toContain("<Tag");
+  expect(endpointList).toContain("<TagGroup");
+  expect(endpointList).toContain("modelLabels(row)");
+  expect(endpointList).not.toContain("slice(0, 3)");
   expect(endpointList).not.toContain("<Badge");
 });
 
