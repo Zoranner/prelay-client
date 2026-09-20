@@ -77,8 +77,7 @@ export function errorText(error: RelayError): string {
 
   const statusCode = httpStatusOf(error.message);
   if (statusCode) {
-    const explanation =
-      httpStatusExplanations[statusCode] ?? "拒绝了本次请求";
+    const explanation = httpStatusExplanations[statusCode] ?? "拒绝了本次请求";
     return `管理服务${explanation}（HTTP ${statusCode}）。`;
   }
 

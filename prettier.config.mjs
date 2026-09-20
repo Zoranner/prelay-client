@@ -1,3 +1,3 @@
 export default {
-  endOfLine: "lf",
+  endOfLine: "auto",
 };

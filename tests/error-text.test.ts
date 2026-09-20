@@ -62,7 +62,10 @@ test("未识别的错误码回退到原始消息并作为详情展示", () => {
 });
 
 test("已知错误码不再暴露原始诊断", () => {
-  const error = { code: "network_error", message: "reqwest::Error { kind: Request }" };
+  const error = {
+    code: "network_error",
+    message: "reqwest::Error { kind: Request }",
+  };
 
   expect(errorText(error)).toContain("无法连接");
   expect(errorDetail(error)).toBeNull();
@@ -82,7 +85,9 @@ test("没有消息的未知错误给出兜底文案", () => {
 });
 
 test("错误字符串仍按已知错误码识别", () => {
-  expect(toRelayError("network_error: unable to reach the relay management API")).toEqual({
+  expect(
+    toRelayError("network_error: unable to reach the relay management API"),
+  ).toEqual({
     code: "network_error",
     message: "network_error: unable to reach the relay management API",
   });

@@ -7,10 +7,7 @@ import {
   moveEndpointMapping,
   normalizeEndpointModelIdentities,
 } from "../app/utils/endpointModels";
-import {
-  modelCatalogEntry,
-  setModelCatalog,
-} from "../app/utils/modelCatalog";
+import { modelCatalogEntry, setModelCatalog } from "../app/utils/modelCatalog";
 import { readFileSync } from "node:fs";
 
 test("接入点候选顺序只在同一模型分组内上下调整", () => {

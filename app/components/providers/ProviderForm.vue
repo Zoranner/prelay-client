@@ -1,5 +1,12 @@
 <script setup lang="ts">
-import { Alert, Button, EmptyState, FormField, Input, Select } from "@stellar/ui";
+import {
+  Alert,
+  Button,
+  EmptyState,
+  FormField,
+  Input,
+  Select,
+} from "@stellar/ui";
 import type { CatalogProvider, Provider } from "~/stores/relay";
 import {
   type ProviderFormPayload,
@@ -76,7 +83,9 @@ function submit() {
 function enabledCount(models: ProviderModelToggle[]) {
   // 已下架的模型还在供应商清单里，算在开启数里，由红色标签标出问题。
   const enabled = models.filter((model) => model.state !== "available").length;
-  return enabled === models.length ? models.length : `${enabled} / ${models.length}`;
+  return enabled === models.length
+    ? models.length
+    : `${enabled} / ${models.length}`;
 }
 
 function toggleRows(
