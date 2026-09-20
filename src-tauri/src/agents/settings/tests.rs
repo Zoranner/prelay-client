@@ -249,3 +249,87 @@ fn deserializes_the_settings_save_payload_sent_by_the_desktop_console() {
         AgentConnection::OpenCode(OpenCodeConnection::Prelay { .. })
     ));
 }
+
+#[test]
+fn saves_auto_compact_limits_from_the_selected_model() {
+    let directory = tempdir().unwrap();
+    let codex_root = directory.path().join(".codex");
+    fs::create_dir_all(&codex_root).unwrap();
+    fs::write(
+        codex_root.join("config.toml"),
+        "model_context_window = 1\nmodel_auto_compact_token_limit = 1\n",
+    )
+    .unwrap();
+
+    let settings = CodexSettings {
+        model: Some("deepseek-v4-pro".to_string()),
+        ..Default::default()
+    };
+    let connection = CodexConnection::Prelay {
+        endpoint_id: "endpoint-id".to_string(),
+        endpoint_name: "Prelay".to_string(),
+        relay_url: "https://relay.example.test/".to_string(),
+        endpoint_token: "endpoint-token".to_string(),
+        models: vec![serde_json::from_value(serde_json::json!({
+            "id": "deepseek-v4-pro",
+            "display_name": "DeepSeek V4 Pro",
+            "context_window": 1048576,
+        }))
+        .expect("catalog model")],
+    };
+
+    save_user_settings(
+        directory.path(),
+        &AgentSettings::CodexCli(settings),
+        Some(&AgentConnection::CodexCli(connection)),
+    )
+    .unwrap();
+
+    let saved = fs::read_to_string(codex_root.join("config.toml")).unwrap();
+    let config: toml::Value = toml::from_str(&saved).unwrap();
+    assert_eq!(config["model_context_window"].as_integer(), Some(1048576));
+    assert_eq!(
+        config["model_auto_compact_token_limit"].as_integer(),
+        Some(943718)
+    );
+}
+
+#[test]
+fn removes_auto_compact_limits_when_the_model_window_is_unknown() {
+    let directory = tempdir().unwrap();
+    let codex_root = directory.path().join(".codex");
+    fs::create_dir_all(&codex_root).unwrap();
+    fs::write(
+        codex_root.join("config.toml"),
+        "model = \"unknown-model\"\nmodel_context_window = 1\nmodel_auto_compact_token_limit = 1\n",
+    )
+    .unwrap();
+
+    let settings = CodexSettings {
+        model: Some("unknown-model".to_string()),
+        ..Default::default()
+    };
+    let connection = CodexConnection::Prelay {
+        endpoint_id: "endpoint-id".to_string(),
+        endpoint_name: "Prelay".to_string(),
+        relay_url: "https://relay.example.test/".to_string(),
+        endpoint_token: "endpoint-token".to_string(),
+        models: vec![serde_json::from_value(serde_json::json!({
+            "id": "unknown-model",
+            "display_name": "Unknown Model",
+        }))
+        .expect("catalog model")],
+    };
+
+    save_user_settings(
+        directory.path(),
+        &AgentSettings::CodexCli(settings),
+        Some(&AgentConnection::CodexCli(connection)),
+    )
+    .unwrap();
+
+    let saved = fs::read_to_string(codex_root.join("config.toml")).unwrap();
+    let config: toml::Value = toml::from_str(&saved).unwrap();
+    assert!(config.get("model_context_window").is_none());
+    assert!(config.get("model_auto_compact_token_limit").is_none());
+}

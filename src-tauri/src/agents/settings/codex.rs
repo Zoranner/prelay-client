@@ -24,6 +24,8 @@ pub(super) fn save_codex_settings(
     let config_path = home.join(".codex").join("config.toml");
     let mut document = read_toml_document(&config_path)?;
     set_item(&mut document, "model", settings.model.as_deref());
+    // Codex 只在显式配置阈值时才按固定 token 数自动压缩，这里跟随所选模型的目录窗口。
+    apply_auto_compact_settings(&mut document, settings.model.as_deref(), connection);
     set_item(
         &mut document,
         "model_reasoning_effort",
@@ -326,5 +328,48 @@ pub(super) fn read_codex_settings(home: &Path) -> CodexSettings {
             ),
         },
         rules: read_optional_text(&home.join(".codex").join("AGENTS.md")),
+    }
+}
+
+/// Codex 按 `model_auto_compact_token_limit` 触发本地自动压缩；模型窗口未知时移除这两个键。
+fn apply_auto_compact_settings(
+    document: &mut DocumentMut,
+    model: Option<&str>,
+    connection: Option<&CodexConnection>,
+) {
+    /// 上下文窗口用到九成时触发压缩。
+    const AUTO_COMPACT_PERCENT: u64 = 90;
+
+    let context_window = connection
+        .map(|connection| match connection {
+            CodexConnection::Prelay { models, .. } => models.as_slice(),
+        })
+        .and_then(|models| {
+            models
+                .iter()
+                .find(|entry| Some(entry.id.as_str()) == model)
+                .and_then(|entry| entry.context_window)
+        })
+        .filter(|context_window| *context_window > 0);
+
+    match context_window {
+        Some(context_window) => {
+            set_table_integer(
+                document.as_table_mut(),
+                "model_context_window",
+                Some(context_window),
+            );
+            set_table_integer(
+                document.as_table_mut(),
+                "model_auto_compact_token_limit",
+                Some(context_window * AUTO_COMPACT_PERCENT / 100),
+            );
+        }
+        None => {
+            document.as_table_mut().remove("model_context_window");
+            document
+                .as_table_mut()
+                .remove("model_auto_compact_token_limit");
+        }
     }
 }
