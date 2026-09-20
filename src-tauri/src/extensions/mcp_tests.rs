@@ -1,4 +1,4 @@
-use std::fs;
+use std::{fs, path::MAIN_SEPARATOR};
 
 use prelay_protocol::{ExtensionMcpManifest, ExtensionMcpTransport};
 use tempfile::tempdir;
@@ -184,8 +184,9 @@ fn expands_user_directory_variables_in_command_arguments() {
         .filter_map(toml::Value::as_str)
         .collect::<Vec<_>>();
     let home = directory.path().display().to_string();
-    let documents = format!("{home}\\Documents");
-    let tool = format!("{home}\\AppData\\Roaming\\SomeTool");
+    let documents = format!("{home}{MAIN_SEPARATOR}Documents");
+    let tool =
+        format!("{home}{MAIN_SEPARATOR}AppData{MAIN_SEPARATOR}Roaming{MAIN_SEPARATOR}SomeTool");
     assert_eq!(args[0], "mcp-server-filesystem");
     assert_eq!(args[1], documents.as_str());
     assert_eq!(args[2], tool.as_str());
