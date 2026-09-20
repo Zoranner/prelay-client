@@ -1,7 +1,7 @@
 use std::{
     collections::{BTreeMap, BTreeSet},
     fs,
-    path::{Path, PathBuf},
+    path::{Path, PathBuf, MAIN_SEPARATOR, MAIN_SEPARATOR_STR},
 };
 
 use prelay_protocol::{ExtensionMcpManifest, ExtensionMcpTransport};
@@ -322,6 +322,7 @@ fn expand_user_directories(value: &str, home: &Path) -> String {
     ];
     let mut expanded = String::with_capacity(value.len());
     let mut rest = value;
+    let mut replaced_variable = false;
     while let Some(index) = rest.find('%') {
         expanded.push_str(&rest[..index]);
         let tail = &rest[index..];
@@ -336,6 +337,7 @@ fn expand_user_directories(value: &str, home: &Path) -> String {
         {
             Some((name, replacement)) => {
                 expanded.push_str(replacement);
+                replaced_variable = true;
                 rest = &tail[name.len()..];
             }
             None => {
@@ -345,6 +347,9 @@ fn expand_user_directories(value: &str, home: &Path) -> String {
         }
     }
     expanded.push_str(rest);
+    if replaced_variable && MAIN_SEPARATOR != '\\' {
+        expanded = expanded.replace('\\', MAIN_SEPARATOR_STR);
+    }
     expanded
 }
 
