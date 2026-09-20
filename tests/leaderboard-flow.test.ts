@@ -22,11 +22,14 @@ test("仪表盘通过 Tauri 展示全用户活动排行榜", () => {
   expect(page).toContain('"stats_leaderboard"');
   expect(page).toContain('metric: "total_tokens"');
   expect(table).toContain("用户排行榜");
-  expect(table).toContain('import { Avatar, Card } from "@stellar/ui"');
+  expect(table).toContain(
+    'import { Avatar, Card, Skeleton } from "@stellar/ui"',
+  );
   expect(table).not.toContain("<List");
   expect(table).not.toContain("ListItem");
   expect(table).toContain("<ol");
-  expect(table).toContain('<Card full-height class="user-leaderboard-card"');
+  expect(table).toContain('<Card class="user-leaderboard-card"');
+  expect(table).not.toContain("overflow-y: auto");
   expect(table).not.toContain("<Table");
   expect(table).not.toContain("const columns");
   expect(table).not.toContain("success_rate");
@@ -38,7 +41,8 @@ test("仪表盘通过 Tauri 展示全用户活动排行榜", () => {
   expect(table).toContain("display: grid");
   expect(table).toContain("justify-self: start");
   expect(table).toContain("justify-self: end");
-  expect(table).not.toContain("rows.length");
+  // 卡片不展示上榜人数（个人视角只报自己的名次）
+  expect(table).not.toContain("共 ");
   expect(table).not.toContain(" 人");
   expect(table).toContain(
     'import { identityAvatarSrc } from "~/utils/identityAvatar"',
@@ -50,12 +54,27 @@ test("仪表盘通过 Tauri 展示全用户活动排行榜", () => {
   expect(table).toContain("grid-template-columns: 40px minmax(0, 1fr) 24px");
   expect(table).toContain("text-align: right");
   expect(table).toContain("align-self: center");
-  expect(page).toContain('class="dashboard-primary-grid"');
+  expect(table).toContain("container-type: inline-size");
+  expect(table).toContain("@container (max-width: 260px)");
+  expect(table).toContain("@container (max-width: 200px)");
+  expect(table).toContain("grid-template-columns: 40px minmax(0, 1fr) 18px");
+  expect(table).toContain("white-space: nowrap");
+  expect(page).toContain('class="dashboard-main"');
+  expect(page).toContain('class="dashboard-rail"');
   expect(page).not.toContain("current-avatar-seed");
   expect(page).not.toContain("current-display-name");
-  expect(page).toContain("grid-template-columns: repeat(6, minmax(0, 1fr))");
-  expect(page).toContain("grid-template-columns: repeat(3, minmax(0, 1fr))");
-  expect(page).toContain("grid-template-columns: repeat(2, minmax(0, 1fr))");
+  expect(page).toContain(
+    "grid-template-columns: minmax(0, 1fr) clamp(260px, 24vw, 320px)",
+  );
+  expect(page).not.toContain("grid-column: span");
   expect(page).toContain("grid-template-columns: 1fr");
   expect(page).not.toContain("estimated_cost");
+  expect(page).toContain("<ModelLeaderboard");
+  expect(page).toContain(
+    '<UserLeaderboardTable :rows="leaderboardRows" :loading="pending" />',
+  );
+  expect(page).toContain(
+    '<ModelLeaderboard :rows="models" :loading="pending" />',
+  );
+  expect(page).not.toContain("<ActivityHeatmap");
 });

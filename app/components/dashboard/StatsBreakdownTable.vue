@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { Table } from "@stellar/ui";
 import { modelCatalogLabel } from "~/utils/modelCatalog";
+import { formatTokens } from "~/utils/tokenFormat";
 
 type StatsBreakdownRow = Record<string, unknown> & {
   id: string;
@@ -33,12 +34,6 @@ const columns = [
     align: "right" as const,
   },
 ];
-
-function formatTokens(value: number) {
-  if (value >= 1_000_000) return `${(value / 1_000_000).toFixed(1)}M`;
-  if (value >= 1_000) return `${(value / 1_000).toFixed(1)}K`;
-  return value.toLocaleString("zh-CN");
-}
 
 function formatLatency(value: number | null) {
   if (value === null) return "-";
@@ -104,7 +99,7 @@ function rowName(row: StatsBreakdownRow) {
   height: 272px;
   min-width: 0;
   flex-direction: column;
-  gap: var(--spacing-sm);
+  gap: var(--spacing-md);
 }
 
 .stats-breakdown-table__header {

@@ -2,6 +2,7 @@
 import type {
   ModelStats,
   ProviderStats,
+  StatsScope,
   StatsOverview,
   StatsRange,
   TokenUsageTimelinePoint,
@@ -10,7 +11,9 @@ import type {
 import { Button } from "@stellar/ui";
 import StatsRangeSelect from "~/components/dashboard/StatsRangeSelect.vue";
 import StatsBreakdownTable from "~/components/dashboard/StatsBreakdownTable.vue";
+import ModelLeaderboard from "~/components/dashboard/ModelLeaderboard.vue";
 import StatsOverviewPanel from "~/components/dashboard/StatsOverview.vue";
+import StatsScopeSwitch from "~/components/dashboard/StatsScopeSwitch.vue";
 import TokenUsageTrendChart from "~/components/dashboard/TokenUsageTrendChart.vue";
 import PanelSection from "~/components/shell/PanelSection.vue";
 import UserLeaderboardTable from "~/components/dashboard/UserLeaderboardTable.vue";
@@ -26,6 +29,7 @@ const leaderboardRows = computed(() =>
   leaderboard.value.map((row) => ({ ...row })),
 );
 const selectedRange = ref<StatsRange>("this_week");
+const statsScope = ref<StatsScope>("personal");
 
 const modelRows = computed(() =>
   models.value.map((row, index) => ({
@@ -58,7 +62,8 @@ const providerRows = computed(() =>
 
 async function loadDashboard() {
   try {
-    const range = { range: selectedRange.value };
+    // 视角（个人 / 团队）对所有可切卡片生效；用户排行榜天生全站，不带 scope
+    const query = { range: selectedRange.value, scope: statsScope.value };
     const [
       overviewValue,
       modelRows,
@@ -66,10 +71,10 @@ async function loadDashboard() {
       timelineRows,
       leaderboardRows,
     ] = await Promise.all([
-      invokeCommand<StatsOverview>("stats_overview", range),
-      invokeCommand<ModelStats[]>("stats_models", range),
-      invokeCommand<ProviderStats[]>("stats_providers", range),
-      invokeCommand<TokenUsageTimelinePoint[]>("stats_timeline", range),
+      invokeCommand<StatsOverview>("stats_overview", query),
+      invokeCommand<ModelStats[]>("stats_models", query),
+      invokeCommand<ProviderStats[]>("stats_providers", query),
+      invokeCommand<TokenUsageTimelinePoint[]>("stats_timeline", query),
       invokeCommand<UserLeaderboardEntry[]>("stats_leaderboard", {
         range: selectedRange.value,
         metric: "total_tokens",
@@ -87,15 +92,22 @@ async function loadDashboard() {
 }
 
 onMounted(loadDashboard);
-watch(selectedRange, loadDashboard);
+watch([selectedRange, statsScope], loadDashboard);
 </script>
 
 <template>
   <main class="page-dashboard">
     <PanelSection title="仪表盘">
+      <template #header-inline>
+        <StatsScopeSwitch v-model="statsScope" />
+      </template>
       <template #header-actions>
-        <StatsRangeSelect v-model="selectedRange" />
+        <StatsRangeSelect
+          v-model="selectedRange"
+          class="dashboard-header-control"
+        />
         <Button
+          class="dashboard-header-control"
           semantic="primary"
           variant="solid"
           icon="ph:arrows-clockwise"
@@ -106,22 +118,25 @@ watch(selectedRange, loadDashboard);
         </Button>
       </template>
       <div class="dashboard-content">
-        <StatsOverviewPanel :overview="overview" />
-        <div class="dashboard-primary-grid">
+        <div class="dashboard-main">
+          <StatsOverviewPanel :overview="overview" />
           <TokenUsageTrendChart :points="timeline" :range="selectedRange" />
-          <UserLeaderboardTable :rows="leaderboardRows" />
+          <div class="dashboard-stat-lists">
+            <StatsBreakdownTable
+              empty-message="暂无供应商统计。"
+              :rows="providerRows"
+              title="供应商统计"
+            />
+            <StatsBreakdownTable
+              empty-message="暂无模型统计。"
+              :rows="modelRows"
+              title="模型统计"
+            />
+          </div>
         </div>
-        <div class="dashboard-stat-lists">
-          <StatsBreakdownTable
-            empty-message="暂无供应商统计。"
-            :rows="providerRows"
-            title="供应商统计"
-          />
-          <StatsBreakdownTable
-            empty-message="暂无模型统计。"
-            :rows="modelRows"
-            title="模型统计"
-          />
+        <div class="dashboard-rail">
+          <UserLeaderboardTable :rows="leaderboardRows" :loading="pending" />
+          <ModelLeaderboard :rows="models" :loading="pending" />
         </div>
       </div>
     </PanelSection>
@@ -129,6 +144,12 @@ watch(selectedRange, loadDashboard);
 </template>
 
 <style scoped>
+/* 表头控件保持固有宽度：RadioGroup 根节点自带 w-full，这里覆盖成自适应宽度 */
+.dashboard-header-control {
+  flex: 0 0 auto;
+  width: auto;
+}
+
 .page-dashboard {
   display: flex;
   height: 100%;
@@ -143,21 +164,22 @@ watch(selectedRange, loadDashboard);
   flex: 1;
   gap: var(--spacing-lg);
   overflow: auto;
+  /* 对齐系统：主列弹性，右栏随窗口在 260~320px 内收缩 */
+  grid-template-columns: minmax(0, 1fr) clamp(260px, 24vw, 320px);
+  align-items: start;
 }
 
-.dashboard-primary-grid {
+.dashboard-main {
   display: grid;
   min-width: 0;
-  grid-template-columns: repeat(6, minmax(0, 1fr));
   gap: var(--spacing-lg);
 }
 
-.dashboard-primary-grid > :first-child {
-  grid-column: span 5;
-}
-
-.dashboard-primary-grid > :last-child {
-  grid-column: span 1;
+.dashboard-rail {
+  display: grid;
+  min-width: 0;
+  align-content: start;
+  gap: var(--spacing-lg);
 }
 
 .dashboard-stat-lists {
@@ -167,32 +189,14 @@ watch(selectedRange, loadDashboard);
 }
 
 @media (max-width: 1180px) {
-  .dashboard-primary-grid {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
-
-  .dashboard-primary-grid > :first-child {
-    grid-column: span 2;
-  }
-
   .dashboard-stat-lists {
     grid-template-columns: 1fr;
   }
 }
 
-@media (max-width: 760px) {
-  .dashboard-primary-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .dashboard-primary-grid > :first-child,
-  .dashboard-primary-grid > :last-child {
-    grid-column: span 1;
-  }
-}
-
-@media (max-width: 560px) {
-  .dashboard-primary-grid {
+@media (max-width: 900px) {
+  /* 放不下两栏时右栏落到内容下方，而不是把卡片压窄 */
+  .dashboard-content {
     grid-template-columns: 1fr;
   }
 }

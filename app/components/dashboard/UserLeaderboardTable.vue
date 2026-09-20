@@ -1,30 +1,33 @@
 <script setup lang="ts">
-import { Avatar, Card } from "@stellar/ui";
+import { Avatar, Card, Skeleton } from "@stellar/ui";
 
 import type { UserLeaderboardEntry } from "~/stores/relay";
 import { identityAvatarSrc } from "~/utils/identityAvatar";
+import { formatTokens } from "~/utils/tokenFormat";
 
 type UserLeaderboardRow = UserLeaderboardEntry & Record<string, unknown>;
 
-defineProps<{
+const props = defineProps<{
   rows: UserLeaderboardRow[];
+  loading?: boolean;
 }>();
-
-function formatTokens(value: number) {
-  if (value >= 1_000_000) return `${(value / 1_000_000).toFixed(1)}M`;
-  if (value >= 1_000) return `${(value / 1_000).toFixed(1)}K`;
-  return value.toLocaleString("zh-CN");
-}
 </script>
 
 <template>
-  <Card full-height class="user-leaderboard-card" :hoverable="false">
+  <Card class="user-leaderboard-card" :hoverable="false">
     <section class="user-leaderboard">
       <header class="user-leaderboard__header">
         <h2>用户排行榜</h2>
         <span>总 Token</span>
       </header>
-      <ol class="user-leaderboard__list">
+      <Skeleton
+        v-if="props.loading && !props.rows.length"
+        :rows="6"
+        avatar
+        avatar-size="large"
+        animated
+      />
+      <ol v-else class="user-leaderboard__list">
         <li
           v-for="row in rows"
           :key="row.identity_id"
@@ -54,17 +57,15 @@ function formatTokens(value: number) {
 
 <style scoped>
 .user-leaderboard-card {
-  height: 400px;
   min-width: 0;
-  overflow: hidden;
 }
 
 .user-leaderboard {
   display: flex;
-  height: 100%;
   min-width: 0;
   flex-direction: column;
-  gap: var(--spacing-lg);
+  gap: var(--spacing-md);
+  container-type: inline-size;
 }
 
 .user-leaderboard__header {
@@ -80,25 +81,27 @@ function formatTokens(value: number) {
 }
 
 .user-leaderboard__header h2 {
+  min-width: 0;
+  overflow: hidden;
   color: var(--st-text-primary);
   font-size: 15px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .user-leaderboard__header span {
+  flex: 0 0 auto;
   color: var(--st-text-secondary);
   font-size: 12px;
+  white-space: nowrap;
 }
 
 .user-leaderboard__list {
   display: grid;
-  min-height: 0;
-  flex: 1;
   margin: 0;
   padding: 0;
-  overflow-y: auto;
   list-style: none;
   gap: var(--spacing-md);
-  align-content: start;
 }
 
 .user-leaderboard__item {
@@ -161,5 +164,40 @@ function formatTokens(value: number) {
   font-size: 12px;
   font-weight: 500;
   text-align: left;
+}
+
+/* 卡片变窄时按容器宽度收紧，不换行、不横向滚动。 */
+@container (max-width: 260px) {
+  .user-leaderboard__item {
+    grid-template-columns: 40px minmax(0, 1fr) 20px;
+    column-gap: var(--spacing-xs);
+  }
+
+  .leaderboard-rank {
+    width: 20px;
+    height: 20px;
+    font-size: 11px;
+  }
+}
+
+@container (max-width: 200px) {
+  .user-leaderboard__item {
+    grid-template-columns: 40px minmax(0, 1fr) 18px;
+  }
+
+  .leaderboard-rank {
+    width: 18px;
+    height: 18px;
+    font-size: 10px;
+  }
+
+  .user-leaderboard__header h2 {
+    font-size: 14px;
+  }
+
+  /* 标题行只留标题，右侧的总量说明让位，避免折行。 */
+  .user-leaderboard__header span {
+    display: none;
+  }
 }
 </style>

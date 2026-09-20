@@ -37,13 +37,13 @@ const statusOptions = [
   { label: "失败", value: "failed" },
 ];
 const requestColumns = [
-  { key: "created_at", title: "时间", width: 176, ellipsis: true },
-  { key: "endpoint_name", title: "接入点" },
+  { key: "created_at", title: "时间", width: 160, ellipsis: true },
+  { key: "endpoint_name", title: "接入点", minWidth: 96 },
   { key: "model_requested", title: "请求模型", ellipsis: true },
   { key: "upstream", title: "供应商 / 上游模型" },
   { key: "protocol_in", title: "协议" },
   { key: "mode", title: "模式", width: 80, ellipsis: true },
-  { key: "status", title: "状态", width: 112, ellipsis: true },
+  { key: "status", title: "状态", width: 88, ellipsis: true },
   { key: "input", title: "输入" },
   { key: "output", title: "输出" },
   { key: "latency", title: "耗时" },

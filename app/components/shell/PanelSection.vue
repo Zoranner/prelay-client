@@ -7,7 +7,10 @@ defineProps<{
 <template>
   <section class="panel-section">
     <header class="panel-section-header">
-      <h2 class="panel-section-title">{{ title }}</h2>
+      <div class="panel-section-heading">
+        <h2 class="panel-section-title">{{ title }}</h2>
+        <slot name="header-inline" />
+      </div>
       <div class="panel-section-actions">
         <slot name="header-actions" />
       </div>
@@ -45,6 +48,16 @@ defineProps<{
   color: var(--st-text-primary);
   font-size: 16px;
   font-weight: 650;
+  /* 与 text-base 配套的行高：标题盒与 24px 的行内控件同高，居中不靠微调 */
+  line-height: 24px;
+}
+
+/* 标题与紧随其后的行内控件成组，右侧工具条仍然靠右 */
+.panel-section-heading {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: var(--spacing-md);
 }
 
 .panel-section-content {

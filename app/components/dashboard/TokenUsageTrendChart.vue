@@ -4,6 +4,7 @@ import type * as ECharts from "echarts";
 
 import type { StatsRange, TokenUsageTimelinePoint } from "~/stores/relay";
 import { parseTimelineBucket } from "~/utils/stats";
+import { formatTokens } from "~/utils/tokenFormat";
 
 const props = defineProps<{
   points: TokenUsageTimelinePoint[];
@@ -122,7 +123,11 @@ function renderChart() {
         type: "value",
         name: "用量",
         minInterval: 1,
-        axisLabel: { color: colors.mutedText, margin: 10 },
+        axisLabel: {
+          formatter: formatTokens,
+          color: colors.mutedText,
+          margin: 10,
+        },
         splitLine: { lineStyle: { color: colors.divider, type: "dashed" } },
       },
       {

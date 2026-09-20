@@ -39,14 +39,14 @@ test("仪表盘使用同一范围读取概览、趋势、模型和供应商统�
   const page = source("pages/index.vue");
 
   expect(page).toContain(
-    'invokeCommand<StatsOverview>("stats_overview", range)',
+    'invokeCommand<StatsOverview>("stats_overview", query)',
   );
-  expect(page).toContain('invokeCommand<ModelStats[]>("stats_models", range)');
+  expect(page).toContain('invokeCommand<ModelStats[]>("stats_models", query)');
   expect(page).toContain(
-    'invokeCommand<ProviderStats[]>("stats_providers", range)',
+    'invokeCommand<ProviderStats[]>("stats_providers", query)',
   );
   expect(page).toContain(
-    'invokeCommand<TokenUsageTimelinePoint[]>("stats_timeline", range)',
+    'invokeCommand<TokenUsageTimelinePoint[]>("stats_timeline", query)',
   );
   expect(page).not.toContain("查看活动");
 });

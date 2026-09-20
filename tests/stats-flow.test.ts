@@ -176,9 +176,11 @@ test("活动和仪表盘优先显示模型显示名并回退到目录或 ID", ()
   );
   expect(activityPage).toContain("limit: limit.value");
   expect(dashboard).toContain(
-    'invokeCommand<ModelStats[]>("stats_models", range)',
+    'invokeCommand<ModelStats[]>("stats_models", query)',
   );
-  expect(dashboard).toContain("const range = { range: selectedRange.value };");
+  expect(dashboard).toContain(
+    "const query = { range: selectedRange.value, scope: statsScope.value };",
+  );
   expect(dashboard).toContain("row.model_requested");
   expect(dashboard).toContain(
     'id: `${row.model_requested ?? "unknown"}-${index}`',

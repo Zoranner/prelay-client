@@ -3,13 +3,9 @@ import type { StatsOverview as StatsOverviewData } from "~/stores/relay";
 
 import { StatCard } from "@stellar/ui";
 
-const props = defineProps<{ overview: StatsOverviewData | null }>();
+import { formatTokens } from "~/utils/tokenFormat";
 
-function formatTokens(value: number) {
-  if (value >= 1_000_000) return `${(value / 1_000_000).toFixed(1)}M`;
-  if (value >= 1_000) return `${(value / 1_000).toFixed(1)}K`;
-  return value.toLocaleString("zh-CN");
-}
+const props = defineProps<{ overview: StatsOverviewData | null }>();
 
 function formatLatency(value: number | null | undefined) {
   if (value === null || value === undefined) return "-";
