@@ -306,7 +306,7 @@ test("扩展更新检查跟随进程，前端只订阅结果并在侧栏提示",
   expect(stream).not.toContain("setInterval");
   expect(catalog).toContain("function applySnapshot");
   expect(catalog).toContain("totalUpdateCount");
-  expect(catalog).toContain('"rule",\n  "skill",\n  "mcp",');
+  expect(catalog).toMatch(/"rule",\s*"skill",\s*"mcp",/);
   expect(sidebar).not.toContain("dot");
   expect(sidebar).toContain(':count="totalExtensionUpdates"');
   expect(sidebar).not.toContain(":max=");

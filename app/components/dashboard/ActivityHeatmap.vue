@@ -37,10 +37,6 @@ const span = computed(() => {
   return halfMonthLabels ? ("coarse" as const) : ("day" as const);
 });
 
-const total = computed(() =>
-  [...dayTotals.value.values()].reduce((sum, tokens) => sum + tokens, 0),
-);
-
 const peak = computed(() =>
   [...dayTotals.value.values()].reduce(
     (highest, tokens) => Math.max(highest, tokens),

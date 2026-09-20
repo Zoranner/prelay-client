@@ -86,7 +86,9 @@ test("仪表盘提供个人与团队视角切换", () => {
   expect(leaderboard).toContain("Skeleton");
   expect(leaderboard).toContain("loading?: boolean");
   expect(leaderboard).toContain('v-if="props.loading && !props.rows.length"');
-  expect(leaderboard).toContain("width: 40px;\n  height: 40px;");
+  expect(leaderboard).toMatch(
+    /\.leaderboard-avatar\s*\{[\s\S]*width: 40px;[\s\S]*height: 40px;/,
+  );
   expect(leaderboard).not.toContain("width: 32px;\n    height: 32px;");
   expect(leaderboard).not.toContain("width: 28px;\n    height: 28px;");
   const stats = source("utils/stats.ts");

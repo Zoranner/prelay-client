@@ -9,7 +9,6 @@ import {
 } from "../app/utils/endpointModels";
 import {
   modelCatalogEntry,
-  modelCatalogProviderModels,
   setModelCatalog,
 } from "../app/utils/modelCatalog";
 import { readFileSync } from "node:fs";
