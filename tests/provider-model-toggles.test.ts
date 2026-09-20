@@ -48,12 +48,13 @@ test("供应商模型点击启停并随表单提交启用清单", () => {
   expect(pageSource).toContain("models: payload.models");
 });
 
-test("模型开关用组件库的 Toggle 呈现状态，不用文字标注启停", () => {
+test("模型开关用组件库的标签呈现，不用文字标注启停", () => {
   expect(togglesSource).toContain('from "@stellar/ui"');
-  expect(togglesSource).toContain("<Toggle");
-  expect(togglesSource).toContain(":disabled=");
-  expect(togglesSource).toContain("emit('remove'");
-  expect(togglesSource).toContain("ph:trash");
+  expect(togglesSource).toContain("<Tag");
+  expect(togglesSource).toContain(":aria-pressed=");
+  expect(togglesSource).toContain('emit("remove"');
+  expect(togglesSource).toContain("ph:warning-circle");
+  expect(togglesSource).toContain('semantic: "error" as const');
   expect(togglesSource).not.toContain("已启用");
   expect(togglesSource).not.toContain("未启用");
 });
@@ -68,8 +69,13 @@ test("模型清单的提示与空态用组件库组件呈现", () => {
 test("已下架模型必须移除后才能保存", () => {
   expect(providerSource).toContain("retiredModels");
   expect(providerSource).toContain("请先移除目录里已下架的模型");
-  expect(providerFormSource).toContain("目录已下架");
-  expect(providerFormSource).toContain("该供应商的目录条目已下架");
+  expect(providerFormSource).toContain("retiredToggleModels");
+  expect(providerFormSource).toContain("<span>已下架</span>");
+  expect(providerFormSource).not.toContain("目录里查不到");
+  expect(providerFormSource).toContain(
+    "该供应商已下架：现有配置可在短期内继续使用",
+  );
+  expect(providerSource).toContain("该供应商的目录条目已下架，只能删除。");
   expect(pageSource).toContain("editingRetired");
 });
 

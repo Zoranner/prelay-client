@@ -115,6 +115,7 @@ export function useProviderForm(options: ProviderFormOptions) {
     ...languageModels.value,
     ...imageGenerationModels.value,
   ]);
+  // 供应商清单里已经不在目录条目里的模型：目录里已经没有它们的类型信息，统一按已下架处理。
   const retiredModels = computed(() =>
     enabledModels.value.filter(
       (modelId) => !catalogModelIdOptions.value.includes(modelId),

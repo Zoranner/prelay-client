@@ -47,7 +47,6 @@ const {
   isModelEnabled,
   imageGenerationModelOptions,
   languageModelOptions,
-  models,
   name,
   orderedUpstreamProtocols,
   protocolBaseUrls,
@@ -74,13 +73,10 @@ function submit() {
   if (payload) emit("save", payload);
 }
 
-function enabledCount(options: { value: string }[]) {
-  const enabled = options.filter((option) =>
-    isModelEnabled(option.value),
-  ).length;
-  return enabled === options.length
-    ? options.length
-    : `${enabled} / ${options.length}`;
+function enabledCount(models: ProviderModelToggle[]) {
+  // 已下架的模型还在供应商清单里，算在开启数里，由红色标签标出问题。
+  const enabled = models.filter((model) => model.state !== "available").length;
+  return enabled === models.length ? models.length : `${enabled} / ${models.length}`;
 }
 
 function toggleRows(
@@ -93,6 +89,14 @@ function toggleRows(
   }));
 }
 
+function retiredRows(modelIds: string[]): ProviderModelToggle[] {
+  return modelIds.map((modelId) => ({
+    id: modelId,
+    label: modelCatalogLabel(modelId),
+    state: "retired",
+  }));
+}
+
 const languageToggleModels = computed(() =>
   toggleRows(languageModelOptions.value),
 );
@@ -100,11 +104,7 @@ const imageToggleModels = computed(() =>
   toggleRows(imageGenerationModelOptions.value),
 );
 const retiredToggleModels = computed<ProviderModelToggle[]>(() =>
-  retiredModels.value.map((modelId) => ({
-    id: modelId,
-    label: modelCatalogLabel(modelId),
-    state: "retired",
-  })),
+  retiredRows(retiredModels.value),
 );
 const retiredNotice = computed(() => props.retired || retiredProvider.value);
 </script>
@@ -112,7 +112,7 @@ const retiredNotice = computed(() => props.retired || retiredProvider.value);
 <template>
   <form id="provider-form" class="provider-form" @submit.prevent="submit">
     <Alert v-if="retiredNotice" semantic="warning" icon="ph:warning-circle">
-      该供应商的目录条目已下架：现有模型可以继续使用，配置不能再修改，只能删除。
+      该供应商已下架：现有配置可在短期内继续使用，但配置不支持再修改，推荐删除该供应商并选择使用其他供应商。
     </Alert>
     <section class="form-section">
       <h3>连接配置</h3>
@@ -180,12 +180,12 @@ const retiredNotice = computed(() => props.retired || retiredProvider.value);
       </div>
       <div class="model-list">
         <div
-          v-if="languageModelOptions.length"
+          v-if="languageToggleModels.length"
           class="model-group model-group--language"
         >
           <h4 class="model-group__header">
             <span>语言模型</span>
-            <small>{{ enabledCount(languageModelOptions) }}</small>
+            <small>{{ enabledCount(languageToggleModels) }}</small>
           </h4>
           <ProviderModelToggles
             :models="languageToggleModels"
@@ -194,12 +194,12 @@ const retiredNotice = computed(() => props.retired || retiredProvider.value);
           />
         </div>
         <div
-          v-if="imageGenerationModelOptions.length"
+          v-if="imageToggleModels.length"
           class="model-group model-group--image"
         >
           <h4 class="model-group__header">
             <span>图像生成模型</span>
-            <small>{{ enabledCount(imageGenerationModelOptions) }}</small>
+            <small>{{ enabledCount(imageToggleModels) }}</small>
           </h4>
           <ProviderModelToggles
             :models="imageToggleModels"
@@ -212,7 +212,7 @@ const retiredNotice = computed(() => props.retired || retiredProvider.value);
           class="model-group model-group--retired"
         >
           <h4 class="model-group__header">
-            <span>目录已下架</span>
+            <span>已下架</span>
             <small>{{ retiredToggleModels.length }}</small>
           </h4>
           <ProviderModelToggles
@@ -220,12 +220,13 @@ const retiredNotice = computed(() => props.retired || retiredProvider.value);
             :can-toggle="canEdit !== false && !pending"
             @remove="removeRetiredModel"
           />
-          <Alert semantic="warning" size="small">
-            保存前需要移除这些模型。
-          </Alert>
         </div>
         <EmptyState
-          v-if="!models.length"
+          v-if="
+            !languageToggleModels.length &&
+            !imageToggleModels.length &&
+            !retiredToggleModels.length
+          "
           size="small"
           title="该目录条目没有模型"
         />
