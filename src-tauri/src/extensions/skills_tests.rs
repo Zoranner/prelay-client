@@ -4,8 +4,8 @@ use base64::{engine::general_purpose::STANDARD as BASE64, Engine};
 use prelay_protocol::ExtensionFile;
 use tempfile::tempdir;
 
-use super::super::{ExtensionInstallAction, ExtensionKind, ExtensionPackage};
-use super::{install_skill_files, outdated_skill_package_targets, skill_installation_status};
+use super::super::ExtensionInstallAction;
+use super::{install_skill_files, skill_installation_status, uninstall_skill_package};
 use crate::agents::AgentClient;
 
 fn skill_file(path: &str, content: &str) -> ExtensionFile {
@@ -13,6 +13,15 @@ fn skill_file(path: &str, content: &str) -> ExtensionFile {
         path: path.to_string(),
         content_base64: BASE64.encode(content),
     }
+}
+
+fn read_state(target_root: &std::path::Path) -> serde_json::Value {
+    let path = target_root
+        .parent()
+        .unwrap()
+        .join(".prelay")
+        .join("skill.json");
+    serde_json::from_slice(&fs::read(path).unwrap()).unwrap()
 }
 
 #[test]
@@ -187,39 +196,6 @@ fn overwrite_transfers_managed_skill_directory_to_the_new_package() {
 }
 
 #[test]
-fn finds_outdated_packages_only_in_the_skill_roots_that_record_them() {
-    let directory = tempdir().unwrap();
-    let codex_root = directory.path().join("agents").join("skills");
-    let opencode_root = directory.path().join("opencode").join("skills");
-    let files = [skill_file("skills/review/SKILL.md", "old")];
-
-    install_skill_files(&codex_root, "engineering", "v1.0.0", "old", &files, false).unwrap();
-    install_skill_files(
-        &opencode_root,
-        "engineering",
-        "v1.1.0",
-        "current",
-        &files,
-        false,
-    )
-    .unwrap();
-
-    let packages = [ExtensionPackage {
-        name: "engineering".to_string(),
-        repository: "https://git.example.test/engineering".to_string(),
-        commit_sha: "current".to_string(),
-        version: "v1.1.0".to_string(),
-        kind: ExtensionKind::Skill,
-        install_action: ExtensionInstallAction::Update,
-        installed_clients: Vec::new(),
-    }];
-    let targets =
-        outdated_skill_package_targets(&[codex_root.clone(), opencode_root], &packages).unwrap();
-
-    assert_eq!(targets["engineering"], vec![codex_root]);
-}
-
-#[test]
 fn reports_partial_installation_for_detected_clients_missing_a_skill_root() {
     let directory = tempdir().unwrap();
     let shared_root = directory.path().join("agents").join("skills");
@@ -252,5 +228,103 @@ fn reports_partial_installation_for_detected_clients_missing_a_skill_root() {
     assert_eq!(
         status.clients,
         vec![AgentClient::CodexCli, AgentClient::ChatGpt]
+    );
+}
+
+#[test]
+fn uninstalling_a_skill_package_removes_its_skills_and_state() {
+    let directory = tempdir().unwrap();
+    let root = directory.path().join("skills");
+    install_skill_files(
+        &root,
+        "engineering",
+        "v1.0.0",
+        "commit",
+        &[
+            skill_file("skills/check/SKILL.md", "check"),
+            skill_file("skills/review/SKILL.md", "review"),
+        ],
+        false,
+    )
+    .unwrap();
+    install_skill_files(
+        &root,
+        "other",
+        "v1.0.0",
+        "commit",
+        &[skill_file("skills/keep/SKILL.md", "keep")],
+        false,
+    )
+    .unwrap();
+
+    uninstall_skill_package(&root, "engineering").unwrap();
+
+    assert!(!root.join("check").exists());
+    assert!(!root.join("review").exists());
+    assert!(root.join("keep").exists());
+    let state = read_state(&root);
+    assert!(state.get("engineering").is_none());
+    assert_eq!(state["other"]["skills"], serde_json::json!(["keep"]));
+}
+
+#[test]
+fn reports_install_and_drops_the_record_when_the_managed_skills_are_gone() {
+    let directory = tempdir().unwrap();
+    let root = directory.path().join("skills");
+    install_skill_files(
+        &root,
+        "engineering",
+        "v1.0.0",
+        "commit",
+        &[skill_file("skills/check/SKILL.md", "check")],
+        false,
+    )
+    .unwrap();
+    fs::remove_dir_all(root.join("check")).unwrap();
+
+    let status = skill_installation_status(
+        &[(AgentClient::CodexCli, root.clone())],
+        "engineering",
+        "v1.0.0",
+        "commit",
+    )
+    .unwrap();
+
+    assert_eq!(status.action, ExtensionInstallAction::Install);
+    assert!(status.clients.is_empty());
+    assert!(read_state(&root).get("engineering").is_none());
+}
+
+#[test]
+fn reports_partial_and_keeps_the_record_when_one_managed_skill_is_gone() {
+    let directory = tempdir().unwrap();
+    let root = directory.path().join("skills");
+    install_skill_files(
+        &root,
+        "engineering",
+        "v1.0.0",
+        "commit",
+        &[
+            skill_file("skills/check/SKILL.md", "check"),
+            skill_file("skills/review/SKILL.md", "review"),
+        ],
+        false,
+    )
+    .unwrap();
+    fs::remove_dir_all(root.join("review")).unwrap();
+
+    let status = skill_installation_status(
+        &[(AgentClient::CodexCli, root.clone())],
+        "engineering",
+        "v1.0.0",
+        "commit",
+    )
+    .unwrap();
+
+    assert_eq!(status.action, ExtensionInstallAction::Partial);
+    assert_eq!(status.clients, vec![AgentClient::CodexCli]);
+    assert_eq!(
+        read_state(&root)["engineering"]["skills"],
+        serde_json::json!(["check", "review"])
     );
 }

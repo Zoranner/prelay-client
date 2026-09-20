@@ -4,14 +4,14 @@ use prelay_protocol::{ExtensionInstallBundle, ExtensionSummary};
 
 use super::{
     install::validate_package_bundle,
-    mcp,
+    mcp, mcp_manifest,
     model::{ExtensionCatalogSnapshot, ExtensionInstallAction, ExtensionKind, ExtensionPackage},
     rules, skills,
 };
 use crate::{
     agents::{
-        agent_rule_targets_with_clients, agent_skill_target_roots, agent_skill_targets,
-        installed_agent_clients,
+        agent_rule_targets, agent_rule_targets_with_clients, agent_skill_target_roots,
+        agent_skill_targets, installed_agent_clients, AgentClient,
     },
     identity::registration::authenticated_api,
     relay::client::ClientError,
@@ -118,46 +118,84 @@ pub async fn read_extension_readme(
         .map_err(|_| ClientError::new("invalid_response", "extension README is not UTF-8"))
 }
 
-pub async fn update_all_skill_extensions(
+pub async fn update_all_extensions(
     home: &Path,
     state: &NativeState,
+    kind: ExtensionKind,
 ) -> Result<super::model::ExtensionInstallResult, ClientError> {
-    let catalog = list_extensions(home, state, ExtensionKind::Skill).await?;
-    let clients = installed_agent_clients();
-    let target_roots = agent_skill_target_roots(&clients, home);
-    let targets = skills::outdated_skill_package_targets(&target_roots, &catalog.packages)?;
-    if targets.is_empty() {
+    let mut catalog = list_extensions(home, state, kind).await?;
+    catalog.packages.retain(|package| {
+        package.kind == kind && package.install_action == ExtensionInstallAction::Update
+    });
+    if catalog.packages.is_empty() {
         return Ok(super::model::ExtensionInstallResult {
             message: "没有可更新扩展。".to_string(),
         });
     }
 
     let client = authenticated_api(state).await?;
-    for (name, target_roots) in &targets {
-        let package = catalog
-            .packages
-            .iter()
-            .find(|package| package.name == *name)
-            .expect("outdated package exists in the catalog");
+    let updated = catalog.packages.len();
+    for package in catalog.packages {
         let bundle: ExtensionInstallBundle = client
             .get(&format!(
                 "/api/extensions/{}/versions/{}/install",
                 package.name, package.version
             ))
             .await?;
-        validate_package_bundle(package, &bundle)?;
-        for target_root in target_roots {
-            skills::install_skill_files(
-                target_root,
+        validate_package_bundle(&package, &bundle)?;
+        install_prepared_bundle(home, &bundle, &package.installed_clients)?;
+    }
+    Ok(super::model::ExtensionInstallResult {
+        message: format!("已更新 {updated} 个扩展。"),
+    })
+}
+
+/// 已通过 `validate_package_bundle` 校验的安装包按类型落到本机目标；
+/// 只覆盖该扩展已经拥有的目标，不接管同名外部内容。
+fn install_prepared_bundle(
+    home: &Path,
+    bundle: &ExtensionInstallBundle,
+    clients: &[AgentClient],
+) -> Result<(), ClientError> {
+    match bundle.kind {
+        ExtensionKind::Rule => {
+            let rules_file = bundle.files.first().expect("validated rule bundle");
+            for target in agent_rule_targets(clients, home) {
+                rules::install_rule(
+                    &target,
+                    &bundle.name,
+                    &bundle.version.tag,
+                    &bundle.version.commit_sha,
+                    rules_file,
+                )?;
+            }
+        }
+        ExtensionKind::Skill => {
+            for target_root in agent_skill_target_roots(clients, home) {
+                skills::install_skill_files(
+                    &target_root,
+                    &bundle.name,
+                    &bundle.version.tag,
+                    &bundle.version.commit_sha,
+                    &bundle.files,
+                    false,
+                )?;
+            }
+        }
+        ExtensionKind::Mcp => {
+            let manifest = mcp_manifest::read_mcp_manifest(
+                bundle.files.first().expect("validated MCP install bundle"),
+            )?;
+            mcp::install_mcp(
+                home,
+                clients,
                 &bundle.name,
                 &bundle.version.tag,
                 &bundle.version.commit_sha,
-                &bundle.files,
+                &manifest,
                 false,
             )?;
         }
     }
-    Ok(super::model::ExtensionInstallResult {
-        message: format!("已更新 {} 个扩展。", targets.len()),
-    })
+    Ok(())
 }

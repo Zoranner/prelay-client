@@ -25,6 +25,7 @@ const relaySettings = useRelaySettings();
 const desktopPreferences = useDesktopPreferences();
 const desktopPreferencesDialog = useDesktopPreferencesDialog();
 const clientUpdate = useClientUpdate();
+const extensionStream = useExtensionUpdateStream();
 const agentWorkspace = useAgentWorkspace();
 const { visible: desktopPreferencesVisible } = desktopPreferencesDialog;
 const relayUrl = computed(() => relaySettings.relayUrl.value);
@@ -43,7 +44,10 @@ onMounted(async () => {
 
   void agentWorkspace.refreshClientStatuses();
   void tryLoadModelCatalog();
-  if (relayUrl.value) void clientUpdate.checkAndDownload();
+  if (relayUrl.value) {
+    void clientUpdate.checkAndDownload();
+    void extensionStream.start();
+  }
 
   unlistenTraySettings = await listen("tray:open-settings", () => {
     desktopPreferencesDialog.open();
@@ -52,16 +56,19 @@ onMounted(async () => {
 
 watch(relayUrl, (url) => {
   if (!url) {
+    extensionStream.stop();
     modelCatalogUrl = null;
     modelCatalogRequestId += 1;
     setModelCatalog();
     return;
   }
 
+  if (isDesktopRuntime()) void extensionStream.start();
   void tryLoadModelCatalog(url);
 });
 
 onUnmounted(() => {
+  extensionStream.stop();
   unlistenTraySettings?.();
 });
 

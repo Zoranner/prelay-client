@@ -13,7 +13,7 @@ type AgentClientCard = {
 defineProps<{
   activeWorkspace: AgentClient | "extensions";
   clients: AgentClientCard[];
-  extensionUpdates: number;
+  totalExtensionUpdates: number;
   statusLoading: boolean;
 }>();
 
@@ -63,9 +63,12 @@ const emit = defineEmits<{
         </template>
         <span class="agent-extension-identity">
           <span>扩展库</span>
-          <Badge v-if="extensionUpdates > 0" semantic="error" variant="solid">
-            {{ extensionUpdates }}
-          </Badge>
+          <Badge
+            v-if="totalExtensionUpdates > 0"
+            semantic="error"
+            variant="solid"
+            :count="totalExtensionUpdates"
+          />
         </span>
       </ListItem>
     </List>

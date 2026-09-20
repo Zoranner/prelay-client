@@ -7,6 +7,12 @@ function emptyCatalog(): ExtensionCatalogSnapshot {
   return { packages: [] };
 }
 
+export const extensionCatalogKinds: ExtensionCatalogKind[] = [
+  "rule",
+  "skill",
+  "mcp",
+];
+
 type CatalogState = Record<ExtensionCatalogKind, ExtensionCatalogSnapshot>;
 type LoadingState = Record<ExtensionCatalogKind, boolean>;
 type LoadedState = Record<ExtensionCatalogKind, boolean>;
@@ -66,12 +72,23 @@ export function useExtensionCatalog() {
     return computed(() => catalogs.value[kind].packages);
   }
 
-  const updateCount = computed(
-    () =>
-      catalogs.value.skill.packages.filter(
-        (extension) => extension.installAction === "update",
-      ).length,
+  const updateCounts = computed<Record<ExtensionCatalogKind, number>>(() => ({
+    rule: updatePackageCount("rule"),
+    skill: updatePackageCount("skill"),
+    mcp: updatePackageCount("mcp"),
+  }));
+  const totalUpdateCount = computed(() =>
+    extensionCatalogKinds.reduce(
+      (total, kind) => total + updateCounts.value[kind],
+      0,
+    ),
   );
+
+  function updatePackageCount(kind: ExtensionCatalogKind) {
+    return catalogs.value[kind].packages.filter(
+      (extension) => extension.installAction === "update",
+    ).length;
+  }
 
   function invalidate() {
     generation += 1;
@@ -81,5 +98,23 @@ export function useExtensionCatalog() {
     loading.value = { rule: false, skill: false, mcp: false };
   }
 
-  return { catalogs, loaded, loading, load, packages, updateCount, invalidate };
+  function applySnapshot(
+    kind: ExtensionCatalogKind,
+    snapshot: ExtensionCatalogSnapshot,
+  ) {
+    catalogs.value[kind] = snapshot;
+    loaded.value[kind] = true;
+  }
+
+  return {
+    applySnapshot,
+    catalogs,
+    loaded,
+    loading,
+    load,
+    packages,
+    totalUpdateCount,
+    updateCounts,
+    invalidate,
+  };
 }

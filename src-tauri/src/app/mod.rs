@@ -75,6 +75,7 @@ pub fn run() {
             };
             app.manage(state);
             crate::preferences::tray::install(app.handle())?;
+            crate::extensions::spawn_update_checks(app.handle().clone());
             if !start_silently {
                 crate::preferences::tray::show_main_window(app.handle());
             }

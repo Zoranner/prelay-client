@@ -267,4 +267,33 @@ mod tests {
         assert_eq!(status.action, ExtensionInstallAction::Partial);
         assert_eq!(status.clients, vec![AgentClient::CodexCli]);
     }
+
+    #[test]
+    fn reports_an_update_when_the_published_rule_version_moved() {
+        let directory = tempdir().unwrap();
+        let target = directory.path().join(".codex").join("AGENTS.md");
+
+        install_rule(
+            &target,
+            "development-rules",
+            "v0.1.1",
+            "installed-commit",
+            &ExtensionFile {
+                path: "AGENTS.md".to_string(),
+                content_base64: BASE64.encode("# Installed instructions"),
+            },
+        )
+        .unwrap();
+
+        let status = rule_installation_status(
+            &[(AgentClient::CodexCli, target)],
+            "development-rules",
+            "v0.1.2",
+            "published-commit",
+        )
+        .unwrap();
+
+        assert_eq!(status.action, ExtensionInstallAction::Update);
+        assert_eq!(status.clients, vec![AgentClient::CodexCli]);
+    }
 }

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Avatar, Sidebar, SidebarItem } from "@stellar/ui";
+import { Avatar, Badge, Sidebar, SidebarItem } from "@stellar/ui";
 import DashboardStatusbar from "~/components/dashboard/DashboardStatusbar.vue";
 import { identityAvatarSrc } from "~/utils/identityAvatar";
 import { type BootstrapState, useRelayStore } from "~/stores/relay";
@@ -11,6 +11,7 @@ defineProps<{
 const route = useRoute();
 const { invokeCommand } = useRelayCommand();
 const { bootstrap, setBootstrap } = useRelayStore();
+const totalExtensionUpdates = useExtensionCatalog().totalUpdateCount;
 const navigation = [
   { label: "仪表盘", path: "/", icon: "ph:squares-four" },
   { label: "供应商", path: "/providers", icon: "ph:plugs-connected" },
@@ -44,7 +45,20 @@ onMounted(async () => {
           :icon="item.icon"
           :label="item.label"
           :to="item.path"
-        />
+        >
+          <template
+            v-if="item.path === '/agents' && totalExtensionUpdates > 0"
+            #badge
+          >
+            <Badge
+              class="dashboard-nav-notice"
+              dot
+              semantic="error"
+              size="small"
+              aria-label="有可更新的扩展"
+            />
+          </template>
+        </SidebarItem>
         <template #footer>
           <div class="dashboard-user" :title="displayName">
             <Avatar
@@ -108,5 +122,12 @@ onMounted(async () => {
   text-align: center;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+/* 导航项根节点是 relative，红点贴在选中区域右上角靠里一点，不依赖图标尺寸与排版。 */
+.dashboard-nav-notice {
+  position: absolute;
+  top: 6px;
+  right: 6px;
 }
 </style>

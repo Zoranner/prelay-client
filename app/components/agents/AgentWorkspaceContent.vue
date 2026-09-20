@@ -57,7 +57,7 @@ const showItemStatus = computed(() => activeSection !== "skill");
 const emit = defineEmits<{
   detail: [extension: ExtensionCatalogPackage];
   install: [extension: ExtensionCatalogPackage];
-  updateAll: [];
+  updateAll: [kind: ExtensionCatalogKind];
   openSettings: [];
   uninstall: [item: AgentItem];
   "update:activeExtensionSection": [section: ExtensionCatalogKind];
@@ -88,14 +88,12 @@ function updateExtensionSection(value: string | number | boolean | null) {
           @update:model-value="updateExtensionSection"
         />
         <div class="agent-toolbar__actions">
-          <template
-            v-if="activeExtensionSection === 'skill' && extensionUpdates > 0"
-          >
+          <template v-if="extensionUpdates > 0">
             <span class="extension-update-hint"> 可更新 </span>
             <Button
               icon="ph:arrow-circle-down"
               :disabled="extensionUpdating"
-              @click="emit('updateAll')"
+              @click="emit('updateAll', activeExtensionSection)"
             >
               {{ extensionUpdating ? "更新中..." : "全部更新" }}
             </Button>

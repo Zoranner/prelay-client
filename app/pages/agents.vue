@@ -33,7 +33,6 @@ const workspaceExit = useWorkspaceExitGuard();
 const { bootstrap, setBootstrap } = useRelayStore();
 const agentWorkspace = useAgentWorkspace();
 const extensionCatalog = useExtensionCatalog();
-const extensionUpdates = extensionCatalog.updateCount;
 const {
   clientStatuses,
   clientStatusesLoaded,
@@ -105,7 +104,7 @@ const agentRules = useAgentRules({
   save: (request) => invokeLocalCommand("agent_settings_save", request),
 });
 const extensionActions = useExtensionUpdates({
-  refreshSkills: () => agentWorkspace.refreshClient(activeClient.value),
+  refreshClient: () => agentWorkspace.refreshClient(activeClient.value),
 });
 useAgentRulesHydration({
   activeClient,
@@ -151,6 +150,10 @@ const sectionItems = computed(() =>
 const extensionPackages = computed(
   () => extensionCatalog.catalogs.value[activeExtensionSection.value].packages,
 );
+const extensionUpdates = computed(
+  () => extensionCatalog.updateCounts.value[activeExtensionSection.value],
+);
+const totalExtensionUpdates = extensionCatalog.totalUpdateCount;
 const pending = computed(() => agentsPending.value || endpointsPending.value);
 const activeClientDetected = computed(() =>
   isClientInstalled(activeClient.value),
@@ -256,10 +259,13 @@ function refreshActiveClient() {
 
 async function uninstallAgentItem(item: AgentItem) {
   const kindLabel = { mcp: "MCP", skill: "Skill" }[item.kind];
+  const managed = item.package !== null;
   const confirmed = await confirmAction({
     title: `卸载 ${item.name}`,
     message: `卸载“${item.name}”？`,
-    description: "配置及相关本地文件将一并删除，且无法恢复。",
+    description: managed
+      ? `该条目属于扩展包“${item.package}”，卸载会移除包内全部 Skill，且无法恢复。`
+      : "配置及相关本地文件将一并删除，且无法恢复。",
     confirmText: "卸载",
     danger: true,
   });
@@ -272,7 +278,7 @@ async function uninstallAgentItem(item: AgentItem) {
       sourcePath: item.sourcePath,
     });
     await agentWorkspace.refreshClient(activeClient.value);
-    notifications.success(`${kindLabel}已卸载`);
+    notifications.success(managed ? "扩展包已卸载" : `${kindLabel}已卸载`);
   } catch {
     // The local command composable exposes the stable error to this view.
   }
@@ -289,7 +295,9 @@ onMounted(() => {
           : "allow",
   });
   void loadAgentPage();
-  void extensionCatalog.load("skill");
+  void Promise.all(
+    extensionCatalogKinds.map((kind) => extensionCatalog.load(kind)),
+  );
 });
 
 watch(showSettings, (visible) => {
@@ -330,7 +338,9 @@ watch(
   () => bootstrap.value?.relay_url,
   () => {
     extensionCatalog.invalidate();
-    void extensionCatalog.load("skill");
+    void Promise.all(
+      extensionCatalogKinds.map((kind) => extensionCatalog.load(kind)),
+    );
     if (activeWorkspace.value === "extensions")
       void extensionCatalog.load(activeExtensionSection.value);
   },
@@ -363,8 +373,8 @@ onBeforeUnmount(() => {
         <AgentSidebar
           :active-workspace="activeWorkspace"
           :clients="agentClients"
-          :extension-updates="extensionUpdates"
           :status-loading="clientStatusesLoading"
+          :total-extension-updates="totalExtensionUpdates"
           @select-client="selectClient"
           @select-extensions="selectExtensionCatalog"
         />

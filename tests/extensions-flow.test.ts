@@ -68,15 +68,16 @@ test("扩展库沿用智能体工作区的分类表格与单层操作表面", ()
 
   expect(updates).toContain('import { useNotification } from "@stellar/ui";');
   expect(sidebar).toContain("扩展库");
-  expect(sidebar).toContain("extensionUpdates");
+  expect(sidebar).toContain("totalExtensionUpdates");
   expect(sidebar).toContain('semantic="error"');
   expect(workspace).toContain("<ExtensionCatalogTable");
   expect(workspace).not.toContain("installTest");
   expect(page).not.toContain("extensions_mcp_test_package");
   expect(workspace).toContain('class="extension-update-hint"');
   expect(workspace).toContain("可更新");
+  expect(workspace).toContain('v-if="extensionUpdates > 0"');
   expect(workspace).toContain(
-    "v-if=\"activeExtensionSection === 'skill' && extensionUpdates > 0\"",
+    "@click=\"emit('updateAll', activeExtensionSection)\"",
   );
   expect(workspace).not.toContain(
     'semantic="primary"\n            variant="solid"\n            icon="ph:arrows-clockwise"',
@@ -85,7 +86,9 @@ test("扩展库沿用智能体工作区的分类表格与单层操作表面", ()
   expect(workspace).toContain("white-space: nowrap");
   expect(workspace).toContain('"更新中..." : "全部更新"');
   expect(workspace).toContain('icon="ph:arrow-circle-down"');
-  expect(workspace).toContain("@click=\"emit('updateAll')\"");
+  expect(workspace).toContain(
+    "@click=\"emit('updateAll', activeExtensionSection)\"",
+  );
   expect(page).toContain("<ExtensionDetailDrawer");
   expect(page).toContain("<ExtensionInstallDrawer");
   expect(page).toContain("agentSectionOptions");
@@ -130,7 +133,9 @@ test("扩展库沿用智能体工作区的分类表格与单层操作表面", ()
   expect(page).toContain(
     "extensionCatalog.loading.value[activeExtensionSection]",
   );
-  expect(page).toContain('void extensionCatalog.load("skill")');
+  expect(page).toContain(
+    "extensionCatalogKinds.map((kind) => extensionCatalog.load(kind))",
+  );
   expect(updates).toContain('"extensions_update_all"');
   expect(page).toContain(
     ':extension-updating="extensionActions.updating.value"',
@@ -236,4 +241,82 @@ test("扩展库沿用智能体工作区的分类表格与单层操作表面", ()
   expect(installDrawer).not.toContain("var(--font-size-sm)");
   expect(installDrawer).not.toContain("var(--st-text-warning)");
   expect(installDrawer).not.toContain("var(--st-text-error)");
+});
+
+test("扩展库只负责安装，Skill 按包展示且整包卸载挂在智能体条目上", () => {
+  const catalogTable = source(
+    "components/extensions/ExtensionCatalogTable.vue",
+  );
+  const workspace = source("components/agents/AgentWorkspaceContent.vue");
+  const itemList = source("components/agents/AgentItemList.vue");
+  const page = source("pages/agents.vue");
+  const localCommand = source("composables/useLocalCommand.ts");
+  const nativeItems = readFileSync(
+    new URL("../src-tauri/src/agents/items.rs", import.meta.url),
+    "utf8",
+  );
+
+  expect(catalogTable).not.toContain("canUninstall");
+  expect(catalogTable).not.toContain("uninstall");
+  expect(workspace).not.toContain("uninstallExtension");
+  expect(localCommand).not.toContain("extensions_uninstall");
+  expect(page).toContain("该条目属于扩展包");
+  expect(itemList).toContain('title: "包含技能"');
+  expect(itemList).toContain("row.members");
+  expect(itemList).toContain(
+    'import { Badge, Button, Table, TagGroup, useNotification } from "@stellar/ui";',
+  );
+  expect(itemList).toContain('<TagGroup :items="row.members" />');
+  expect(nativeItems).toContain("fn managed_skill_owner");
+  expect(nativeItems).toContain("uninstall_skill_package");
+});
+
+test("扩展更新检查跟随进程，前端只订阅结果并在侧栏提示", () => {
+  const app = source("app.vue");
+  const stream = source("composables/useExtensionUpdateStream.ts");
+  const catalog = source("composables/useExtensionCatalog.ts");
+  const sidebar = source("components/agents/AgentSidebar.vue");
+  const shell = source("components/dashboard/DashboardShell.vue");
+  const nativeChecks = readFileSync(
+    new URL("../src-tauri/src/extensions/checks.rs", import.meta.url),
+    "utf8",
+  );
+
+  expect(nativeChecks).toContain("tokio::time::interval");
+  expect(nativeChecks).toContain("UPDATE_CHECK_INTERVAL");
+  expect(nativeChecks).toContain("extensions:catalog");
+  expect(nativeChecks).toContain(
+    "app.emit(CATALOG_EVENT, CatalogEvent { kind, snapshot })",
+  );
+  expect(nativeChecks).toContain("ExtensionKind::Rule");
+  expect(nativeChecks).toContain("ExtensionKind::Skill");
+  expect(nativeChecks).toContain("ExtensionKind::Mcp");
+  expect(nativeChecks).toContain("spawn_update_checks");
+  expect(app).toContain("useExtensionUpdateStream");
+  expect(app).toContain("void extensionStream.start();");
+  expect(app).toContain("extensionStream.stop();");
+  expect(app.indexOf("void extensionStream.start();")).toBeLessThan(
+    app.indexOf("unlistenTraySettings = await listen"),
+  );
+  expect(stream).toContain("listen<CatalogEvent>");
+  expect(stream).toContain("extensionCatalog.applySnapshot(");
+  expect(stream).toContain("event.payload.kind");
+  expect(stream).toContain("EXTENSION_CATALOG_EVENT");
+  expect(stream).toContain("applySnapshot");
+  expect(stream).not.toContain("setInterval");
+  expect(catalog).toContain("function applySnapshot");
+  expect(catalog).toContain("totalUpdateCount");
+  expect(catalog).toContain('"rule",\n  "skill",\n  "mcp",');
+  expect(sidebar).not.toContain("dot");
+  expect(sidebar).toContain(':count="totalExtensionUpdates"');
+  expect(sidebar).not.toContain(":max=");
+  expect(sidebar).not.toContain("agent-extension-notice");
+  expect(shell).toContain("useExtensionCatalog().totalUpdateCount");
+  expect(shell).toContain("#badge");
+  expect(shell).toContain(
+    "v-if=\"item.path === '/agents' && totalExtensionUpdates > 0\"",
+  );
+  expect(shell).toContain("dashboard-nav-notice");
+  expect(shell).toContain("dot");
+  expect(shell).toContain('size="small"');
 });
