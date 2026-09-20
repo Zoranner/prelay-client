@@ -238,6 +238,9 @@ export type StatsRange =
 export type LeaderboardMetric =
   "activities" | "total_tokens" | "successful_activities" | "success_rate";
 
+// 统计口径：personal 只看当前身份，team 聚合全站
+export type StatsScope = "personal" | "team";
+
 export interface UserLeaderboardEntry {
   rank: number;
   identity_id: string;
@@ -299,6 +302,8 @@ export interface AgentItem {
   kind: AgentItemKind;
   name: string;
   version: string | null;
+  package: string | null;
+  members: string[];
   source: AgentItemSource;
   sourcePath: string;
   status: AgentItemStatus;

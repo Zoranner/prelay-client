@@ -8,6 +8,8 @@ use std::{
 use atomic_write_file::AtomicWriteFile;
 use toml_edit::DocumentMut;
 
+use crate::extensions::skills::{managed_skill_roots, uninstall_skill_package, ManagedSkillRoot};
+
 use super::{
     discovery::agent_client_is_installed,
     integrations,
@@ -73,6 +75,13 @@ pub fn agent_skill_targets(clients: &[AgentClient], home: &Path) -> Vec<(AgentCl
         .collect()
 }
 
+pub(crate) fn user_skill_roots(home: &Path) -> [PathBuf; 2] {
+    [
+        home.join(".codex").join("skills"),
+        home.join(".agents").join("skills"),
+    ]
+}
+
 pub(crate) fn opencode_configuration_path(home: &Path) -> PathBuf {
     integrations::opencode::configuration_path(home)
 }
@@ -131,22 +140,28 @@ pub(crate) fn uninstall_user_item_with_installation(
         })
         .ok_or_else(|| "未找到要卸载的本地条目。".to_string())?;
 
+    if let Some(package) = item.package.as_deref() {
+        return uninstall_skill_package(Path::new(&item.source_path), package)
+            .map_err(|error| error.message);
+    }
     integration(client).uninstall(home, kind, name, &item.source_path)
 }
 
 pub(crate) fn scan_codex(home: &Path) -> Vec<AgentItem> {
     let codex_root = home.join(".codex");
-    if !codex_root.exists() {
-        return Vec::new();
-    }
     let config_path = codex_root.join("config.toml");
-    let mut items = match read_toml(&config_path) {
-        Ok(Some(value)) => toml_items(&value, "mcp_servers", AgentItemKind::Mcp, &config_path),
-        Ok(None) => Vec::new(),
-        Err(()) => vec![error_item(AgentItemKind::Mcp, &config_path)],
+    let mut items = if codex_root.exists() {
+        match read_toml(&config_path) {
+            Ok(Some(value)) => toml_items(&value, "mcp_servers", AgentItemKind::Mcp, &config_path),
+            Ok(None) => Vec::new(),
+            Err(()) => vec![error_item(AgentItemKind::Mcp, &config_path)],
+        }
+    } else {
+        Vec::new()
     };
-    items.extend(scan_skills(codex_root.join("skills")));
-    items.extend(scan_skills(home.join(".agents").join("skills")));
+    for root in user_skill_roots(home) {
+        items.extend(scan_skills(root));
+    }
     deduplicate(items)
 }
 
@@ -176,6 +191,8 @@ fn toml_items(
             kind,
             name: name.to_owned(),
             version: None,
+            package: None,
+            members: Vec::new(),
             source: AgentItemSource::Personal,
             source_path: path.display().to_string(),
             status: if entry
@@ -240,16 +257,34 @@ pub(crate) fn write_json(path: &Path, document: &serde_json::Value) -> Result<()
 }
 
 pub(crate) fn scan_skills(root: PathBuf) -> Vec<AgentItem> {
-    let mut skills = Vec::new();
-    let metadata = crate::extensions::skills::skill_installation_metadata(&root);
-    visit_skill_directory(&root, &metadata, &mut skills);
-    skills
+    let managed = managed_skill_roots(&root);
+    let mut items = Vec::new();
+    let mut packages = BTreeMap::new();
+    visit_skill_directory(&root, &root, &managed, &mut packages, &mut items);
+    items.extend(
+        packages
+            .into_iter()
+            .map(|(package, (version, members))| AgentItem {
+                kind: AgentItemKind::Skill,
+                name: package.clone(),
+                version,
+                package: Some(package),
+                members,
+                source: AgentItemSource::Team,
+                source_path: root.display().to_string(),
+                status: AgentItemStatus::Enabled,
+                error_message: None,
+            }),
+    );
+    items
 }
 
 fn visit_skill_directory(
+    base: &Path,
     path: &Path,
-    metadata: &BTreeMap<String, Option<String>>,
-    skills: &mut Vec<AgentItem>,
+    managed: &BTreeMap<String, ManagedSkillRoot>,
+    packages: &mut BTreeMap<String, (Option<String>, Vec<String>)>,
+    items: &mut Vec<AgentItem>,
 ) {
     let Ok(entries) = fs::read_dir(path) else {
         return;
@@ -260,28 +295,39 @@ fn visit_skill_directory(
             let skill_file = path.join("SKILL.md");
             if skill_file.is_file() {
                 let name = entry.file_name().to_string_lossy().to_string();
-                skills.push(AgentItem {
-                    kind: AgentItemKind::Skill,
-                    name,
-                    version: metadata
-                        .get(&entry.file_name().to_string_lossy().to_string())
-                        .cloned()
-                        .flatten(),
-                    source: if metadata
-                        .contains_key(&entry.file_name().to_string_lossy().to_string())
-                    {
-                        AgentItemSource::Team
-                    } else {
-                        AgentItemSource::Personal
-                    },
-                    source_path: path.display().to_string(),
-                    status: AgentItemStatus::Enabled,
-                    error_message: None,
-                });
+                match managed_skill_owner(base, &path, managed) {
+                    Some(owner) => {
+                        let entry = packages
+                            .entry(owner.package.clone())
+                            .or_insert_with(|| (owner.version.clone(), Vec::new()));
+                        entry.1.push(name);
+                    }
+                    None => items.push(AgentItem {
+                        kind: AgentItemKind::Skill,
+                        name,
+                        version: None,
+                        package: None,
+                        members: Vec::new(),
+                        source: AgentItemSource::Personal,
+                        source_path: path.display().to_string(),
+                        status: AgentItemStatus::Enabled,
+                        error_message: None,
+                    }),
+                }
             }
-            visit_skill_directory(&path, metadata, skills);
+            visit_skill_directory(base, &path, managed, packages, items);
         }
     }
+}
+
+fn managed_skill_owner<'a>(
+    base: &Path,
+    path: &Path,
+    managed: &'a BTreeMap<String, ManagedSkillRoot>,
+) -> Option<&'a ManagedSkillRoot> {
+    let relative = path.strip_prefix(base).ok()?;
+    let root = relative.components().next()?;
+    managed.get(root.as_os_str().to_string_lossy().as_ref())
 }
 
 pub(crate) fn error_item(kind: AgentItemKind, path: &Path) -> AgentItem {
@@ -289,6 +335,8 @@ pub(crate) fn error_item(kind: AgentItemKind, path: &Path) -> AgentItem {
         kind,
         name: "配置读取失败".to_string(),
         version: None,
+        package: None,
+        members: Vec::new(),
         source: AgentItemSource::Personal,
         source_path: path.display().to_string(),
         status: AgentItemStatus::Error,

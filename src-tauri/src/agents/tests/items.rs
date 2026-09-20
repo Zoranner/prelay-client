@@ -282,3 +282,116 @@ fn includes_chatgpt_when_only_the_desktop_app_is_installed() {
     assert_eq!(snapshot.clients[0].client, AgentClient::ChatGpt);
     assert!(snapshot.clients[0].items.is_empty());
 }
+
+fn write_installed_skill_package(home: &std::path::Path, package: &str, skills: &[&str]) {
+    write(
+        home.join(".agents").join(".prelay").join("skill.json"),
+        &format!(
+            r#"{{"{package}": {{"version": "v1.2.0", "commitSha": "abc123", "skills": {skills:?}}}}}"#
+        ),
+    );
+    for skill in skills {
+        write(
+            home.join(".agents")
+                .join("skills")
+                .join(skill)
+                .join("SKILL.md"),
+            &format!("---\nname: {skill}\n---\n"),
+        );
+    }
+}
+
+#[test]
+fn groups_managed_skills_into_one_package_item() {
+    let directory = tempdir().unwrap();
+    write_installed_skill_package(directory.path(), "engineering", &["check", "review"]);
+    write(
+        directory
+            .path()
+            .join(".agents")
+            .join("skills")
+            .join("manual")
+            .join("SKILL.md"),
+        "# Manual\n",
+    );
+
+    let snapshot = scan_user_items_with_installation(directory.path(), |client| {
+        client == AgentClient::CodexCli
+    });
+    let skills = snapshot.clients[0]
+        .items
+        .iter()
+        .filter(|item| item.kind == AgentItemKind::Skill)
+        .collect::<Vec<_>>();
+
+    assert_eq!(skills.len(), 2);
+    let package = skills
+        .iter()
+        .find(|item| item.package.is_some())
+        .expect("managed skills are grouped into their package");
+    assert_eq!(package.name, "engineering");
+    assert_eq!(package.package.as_deref(), Some("engineering"));
+    assert_eq!(package.version.as_deref(), Some("v1.2.0"));
+    assert_eq!(package.members, vec!["check", "review"]);
+    assert_eq!(package.source, AgentItemSource::Team);
+    assert_eq!(
+        package.source_path,
+        directory
+            .path()
+            .join(".agents")
+            .join("skills")
+            .display()
+            .to_string()
+    );
+    assert!(skills
+        .iter()
+        .any(|item| item.name == "manual" && item.package.is_none()));
+}
+
+#[test]
+fn uninstalling_a_package_item_removes_every_managed_skill() {
+    let directory = tempdir().unwrap();
+    write_installed_skill_package(directory.path(), "engineering", &["check", "review"]);
+    let manual = directory
+        .path()
+        .join(".agents")
+        .join("skills")
+        .join("manual");
+    write(manual.join("SKILL.md"), "# Manual\n");
+
+    let package = scan_user_items_with_installation(directory.path(), |client| {
+        client == AgentClient::CodexCli
+    })
+    .clients
+    .remove(0)
+    .items
+    .into_iter()
+    .find(|item| item.package.is_some())
+    .unwrap();
+    uninstall_user_item_with_installation(
+        directory.path(),
+        AgentClient::CodexCli,
+        package.kind,
+        &package.name,
+        &package.source_path,
+        |client| client == AgentClient::CodexCli,
+    )
+    .unwrap();
+
+    let skills_root = directory.path().join(".agents").join("skills");
+    assert!(!skills_root.join("check").exists());
+    assert!(!skills_root.join("review").exists());
+    assert!(manual.join("SKILL.md").exists());
+    let state: serde_json::Value = serde_json::from_slice(
+        &fs::read(
+            directory
+                .path()
+                .join(".agents")
+                .join(".prelay")
+                .join("skill.json"),
+        )
+        .unwrap(),
+    )
+    .unwrap();
+    assert!(state.get("engineering").is_none());
+}

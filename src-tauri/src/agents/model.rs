@@ -37,6 +37,8 @@ pub struct AgentItem {
     pub kind: AgentItemKind,
     pub name: String,
     pub version: Option<String>,
+    pub package: Option<String>,
+    pub members: Vec<String>,
     pub source: AgentItemSource,
     pub source_path: String,
     pub status: AgentItemStatus,

@@ -86,6 +86,8 @@ fn mcp_items(config: &Value, path: &Path) -> Vec<AgentItem> {
             kind: AgentItemKind::Mcp,
             name: name.to_string(),
             version: None,
+            package: None,
+            members: Vec::new(),
             source: AgentItemSource::Personal,
             source_path: path.display().to_string(),
             status: if entry
