@@ -220,6 +220,101 @@ fn expands_user_directory_variables_in_command_arguments() {
 }
 
 #[test]
+fn expands_prelay_home_in_the_command_binary() {
+    let directory = tempdir().unwrap();
+    let manifest = ExtensionMcpManifest {
+        name: "prelay_image".to_string(),
+        transport: ExtensionMcpTransport::Stdio {
+            command: vec![
+                "%PRELAYHOME%\\tools\\imagegen.exe".to_string(),
+                "--verbose".to_string(),
+            ],
+            cwd: None,
+            environment: Default::default(),
+            enabled: true,
+            timeout_ms: None,
+        },
+    };
+
+    install_mcp(
+        directory.path(),
+        &[AgentClient::CodexCli],
+        "prelay-image",
+        "v1.0.0",
+        "commit",
+        &manifest,
+        false,
+    )
+    .unwrap();
+
+    let config: toml::Value = toml::from_str(
+        &fs::read_to_string(directory.path().join(".codex").join("config.toml")).unwrap(),
+    )
+    .unwrap();
+    let app_directory = std::env::current_exe()
+        .unwrap()
+        .parent()
+        .unwrap()
+        .to_path_buf();
+    let expected = format!(
+        "{}{MAIN_SEPARATOR}tools{MAIN_SEPARATOR}imagegen.exe",
+        app_directory.display()
+    );
+    assert_eq!(
+        config["mcp_servers"]["prelay_image"]["command"].as_str(),
+        Some(expected.as_str())
+    );
+    assert_eq!(
+        config["mcp_servers"]["prelay_image"]["args"]
+            .as_array()
+            .unwrap(),
+        &[toml::Value::String("--verbose".to_string())]
+    );
+
+    let status = mcp_installation_status(
+        directory.path(),
+        &[AgentClient::CodexCli],
+        "prelay-image",
+        "v1.0.0",
+        "commit",
+    )
+    .unwrap();
+    assert_eq!(status.action, ExtensionInstallAction::Installed);
+}
+
+#[test]
+fn rejects_unknown_directory_variables_before_writing_configuration() {
+    let directory = tempdir().unwrap();
+    let manifest = ExtensionMcpManifest {
+        name: "prelay_image".to_string(),
+        transport: ExtensionMcpTransport::Stdio {
+            command: vec!["imagegen".to_string(), "%PRELAY_HOME%\\tools".to_string()],
+            cwd: None,
+            environment: Default::default(),
+            enabled: true,
+            timeout_ms: None,
+        },
+    };
+
+    let error = install_mcp(
+        directory.path(),
+        &[AgentClient::CodexCli],
+        "prelay-image",
+        "v1.0.0",
+        "commit",
+        &manifest,
+        false,
+    )
+    .unwrap_err();
+    assert!(
+        error.message.contains("%PRELAY_HOME%"),
+        "unexpected error: {}",
+        error.message
+    );
+    assert!(!directory.path().join(".codex").join("config.toml").exists());
+}
+
+#[test]
 fn shares_codex_mcp_configuration_between_codex_cli_and_chatgpt() {
     let directory = tempdir().unwrap();
     let manifest = ExtensionMcpManifest {

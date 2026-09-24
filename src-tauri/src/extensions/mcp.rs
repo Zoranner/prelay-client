@@ -76,7 +76,8 @@ pub(super) fn install_mcp(
     manifest: &ExtensionMcpManifest,
     overwrite: bool,
 ) -> Result<(), ClientError> {
-    let expanded = expand_manifest(manifest, home);
+    let app_directory = app_directory()?;
+    let expanded = expand_manifest(manifest, home, &app_directory)?;
     let mut targets = Vec::new();
     for host in mcp_hosts(clients) {
         let exists = mcp_server_exists(home, host, &expanded.name)?;
@@ -91,21 +92,23 @@ pub(super) fn install_mcp(
                 "MCP 服务名已存在，确认后可覆盖安装。",
             ));
         }
-        let previous_server = if let Some(previous) = installed
+        let previous_server = match installed
             .0
             .get(package)
             .filter(|entry| entry.server_name != expanded.name)
         {
-            match previous.manifest.as_ref() {
-                Some(current)
-                    if mcp_server_matches(home, host, &expand_manifest(current, home))? =>
-                {
-                    Some(previous.server_name.clone())
-                }
-                _ => None,
+            Some(previous) => {
+                let still_installed = match previous.manifest.as_ref() {
+                    Some(current) => mcp_server_matches(
+                        home,
+                        host,
+                        &expand_manifest(current, home, &app_directory)?,
+                    )?,
+                    None => false,
+                };
+                still_installed.then(|| previous.server_name.clone())
             }
-        } else {
-            None
+            None => None,
         };
         targets.push(PreparedMcpInstallation {
             host,
@@ -146,6 +149,7 @@ pub(crate) fn mcp_installation_status(
     let mut installed_hosts = BTreeSet::new();
     let mut missing = false;
     let mut outdated = false;
+    let app_directory = app_directory()?;
 
     for host in mcp_hosts(clients) {
         let mut installed = read_installed_mcp_packages(home, host)?;
@@ -164,13 +168,16 @@ pub(crate) fn mcp_installation_status(
             outdated = true;
         }
         match current.manifest.as_ref() {
-            Some(manifest)
-                if !mcp_server_matches(home, host, &expand_manifest(manifest, home))? =>
-            {
-                outdated = true;
+            Some(manifest) => {
+                if !mcp_server_matches(
+                    home,
+                    host,
+                    &expand_manifest(manifest, home, &app_directory)?,
+                )? {
+                    outdated = true;
+                }
             }
             None => outdated = true,
-            Some(_) => {}
         }
     }
 
@@ -298,17 +305,35 @@ fn mcp_package_state_path(home: &Path, host: McpHost) -> PathBuf {
         .join(MCP_PACKAGE_STATE_FILE)
 }
 
-fn expand_manifest(manifest: &ExtensionMcpManifest, home: &Path) -> ExtensionMcpManifest {
+fn expand_manifest(
+    manifest: &ExtensionMcpManifest,
+    home: &Path,
+    app_directory: &Path,
+) -> Result<ExtensionMcpManifest, ClientError> {
     let mut expanded = manifest.clone();
     if let ExtensionMcpTransport::Stdio { command, .. } = &mut expanded.transport {
-        for argument in command.iter_mut().skip(1) {
-            *argument = expand_user_directories(argument, home);
+        for part in command.iter_mut() {
+            *part = expand_user_directories(part, home, app_directory)?;
         }
     }
-    expanded
+    Ok(expanded)
 }
 
-fn expand_user_directories(value: &str, home: &Path) -> String {
+/// `%PRELAYHOME%` 展开为客户端主程序所在目录，由运行中的客户端进程解析。
+fn app_directory() -> Result<PathBuf, ClientError> {
+    std::env::current_exe()
+        .ok()
+        .and_then(|path| path.parent().map(Path::to_path_buf))
+        .ok_or_else(|| {
+            ClientError::new("local_extensions_error", "无法确定 Prelay 客户端程序目录。")
+        })
+}
+
+fn expand_user_directories(
+    value: &str,
+    home: &Path,
+    app_directory: &Path,
+) -> Result<String, ClientError> {
     let variables = [
         ("%USERPROFILE%".to_string(), home.display().to_string()),
         (
@@ -318,6 +343,10 @@ fn expand_user_directories(value: &str, home: &Path) -> String {
         (
             "%LOCALAPPDATA%".to_string(),
             home.join("AppData").join("Local").display().to_string(),
+        ),
+        (
+            "%PRELAYHOME%".to_string(),
+            app_directory.display().to_string(),
         ),
     ];
     let mut expanded = String::with_capacity(value.len());
@@ -341,6 +370,12 @@ fn expand_user_directories(value: &str, home: &Path) -> String {
                 rest = &tail[name.len()..];
             }
             None => {
+                if let Some(name) = unknown_variable_name(tail) {
+                    return Err(ClientError::new(
+                        "local_extensions_error",
+                        format!("MCP 清单使用了未识别的目录变量 %{name}%"),
+                    ));
+                }
                 expanded.push('%');
                 rest = &tail[1..];
             }
@@ -350,7 +385,24 @@ fn expand_user_directories(value: &str, home: &Path) -> String {
     if replaced_variable && MAIN_SEPARATOR != '\\' {
         expanded = expanded.replace('\\', MAIN_SEPARATOR_STR);
     }
-    expanded
+    Ok(expanded)
+}
+
+/// 识别 `%NAME%` 形式的未知目录变量；普通文本中的 `%` 保持原样。
+fn unknown_variable_name(tail: &str) -> Option<String> {
+    let body = tail.strip_prefix('%')?;
+    let end = body.find('%')?;
+    let name = &body[..end];
+    let mut characters = name.chars();
+    if !characters.next()?.is_ascii_uppercase() {
+        return None;
+    }
+    if !characters.all(|character| {
+        character.is_ascii_uppercase() || character.is_ascii_digit() || character == '_'
+    }) {
+        return None;
+    }
+    Some(name.to_string())
 }
 
 #[cfg(test)]
