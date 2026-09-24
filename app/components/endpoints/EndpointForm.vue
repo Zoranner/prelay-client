@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Button, Input, Popover, Select, useNotification } from "@stellar/ui";
+import { Alert, Button, Input, useNotification } from "@stellar/ui";
 import type {
   EndpointModel,
   ProviderListItem,
@@ -8,18 +8,22 @@ import type {
 import {
   availableEndpointModelsForProvider,
   checkEndpointMapping,
+  endpointMappingProblems,
   endpointModelsForProvider,
   groupEndpointModels,
   moveEndpointMapping,
+  modelGroupName,
   normalizeEndpointModelIdentities,
   providerOptionLabel,
   type EndpointModelGroup,
+  type EndpointModelLike,
 } from "~/utils/endpointModels";
 import {
   modelCatalogLabel,
   modelCatalogProviderModels,
 } from "~/utils/modelCatalog";
 import EndpointModelRow from "~/components/endpoints/EndpointModelRow.vue";
+import EndpointMappingPicker from "~/components/endpoints/EndpointMappingPicker.vue";
 const props = defineProps<{
   endpoint?: RelayEndpoint | null;
   providers: ProviderListItem[];
@@ -57,6 +61,11 @@ const availableProviders = computed(() =>
   ),
 );
 const modelGroups = computed(() => groupEndpointModels(models.value));
+// 供应商下架模型后，接入点里留下的旧映射会被服务端清单校验拒绝；
+// 这里用同一份供应商清单提前标出来，保存前就能看到是哪个模型出问题。
+const invalidMappings = computed(() =>
+  endpointMappingProblems(models.value, props.providers),
+);
 const providerOptions = computed(() => [
   { label: "选择供应商", value: "" },
   ...availableProviders.value.map((provider) => ({
@@ -202,6 +211,17 @@ function removeModel(index: number) {
   models.value.splice(index, 1);
 }
 
+function mappingLabel(model: EndpointModelLike) {
+  return model.display_name?.trim() || modelCatalogLabel(modelGroupName(model));
+}
+
+function issueFor(model: EndpointModelLike) {
+  return (
+    invalidMappings.value.find((problem) => problem.model === model)?.issue ??
+    null
+  );
+}
+
 function mappingPosition(group: EndpointModelGroup, index: number) {
   return group.mappings.findIndex((mapping) => mapping.index === index);
 }
@@ -217,6 +237,12 @@ function submit() {
   }
   if (!models.value.length) {
     notifications.error("请至少新增一个模型。", { title: "接入点配置不完整" });
+    return;
+  }
+  if (invalidMappings.value.length) {
+    notifications.error("请先移除或改选已下架的模型。", {
+      title: "无法保存接入点",
+    });
     return;
   }
   emit("save", {
@@ -242,12 +268,20 @@ function submit() {
         <h3>模型列表</h3>
         <div class="section-header__actions">
           <span>{{ modelGroups.length }} 个</span>
-          <Popover
-            v-model="showAddModel"
-            position="auto"
-            align="right"
-            size="large"
-            @update:model-value="setModelPopover"
+          <EndpointMappingPicker
+            :open="showAddModel"
+            title="新增模型"
+            v-model:provider-id="newModelForm.provider_id"
+            v-model:upstream-model="newModelForm.upstream_model"
+            :provider-options="providerOptions"
+            :upstream-options="upstreamModelOptions(newModelForm.provider_id)"
+            :upstream-disabled="
+              !modelsForProvider(newModelForm.provider_id).length
+            "
+            :pending="pending"
+            @update:open="setModelPopover"
+            @select-provider="selectProvider(newModelForm)"
+            @confirm="addModel"
           >
             <Button
               size="small"
@@ -257,91 +291,44 @@ function submit() {
               icon="ph:plus"
               >新增</Button
             >
-            <template #title>新增模型</template>
-            <template #content>
-              <div class="model-popover">
-                <Select
-                  v-model="newModelForm.provider_id"
-                  label="供应商"
-                  :options="providerOptions"
-                  @change="selectProvider(newModelForm)"
-                />
-                <Select
-                  v-model="newModelForm.upstream_model"
-                  label="上游模型"
-                  :disabled="
-                    !modelsForProvider(newModelForm.provider_id).length
-                  "
-                  :options="upstreamModelOptions(newModelForm.provider_id)"
-                />
-              </div>
-            </template>
-            <template #footer>
-              <Button
-                semantic="primary"
-                variant="solid"
-                type="button"
-                :disabled="pending"
-                @click="addModel"
-              >
-                确认
-              </Button>
-            </template>
-          </Popover>
+          </EndpointMappingPicker>
         </div>
       </div>
+      <Alert
+        v-if="invalidMappings.length"
+        semantic="error"
+        icon="ph:warning-circle"
+      >
+        该接入点引用了已下架的模型，请移除或改选后保存。
+      </Alert>
       <div class="model-list">
         <div v-for="group in modelGroups" :key="group.name" class="model-group">
           <div class="model-group__header">
             <code :title="group.name">{{ group.displayName }}</code>
             <div class="model-group__actions">
               <small>{{ group.mappings.length }} 个供应商</small>
-              <Popover
-                :model-value="activeProviderGroup === group.name"
-                position="auto"
-                align="right"
-                size="large"
-                @update:model-value="setProviderPopover(group.name, $event)"
+              <EndpointMappingPicker
+                :open="activeProviderGroup === group.name"
+                title="新增供应商"
+                v-model:provider-id="newProviderForm.provider_id"
+                v-model:upstream-model="newProviderForm.upstream_model"
+                :provider-options="providerOptions"
+                :upstream-options="
+                  upstreamModelOptions(newProviderForm.provider_id, group)
+                "
+                :upstream-disabled="
+                  !availableUpstreamModels(newProviderForm.provider_id, group)
+                    .length
+                "
+                :pending="pending"
+                @update:open="setProviderPopover(group.name, $event)"
+                @select-provider="selectProvider(newProviderForm, group)"
+                @confirm="addProvider(group.name)"
               >
                 <Button size="small" type="button" icon="ph:plus">
                   新增
                 </Button>
-                <template #title>新增供应商</template>
-                <template #content>
-                  <div class="model-popover">
-                    <Select
-                      v-model="newProviderForm.provider_id"
-                      label="供应商"
-                      :options="providerOptions"
-                      @change="selectProvider(newProviderForm, group)"
-                    />
-                    <Select
-                      v-model="newProviderForm.upstream_model"
-                      label="上游模型"
-                      :disabled="
-                        !availableUpstreamModels(
-                          newProviderForm.provider_id,
-                          group,
-                        ).length
-                      "
-                      :options="
-                        upstreamModelOptions(newProviderForm.provider_id, group)
-                      "
-                    />
-                  </div>
-                </template>
-                <template #footer>
-                  <Button
-                    semantic="primary"
-                    variant="solid"
-                    type="button"
-                    :disabled="pending"
-                    @click="addProvider(group.name)"
-                  >
-                    确认
-                  </Button>
-                </template>
-              </Popover>
+              </EndpointMappingPicker>
             </div>
           </div>
           <EndpointModelRow
@@ -352,12 +339,8 @@ function submit() {
             "
             :provider="providerForModel(mapping.model)?.name ?? '已删除供应商'"
             :source="providerSourceLabel(providerForModel(mapping.model))"
-            :model="
-              mapping.model.display_name?.trim() ||
-              modelCatalogLabel(
-                mapping.model.model_name || mapping.model.upstream_model,
-              )
-            "
+            :model="mappingLabel(mapping.model)"
+            :issue="issueFor(mapping.model)"
             :can-move-up="mappingPosition(group, mapping.index) > 0"
             :can-move-down="
               mappingPosition(group, mapping.index) < group.mappings.length - 1
@@ -431,15 +414,5 @@ function submit() {
   min-width: 0;
   padding: var(--spacing-sm) 0 0 var(--spacing-md);
   border-top: 1px solid var(--st-border-divider);
-}
-.model-popover {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: var(--spacing-md);
-}
-@media (max-width: 640px) {
-  .model-popover {
-    grid-template-columns: 1fr;
-  }
 }
 </style>

@@ -53,7 +53,10 @@ test("供应商和接入点表单保留历史业务字段，并用 Stellar UI �
     source("components/providers/ProviderForm.vue"),
     source("composables/useProviderForm.ts"),
   ].join("\n");
-  const endpointForm = source("components/endpoints/EndpointForm.vue");
+  const endpointForm = [
+    source("components/endpoints/EndpointForm.vue"),
+    source("components/endpoints/EndpointMappingPicker.vue"),
+  ].join("\n");
 
   expect(providerForm).toContain("catalogProviders");
   expect(providerForm).not.toContain("获取模型");

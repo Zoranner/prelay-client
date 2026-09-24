@@ -13,6 +13,17 @@ const endpointList = readFileSync(
   new URL("../app/components/endpoints/EndpointList.vue", import.meta.url),
   "utf8",
 );
+const endpointModelRow = readFileSync(
+  new URL("../app/components/endpoints/EndpointModelRow.vue", import.meta.url),
+  "utf8",
+);
+const endpointPicker = readFileSync(
+  new URL(
+    "../app/components/endpoints/EndpointMappingPicker.vue",
+    import.meta.url,
+  ),
+  "utf8",
+);
 
 test("接入点页面提供模型映射和 Token 重置", () => {
   expect(endpointPage).toContain('"endpoints_save"');
@@ -99,16 +110,17 @@ test("接入点模型列表按对外模型分组展示供应商候选", () => {
 });
 
 test("接入点模型从列表上下文新增而非底部统一编辑器", () => {
-  expect(endpointForm).toContain("Popover");
-  expect(endpointForm).toContain("model-popover");
+  expect(endpointPicker).toContain("Popover");
+  expect(endpointPicker).toContain("model-popover");
   expect(endpointForm).toContain("新增模型");
   expect(endpointForm).toContain("新增供应商");
-  expect(endpointForm).toContain('align="right"');
-  expect(endpointForm).toContain('size="large"');
-  expect(endpointForm.match(/<template #footer>/g)?.length).toBe(2);
+  expect(endpointPicker).toContain('align="right"');
+  expect(endpointPicker).toContain('size="large"');
+  expect(endpointPicker.match(/<template #footer>/g)?.length).toBe(1);
+  expect(endpointForm.match(/<EndpointMappingPicker/g)?.length).toBe(2);
   expect(endpointForm).toContain("无可用模型");
   expect(endpointForm).not.toContain("无可用上游模型");
-  expect(endpointForm.match(/确认[\s\S]*?<\/Button/g)?.length).toBe(2);
+  expect(endpointPicker.match(/确认[\s\S]*?<\/Button/g)?.length).toBe(1);
   expect(endpointForm).not.toContain('class="model-editor"');
   expect(endpointForm).not.toContain('class="add-model-form"');
   expect(endpointForm).not.toContain('class="add-provider-form"');
@@ -119,13 +131,41 @@ test("接入点模型分组新增供应商时排除已绑定的上游模型", ()
   expect(endpointForm).toContain("availableEndpointModelsForProvider");
   expect(endpointForm).toContain("group?.name");
   expect(endpointForm).toMatch(
-    /:options="\s*upstreamModelOptions\(newProviderForm\.provider_id, group\)\s*"/,
+    /:upstream-options="\s*upstreamModelOptions\(newProviderForm\.provider_id, group\)\s*"/,
   );
   expect(endpointForm).toContain(
-    '@change="selectProvider(newProviderForm, group)"',
+    '@select-provider="selectProvider(newProviderForm, group)"',
   );
-  expect(endpointForm).toContain(':options="providerOptions"');
+  expect(endpointForm).toContain(':provider-options="providerOptions"');
   expect(endpointForm).not.toContain("providerOptionsForGroup");
+});
+
+test("接入点模型选择器显式导入并回传选择结果", () => {
+  // 目录组件名带路径前缀，缺省解析不到这个标签，模板会静默渲染为空。
+  expect(endpointForm).toContain("import EndpointMappingPicker");
+  expect(endpointForm).toContain(
+    'from "~/components/endpoints/EndpointMappingPicker.vue"',
+  );
+  expect(endpointPicker).toContain(':model-value="providerId"');
+  expect(endpointPicker).toContain(':model-value="upstreamModel"');
+  expect(endpointPicker).toContain("emit('update:providerId', $event)");
+  expect(endpointPicker).toContain("emit('update:upstreamModel', $event)");
+  expect(endpointPicker).toContain("@change=\"emit('selectProvider')\"");
+});
+
+test("供应商下架模型后接入点标出旧映射并阻止无效保存", () => {
+  expect(endpointForm).toContain("endpointMappingProblems");
+  expect(endpointForm).toContain("const invalidMappings");
+  expect(endpointForm).toContain(":issue=");
+  expect(endpointForm).toContain("该接入点引用了已下架的模型");
+  expect(endpointForm).not.toContain("invalidMappingSummary");
+  expect(endpointForm).toContain("请先移除或改选已下架的模型。");
+  expect(endpointForm).toContain('title: "无法保存接入点"');
+  expect(endpointForm).toContain("<Alert");
+  expect(endpointModelRow).toContain("endpointMappingIssueLabel");
+  expect(endpointModelRow).toContain("endpointMappingIssueHint");
+  expect(endpointModelRow).toContain('semantic="error"');
+  expect(endpointModelRow).toContain("ph:warning-circle");
 });
 
 test("新建接入点保持旧网页的名称和模型配置内容", () => {

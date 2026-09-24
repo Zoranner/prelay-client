@@ -121,7 +121,7 @@ const retiredNotice = computed(() => props.retired || retiredProvider.value);
 <template>
   <form id="provider-form" class="provider-form" @submit.prevent="submit">
     <Alert v-if="retiredNotice" semantic="warning" icon="ph:warning-circle">
-      该供应商已下架：现有配置可在短期内继续使用，但配置不支持再修改，推荐删除该供应商并选择使用其他供应商。
+      该供应商已下架，现有配置可在短期内继续使用，但配置内容不支持修改，推荐删除后选择其他供应商。
     </Alert>
     <section class="form-section">
       <h3>连接配置</h3>

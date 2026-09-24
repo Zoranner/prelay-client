@@ -2,6 +2,8 @@ import { expect, test } from "bun:test";
 import {
   availableEndpointModelsForProvider,
   checkEndpointMapping,
+  endpointMappingIssue,
+  endpointMappingProblems,
   endpointModelsForProvider,
   groupEndpointModels,
   moveEndpointMapping,
@@ -297,4 +299,79 @@ test("接入点映射校验按对外模型 ID 判定重复", () => {
       endpointModels,
     }),
   ).toBeNull();
+});
+
+test("接入点旧映射按供应商自己的模型清单判定失效", () => {
+  setModelCatalog({
+    language_models: [],
+    image_generation_models: [],
+    providers: [],
+  });
+  const providers = [{ id: "provider-a", name: "Provider A", models: ["k3"] }];
+
+  expect(
+    endpointMappingIssue(
+      { provider_id: "provider-a", upstream_model: "k3", model_name: "k3" },
+      providers,
+    ),
+  ).toBeNull();
+  // 目录下架导致上游名无法归一化时，存回的模型 ID 仍在清单里就不误报。
+  expect(
+    endpointMappingIssue(
+      {
+        provider_id: "provider-a",
+        upstream_model: "kimi-k3",
+        model_name: "k3",
+      },
+      providers,
+    ),
+  ).toBeNull();
+  expect(
+    endpointMappingIssue(
+      {
+        provider_id: "provider-a",
+        upstream_model: "kimi-k3",
+        model_name: "k3-retired",
+      },
+      providers,
+    ),
+  ).toBe("model_removed");
+  expect(
+    endpointMappingIssue(
+      { provider_id: "provider-gone", upstream_model: "k3", model_name: "k3" },
+      providers,
+    ),
+  ).toBe("provider_unavailable");
+});
+
+test("接入点失效映射只保留模型与原因", () => {
+  setModelCatalog({
+    language_models: [],
+    image_generation_models: [],
+    providers: [],
+  });
+  const providers = [{ id: "provider-a", name: "Provider A", models: ["k3"] }];
+  const removed = {
+    provider_id: "provider-a",
+    upstream_model: "k3-retired",
+    model_name: "k3-retired",
+    display_name: "Kimi K3 Retired",
+  };
+  const removedProvider = {
+    provider_id: "provider-gone",
+    upstream_model: "k3",
+    model_name: "k3",
+  };
+  const healthy = {
+    provider_id: "provider-a",
+    upstream_model: "k3",
+    model_name: "k3",
+  };
+
+  expect(
+    endpointMappingProblems([removed, removedProvider, healthy], providers),
+  ).toEqual([
+    { model: removed, issue: "model_removed" },
+    { model: removedProvider, issue: "provider_unavailable" },
+  ]);
 });

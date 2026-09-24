@@ -148,6 +148,65 @@ export type EndpointMappingFailure = {
   title: string;
 };
 
+export type EndpointMappingIssue = "provider_unavailable" | "model_removed";
+
+export type EndpointMappingProvider = Pick<
+  ProviderListItem,
+  "id" | "name" | "models"
+>;
+
+export type EndpointMappingProblem = {
+  model: EndpointModelLike;
+  issue: EndpointMappingIssue;
+};
+
+/**
+ * 已保存的映射是否还能通过服务端的供应商模型清单校验。
+ *
+ * 服务端按供应商自己的清单判断接入点模型：供应商下架模型后，留在接入点里的
+ * 旧映射会让整次保存被拒绝，且没有任何界面提示。这里用同一份供应商清单提前
+ * 找出这些映射，让用户在保存前就能看到并处理。
+ */
+export function endpointMappingIssue(
+  model: EndpointModelLike,
+  providers: readonly EndpointMappingProvider[],
+): EndpointMappingIssue | null {
+  const provider = providers.find(({ id }) => id === model.provider_id);
+  if (!provider) {
+    return "provider_unavailable";
+  }
+  // 保存时提交的模型标识和服务端存回的模型 ID 只要有一个还在清单里，
+  // 这次保存就不会被清单校验拒绝；两个都不在才算供应商已经下架。
+  const identities = [
+    model.upstream_model.trim(),
+    model.model_name?.trim() ?? "",
+  ];
+  const providerModels = provider.models ?? [];
+  return identities.some((id) => id && providerModels.includes(id))
+    ? null
+    : "model_removed";
+}
+
+export function endpointMappingProblems(
+  models: readonly EndpointModelLike[],
+  providers: readonly EndpointMappingProvider[],
+): EndpointMappingProblem[] {
+  return models.flatMap((model) => {
+    const issue = endpointMappingIssue(model, providers);
+    return issue ? [{ model, issue }] : [];
+  });
+}
+
+export function endpointMappingIssueLabel(issue: EndpointMappingIssue) {
+  return issue === "provider_unavailable" ? "供应商不可用" : "已下架";
+}
+
+export function endpointMappingIssueHint(issue: EndpointMappingIssue) {
+  return issue === "provider_unavailable"
+    ? "该供应商对当前身份不可用，请先移除这个模型映射。"
+    : "该供应商已经下架这个模型，请先移除或改选后再保存。";
+}
+
 export function checkEndpointMapping(
   check: EndpointMappingCheck,
 ): EndpointMappingFailure | null {

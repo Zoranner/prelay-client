@@ -1,10 +1,16 @@
 <script setup lang="ts">
-import { Button } from "@stellar/ui";
+import { Button, Tag } from "@stellar/ui";
+import {
+  endpointMappingIssueHint,
+  endpointMappingIssueLabel,
+  type EndpointMappingIssue,
+} from "~/utils/endpointModels";
 
 defineProps<{
   provider: string;
   source: string;
   model: string;
+  issue?: EndpointMappingIssue | null;
   canMoveUp: boolean;
   canMoveDown: boolean;
 }>();
@@ -17,7 +23,15 @@ const emit = defineEmits<{
 
 <template>
   <div class="model-row">
-    <small>{{ provider }} {{ source }} / {{ model }}</small>
+    <div
+      class="model-row__label"
+      :title="issue ? endpointMappingIssueHint(issue) : undefined"
+    >
+      <small>{{ provider }} {{ source }} / {{ model }}</small>
+      <Tag v-if="issue" semantic="error" size="small" icon="ph:warning-circle">
+        {{ endpointMappingIssueLabel(issue) }}
+      </Tag>
+    </div>
     <div class="model-row__actions">
       <Button
         square
@@ -54,8 +68,16 @@ const emit = defineEmits<{
 </template>
 
 <style scoped>
+.model-row__label {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: var(--spacing-sm);
+}
+
 .model-row small {
   color: var(--st-text-secondary);
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
