@@ -97,6 +97,24 @@ export function errorDetail(error: RelayError): string | null {
   return error.message || null;
 }
 
+/**
+ * 面向用户的具体原因。
+ *
+ * `validation_failed` 的固定文案（“请求内容不合法。”）不含任何可操作信息，
+ * 而服务端正是靠 `message` 说明具体是哪一项不合法（哪个模型、哪个名称）。
+ * 这里把原因原样交回界面展示，不让用户猜。
+ */
+export function errorReason(error: RelayError): string | null {
+  if (error.code !== "validation_failed") {
+    return null;
+  }
+  const reason = error.message.trim();
+  if (!reason || reason === errorText(error)) {
+    return null;
+  }
+  return reason;
+}
+
 function httpStatusOf(message: string): string | undefined {
   return /^management API returned HTTP (\d{3})(?: .+)?$/.exec(message)?.[1];
 }

@@ -1,7 +1,12 @@
 import { expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
 
-import { errorDetail, errorText, toRelayError } from "../app/utils/errors";
+import {
+  errorDetail,
+  errorReason,
+  errorText,
+  toRelayError,
+} from "../app/utils/errors";
 
 const source = (path: string) =>
   readFileSync(new URL(`../app/${path}`, import.meta.url), "utf8");
@@ -69,6 +74,31 @@ test("已知错误码不再暴露原始诊断", () => {
 
   expect(errorText(error)).toContain("无法连接");
   expect(errorDetail(error)).toBeNull();
+});
+
+test("校验失败把服务端给出的具体原因交回界面", () => {
+  const reason =
+    "模型 gpt-6-luna 不在供应商“GoToken 套餐”的模型清单里，请先移除或改选后再保存";
+
+  expect(errorReason({ code: "validation_failed", message: reason })).toBe(
+    reason,
+  );
+  expect(errorReason({ code: "validation_failed", message: "   " })).toBeNull();
+  expect(
+    errorReason({ code: "validation_failed", message: "请求内容不合法。" }),
+  ).toBeNull();
+  expect(
+    errorReason({ code: "internal", message: "Internal server error" }),
+  ).toBeNull();
+  expect(
+    errorReason({ code: "network_error", message: "reqwest::Error" }),
+  ).toBeNull();
+});
+
+test("管理命令通知优先展示具体原因", () => {
+  expect(source("composables/useRelayCommand.ts")).toContain(
+    "errorReason(relayError) ?? errorText(relayError)",
+  );
 });
 
 test("旧版 HTTP 兜底消息仍转换为中文", () => {

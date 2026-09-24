@@ -2,7 +2,12 @@ import { invoke } from "@tauri-apps/api/core";
 import { computed, readonly, ref, type ComputedRef, type Ref } from "vue";
 import { useNotification } from "@stellar/ui";
 
-import { errorText, toRelayError, type RelayError } from "~/utils/errors";
+import {
+  errorReason,
+  errorText,
+  toRelayError,
+  type RelayError,
+} from "~/utils/errors";
 
 export type RelayCommand =
   | "bootstrap"
@@ -73,7 +78,8 @@ export function useRelayCommand(): CommandState & {
     } catch (caught) {
       const relayError = toRelayError(caught);
       error.value = relayError;
-      notifications.error(errorText(relayError), {
+      // 具体原因优先：校验失败时固定文案说不清是哪一项不合法。
+      notifications.error(errorReason(relayError) ?? errorText(relayError), {
         title: "管理服务请求失败",
       });
       if (relayError.code === "network_error") {
