@@ -6,7 +6,7 @@
   "build": {
     "beforeDevCommand": "bun run dev",
     "devUrl": "http://localhost:18081",
-    "beforeBuildCommand": "bun run generate",
+    "beforeBuildCommand": "bun run build:imagegen && bun run generate",
     "frontendDist": "../.output/public"
   },
   "app": {
@@ -33,6 +33,7 @@
     "active": true,
     "targets": "all",
     "publisher": "Zoranner",
-    "icon": ["icons/icon.ico", "icons/icon.png"]
+    "icon": ["icons/icon.ico", "icons/icon.png"],
+    "resources": ["tools/"]
   }
 }

@@ -40,7 +40,9 @@ test("Tauri uses the static Nuxt output and a fixed development port", () => {
   expect(nuxtConfig).toContain("port: 18081");
   expect(nuxtConfig).toContain("strictPort: true");
   expect(tauriConfig.build.devUrl).toBe("http://localhost:18081");
-  expect(tauriConfig.build.beforeBuildCommand).toBe("bun run generate");
+  expect(tauriConfig.build.beforeBuildCommand).toBe(
+    "bun run build:imagegen && bun run generate",
+  );
   expect(tauriConfig.build.frontendDist).toBe("../.output/public");
 });
 
