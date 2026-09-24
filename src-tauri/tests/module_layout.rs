@@ -17,9 +17,11 @@ fn native_source_root_contains_only_entrypoints_and_domain_directories() {
     let expected = BTreeSet::from([
         "agents".to_owned(),
         "app".to_owned(),
+        "bin".to_owned(),
         "commands".to_owned(),
         "extensions".to_owned(),
         "identity".to_owned(),
+        "imagegen".to_owned(),
         "lib.rs".to_owned(),
         "main.rs".to_owned(),
         "preferences".to_owned(),

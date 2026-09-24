@@ -5,6 +5,7 @@ pub mod app;
 pub mod commands;
 pub mod extensions;
 pub mod identity;
+pub mod imagegen;
 pub mod preferences;
 pub mod relay;
 
