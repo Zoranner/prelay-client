@@ -16,6 +16,9 @@ test("智能体条目表格保留横向滚动以展示窄屏列", () => {
   expect(
     source.indexOf('{ key: "status", title: "状态", width: 88 }'),
   ).toBeLessThan(source.indexOf('{ key: "source", title: "来源", width: 96 }'));
+  expect(
+    source.indexOf('{ key: "source", title: "来源", width: 96 }'),
+  ).toBeLessThan(source.indexOf('title: "包含技能"'));
   expect(source).toContain("showStatus");
   expect(source).toContain('row.source === "team" ? "团队" : "个人"');
   expect(source).toContain('class="agent-item-source__copy"');
