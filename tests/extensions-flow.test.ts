@@ -185,7 +185,7 @@ test("扩展库沿用智能体工作区的分类表格与单层操作表面", ()
   expect(installDrawer).toContain("kindIcon");
   expect(installDrawer).toContain("agentSectionOptions");
   expect(installDrawer).toContain("props.extension?.version");
-  expect((installDrawer.match(/<Badge/g) ?? []).length).toBe(1);
+  expect((installDrawer.match(/<Tag/g) ?? []).length).toBe(1);
   expect(installDrawer).toContain("extension-install-drawer__preview");
   expect(installDrawer).toContain("extension-install-drawer__target");
   expect(installDrawer).toMatch(
@@ -264,7 +264,7 @@ test("扩展库只负责安装，Skill 按包展示且整包卸载挂在智能�
   expect(itemList).toContain('title: "包含技能"');
   expect(itemList).toContain("row.members");
   expect(itemList).toContain(
-    'import { Badge, Button, Table, TagGroup, useNotification } from "@stellar/ui";',
+    'import { Button, Table, Tag, TagGroup, useNotification } from "@stellar/ui";',
   );
   expect(itemList).toContain('<TagGroup :items="row.members" />');
   expect(nativeItems).toContain("fn managed_skill_owner");

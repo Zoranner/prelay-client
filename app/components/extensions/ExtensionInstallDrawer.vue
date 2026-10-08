@@ -1,11 +1,11 @@
 <script setup lang="ts">
 import {
-  Badge,
   Button,
   Icon,
   Loading,
   Drawer,
   Select,
+  Tag,
   useConfirm,
   useNotification,
 } from "@stellar/ui";
@@ -236,14 +236,14 @@ watch(
             {{ identityVersion }}
           </span>
         </div>
-        <Badge
+        <Tag
           v-if="transportLabel"
           class="extension-install-drawer__identity-transport"
           semantic="info"
-          variant="soft"
+          size="small"
         >
           {{ transportLabel }}
-        </Badge>
+        </Tag>
       </header>
       <div class="extension-install-drawer__target">
         <Select

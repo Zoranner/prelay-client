@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import type { Activity } from "~/stores/relay";
 import {
-  Badge,
   Button,
   Icon,
   Modal,
@@ -200,12 +199,12 @@ function updateLimit(value: string | number | boolean | null) {
         </template>
         <template #cell-status="{ row }">
           <div class="activity-status">
-            <Badge
+            <Tag
               :semantic="row.status === 'failed' ? 'error' : 'success'"
-              variant="soft"
+              size="small"
             >
               {{ row.http_status ?? row.status }}
-            </Badge>
+            </Tag>
             <Button
               v-if="row.status === 'failed'"
               square

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Badge, Button, Table, TagGroup, useNotification } from "@stellar/ui";
+import { Button, Table, Tag, TagGroup, useNotification } from "@stellar/ui";
 import type { AgentItem } from "~/stores/relay";
 
 type AgentItemRow = AgentItem & { id: string } & Record<string, unknown>;
@@ -87,12 +87,12 @@ async function copySourcePath(sourcePath: string) {
       <TagGroup :items="row.members" />
     </template>
     <template #cell-source="{ row }">
-      <Badge
+      <Tag
         :semantic="row.source === 'team' ? 'primary' : undefined"
-        variant="soft"
+        size="small"
       >
         {{ row.source === "team" ? "团队" : "个人" }}
-      </Badge>
+      </Tag>
     </template>
     <template #cell-sourcePath="{ row }">
       <div class="agent-item-source">
@@ -110,9 +110,9 @@ async function copySourcePath(sourcePath: string) {
       </div>
     </template>
     <template v-if="showStatus" #cell-status="{ row }">
-      <Badge :semantic="statusSemantic(row.status)" variant="soft">
+      <Tag :semantic="statusSemantic(row.status)" size="small">
         {{ statusLabel(row.status) }}
-      </Badge>
+      </Tag>
     </template>
     <template #cell-actions="{ row }">
       <Button

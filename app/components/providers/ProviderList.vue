@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Avatar, Badge, Button, Table, Tag } from "@stellar/ui";
+import { Avatar, Button, Table, Tag } from "@stellar/ui";
 import type { IdentityDirectoryEntry, ProviderListItem } from "~/stores/relay";
 import ProviderVisibilityScope from "~/components/providers/ProviderVisibilityScope.vue";
 import { identityAvatarSrc } from "~/utils/identityAvatar";
@@ -112,9 +112,9 @@ const rows = computed<ProviderRow[]>(() =>
       <ProviderVisibilityScope :provider="row" :identities="identities" />
     </template>
     <template #cell-status="{ row }">
-      <Badge :semantic="row.ping.semantic" variant="soft">
+      <Tag :semantic="row.ping.semantic" size="small">
         {{ row.ping.label }}
-      </Badge>
+      </Tag>
     </template>
     <template #cell-actions="{ row }">
       <div class="actions">
