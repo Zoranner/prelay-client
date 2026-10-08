@@ -221,8 +221,14 @@ mod tests {
 
     #[test]
     fn keeps_output_paths_inside_the_workspace() {
-        let error = output_path(&json!({ "out": "..\\escape.png" }), "png").unwrap_err();
+        let error = output_path(&json!({ "out": "../escape.png" }), "png").unwrap_err();
         assert!(error.contains("相对路径"));
+
+        #[cfg(windows)]
+        {
+            let error = output_path(&json!({ "out": "..\\escape.png" }), "png").unwrap_err();
+            assert!(error.contains("相对路径"));
+        }
 
         let path = output_path(&json!({ "out": "output/imagegen/puppy.png" }), "png").unwrap();
         assert!(path.ends_with(Path::new("output").join("imagegen").join("puppy.png")));
