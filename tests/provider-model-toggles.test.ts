@@ -73,7 +73,7 @@ test("已下架模型必须移除后才能保存", () => {
   expect(providerFormSource).toContain("<span>已下架</span>");
   expect(providerFormSource).not.toContain("目录里查不到");
   expect(providerFormSource).toContain(
-    "该供应商已下架：现有配置可在短期内继续使用",
+    "该供应商已下架，现有配置可在短期内继续使用",
   );
   expect(providerSource).toContain("该供应商的目录条目已下架，只能删除。");
   expect(pageSource).toContain("editingRetired");
