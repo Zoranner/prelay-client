@@ -30,6 +30,11 @@
       },
     },
   },
+  "overrides": {
+    "@nuxt/cli": "3.37.0",
+    "nuxt": "4.5.2",
+    "vite": "8.2.1",
+  },
   "packages": {
     "@alloc/quick-lru": ["@alloc/quick-lru@5.2.0", "http://pkg.rd.kim/repository/npm-group/@alloc/quick-lru/-/quick-lru-5.2.0.tgz", {}, "sha512-UrcABB+4bUrFABwbluTIBErXwvbsU/V7TZWfmbgJfbkwiBuziS9gxdODUyuiecfdGQ85jglMW6juS3+z5TsKLw=="],
 
