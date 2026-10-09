@@ -48,7 +48,13 @@ export type AgentSettingsSaveRequest = {
   };
   connection: {
     client: AgentClient;
-    connection: Record<string, string | undefined | AgentConnectionModel[]>;
+    connection: Record<
+      string,
+      | string
+      | undefined
+      | AgentConnectionModel[]
+      | CatalogLanguageModelResponse[]
+    >;
   } | null;
 };
 

@@ -5,6 +5,7 @@ import type {
   AgentSettings,
 } from "~/stores/relay";
 import { clientSupportsSettings } from "~/utils/agentClient";
+import { waitForAgentSync } from "~/composables/useAgentSync";
 
 function emptyClientFlags() {
   return {
@@ -113,6 +114,8 @@ export function useAgentWorkspace() {
 
     settingsLoading.value[client] = true;
     try {
+      // 接入点改动后的对账先落盘，避免读到旧连接信息再原样写回。
+      await waitForAgentSync();
       const value = await invokeLocalCommand<AgentSettings>(
         "agent_settings_get",
         { client },

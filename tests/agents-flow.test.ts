@@ -62,9 +62,10 @@ test("智能体工作区按客户端状态、内容与设置职责分层", () =>
   expect(settings).not.toContain("customBaseUrl");
   expect(settings).not.toContain("customToken");
   expect(settings).toContain("endpointToken");
-  expect(settings).toContain("groupEndpointModels(endpoint.models)");
   expect(settings).not.toContain("modelName: group.name");
-  expect(settings).toContain("models: groupEndpointModels(endpoint.models)");
+  expect(source("utils/agentConnections.ts")).toContain(
+    "groupEndpointModels(endpoint.models)",
+  );
   expect(settings).toContain(
     "description: `${groupEndpointModels(endpoint.models).length} 个模型`",
   );
@@ -106,14 +107,19 @@ test("智能体本地操作不复用管理服务命令状态", () => {
 test("智能体模型选项使用目录显示名且连接携带目录对象", () => {
   const settings = source("composables/useAgentSettings.ts");
   const agentUtils = source("utils/agentSettings.ts");
+  const connections = source("utils/agentConnections.ts");
 
   expect(settings).toContain("label: model.display_name");
   expect(settings).toContain("catalogLanguageModel(group.catalogModel)");
   expect(settings).toContain("catalogModel");
-  expect(settings).toContain("models: groupEndpointModels(endpoint.models)");
+  expect(connections).toContain("groupEndpointModels(endpoint.models)");
+  expect(connections).toContain("models: endpointCatalogModels(endpoint)");
+  expect(settings).toContain("codexConnectionFor(endpoint, relayUrl)");
+  expect(settings).toContain("openCodeConnectionFor(endpoint, relayUrl)");
   expect(settings).toContain("model.id");
   expect(settings).not.toContain("modelName:");
   expect(settings).not.toContain("upstreamModel:");
+  expect(connections).toContain("catalogLanguageModel(group.catalogModel)");
   expect(agentUtils).toContain("CatalogLanguageModelResponse");
   expect(agentUtils).toContain("catalogModel?: CatalogLanguageModelResponse");
 });
@@ -121,6 +127,9 @@ test("智能体模型选项使用目录显示名且连接携带目录对象", ()
 test("智能体设置表单定义了自己用到的分组与字段样式", () => {
   for (const form of ["CodexSettingsForm.vue", "OpenCodeSettingsForm.vue"]) {
     const contents = source(`components/agents/${form}`);
+    // 引用失效时接入点下拉框回落到占位文案，不额外加失效标记。
+    expect(contents).toContain('label="接入点"');
+    expect(contents).toContain('placeholder="选择接入点"');
     for (const rule of [
       "group",
       "group-header",

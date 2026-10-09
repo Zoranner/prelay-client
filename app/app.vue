@@ -27,6 +27,7 @@ const desktopPreferencesDialog = useDesktopPreferencesDialog();
 const clientUpdate = useClientUpdate();
 const extensionStream = useExtensionUpdateStream();
 const agentWorkspace = useAgentWorkspace();
+const agentSync = useAgentSync();
 const { visible: desktopPreferencesVisible } = desktopPreferencesDialog;
 const relayUrl = computed(() => relaySettings.relayUrl.value);
 const route = useRoute();
@@ -91,6 +92,8 @@ async function tryLoadModelCatalog(url = relayUrl.value) {
     () => invokeCommand<ProviderCatalogResponse>("catalog_models_get"),
     () => modelCatalogUrl === url && requestId === modelCatalogRequestId,
   );
+  // 目录变化会改变智能体侧的模型档案与默认模型有效性，顺手对账。
+  void agentSync.syncAll();
 }
 
 function isDesktopRuntime() {

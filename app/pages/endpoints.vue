@@ -19,6 +19,7 @@ type EndpointFormPayload = {
 };
 
 const { pending, invokeCommand } = useRelayCommand();
+const agentSync = useAgentSync();
 const { confirm: confirmAction } = useConfirm();
 const notifications = useNotification();
 const workspaceExit = useWorkspaceExitGuard();
@@ -64,6 +65,7 @@ async function saveEndpoint(payload: EndpointFormPayload) {
     showForm.value = false;
     await load();
     notifications.success("接入点已保存");
+    if (payload.id) void agentSync.syncEndpoint(payload.id);
   } catch {
     await load();
   }
@@ -82,6 +84,7 @@ async function deleteEndpoint(item: RelayEndpoint) {
     await invokeCommand("endpoints_delete", { endpointId: item.id });
     await load();
     notifications.success("接入点已删除");
+    void agentSync.clearEndpoint(item);
   } catch {
     // The command composable exposes the error to this view.
   }
@@ -102,6 +105,7 @@ async function regenerateToken(item: RelayEndpoint) {
     });
     await load();
     notifications.success("API Token 已重置");
+    void agentSync.syncEndpoint(item.id);
   } catch {
     // The command composable exposes the error to this view.
   }

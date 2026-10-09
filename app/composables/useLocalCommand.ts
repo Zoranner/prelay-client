@@ -10,6 +10,7 @@ export type LocalCommand =
   | "agents_remove"
   | "agent_settings_get"
   | "agent_settings_save"
+  | "agent_endpoint_links_get"
   | "extensions_list"
   | "extension_readme"
   | "extensions_mcp_preview"

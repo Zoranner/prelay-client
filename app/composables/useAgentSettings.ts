@@ -4,10 +4,17 @@ import type {
   AgentSettings,
   BootstrapState,
   CatalogLanguageModelResponse,
-  CatalogModelResponse,
   RelayEndpoint,
 } from "~/stores/relay";
 import { clientSupportsSettings } from "~/utils/agentClient";
+import {
+  catalogLanguageModel,
+  codexConnectionFor,
+  managementBaseUrl,
+  normalizeBaseUrl,
+  openCodeConnectionFor,
+  type CodexConnectionDraft,
+} from "~/utils/agentConnections";
 import { groupEndpointModels } from "~/utils/endpointModels";
 import { modelCatalogEntry, useModelCatalog } from "~/utils/modelCatalog";
 import {
@@ -28,30 +35,6 @@ type AgentSettingsOptions = {
   reloadSettings: (client: AgentClient) => Promise<void>;
   save: (request: AgentSettingsSaveRequest) => Promise<unknown>;
 };
-
-type CodexConnectionDraft = {
-  kind: "prelay";
-  endpointId: string;
-  endpointName: string;
-  endpointToken: string;
-  relayUrl: string;
-  models: CatalogLanguageModelResponse[];
-};
-
-function normalizeBaseUrl(url: string) {
-  return url.trim().replace(/\/+$/, "");
-}
-
-function managementBaseUrl(relayUrl: string) {
-  const normalized = normalizeBaseUrl(relayUrl);
-  return normalized.endsWith("/v1") ? normalized : `${normalized}/v1`;
-}
-
-function catalogLanguageModel(
-  model: CatalogModelResponse | undefined,
-): CatalogLanguageModelResponse | undefined {
-  return model && "reasoning_efforts" in model ? model : undefined;
-}
 
 export function validatePrelayModelSelection(
   status: ReturnType<typeof useModelCatalog>["status"]["value"],
@@ -187,37 +170,16 @@ export function useAgentSettings(options: AgentSettingsOptions) {
 
   function codexConnection(): CodexConnectionDraft | null {
     const endpoint = selectedEndpoint.value;
-    if (endpoint && options.bootstrap.value?.relay_url) {
-      return {
-        kind: "prelay",
-        endpointId: endpoint.id,
-        endpointName: endpoint.name,
-        endpointToken: endpoint.token,
-        relayUrl: options.bootstrap.value.relay_url,
-        models: groupEndpointModels(endpoint.models)
-          .map((group) => catalogLanguageModel(group.catalogModel))
-          .filter((model): model is CatalogLanguageModelResponse =>
-            Boolean(model),
-          ),
-      };
-    }
-    return null;
+    const relayUrl = options.bootstrap.value?.relay_url;
+    if (!endpoint || !relayUrl) return null;
+    return codexConnectionFor(endpoint, relayUrl);
   }
 
-  function openCodeConnection(): {
-    kind: "prelay";
-    endpointToken: string;
-    relayUrl: string;
-  } | null {
+  function openCodeConnection() {
     const endpoint = selectedEndpoint.value;
-    if (endpoint && options.bootstrap.value?.relay_url) {
-      return {
-        kind: "prelay",
-        endpointToken: endpoint.token,
-        relayUrl: options.bootstrap.value.relay_url,
-      };
-    }
-    return null;
+    const relayUrl = options.bootstrap.value?.relay_url;
+    if (!endpoint || !relayUrl) return null;
+    return openCodeConnectionFor(endpoint, relayUrl);
   }
 
   async function save() {

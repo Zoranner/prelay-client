@@ -78,6 +78,7 @@ function updateModel(value: string | number) {
       <Select
         v-model="model.endpoint"
         label="接入点"
+        placeholder="选择接入点"
         :options="endpointOptions"
       />
       <Select

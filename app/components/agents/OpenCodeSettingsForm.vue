@@ -24,6 +24,7 @@ defineProps<{
       <Select
         v-model="model.endpoint"
         label="接入点"
+        placeholder="选择接入点"
         :options="endpointOptions"
       />
       <Select v-model="model.model" label="默认模型" :options="modelOptions" />
