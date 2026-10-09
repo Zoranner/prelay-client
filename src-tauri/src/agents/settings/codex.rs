@@ -331,26 +331,28 @@ pub(super) fn read_codex_settings(home: &Path) -> CodexSettings {
     }
 }
 
-/// Codex 按 `model_auto_compact_token_limit` 触发本地自动压缩；模型窗口未知时移除这两个键。
+/// Codex 按 `model_auto_compact_token_limit` 触发本地自动压缩；触发点取目录声明的有效上下文比例（缺省九成），模型窗口未知时移除这两个键。
 fn apply_auto_compact_settings(
     document: &mut DocumentMut,
     model: Option<&str>,
     connection: Option<&CodexConnection>,
 ) {
-    /// 上下文窗口用到九成时触发压缩。
-    const AUTO_COMPACT_PERCENT: u64 = 90;
+    /// 目录未声明有效上下文比例时的压缩触发比例。
+    const DEFAULT_AUTO_COMPACT_PERCENT: u64 = 90;
 
-    let context_window = connection
+    let entry = connection
         .map(|connection| match connection {
             CodexConnection::Prelay { models, .. } => models.as_slice(),
         })
-        .and_then(|models| {
-            models
-                .iter()
-                .find(|entry| Some(entry.id.as_str()) == model)
-                .and_then(|entry| entry.context_window)
-        })
+        .and_then(|models| models.iter().find(|entry| Some(entry.id.as_str()) == model));
+    let context_window = entry
+        .and_then(|entry| entry.context_window)
         .filter(|context_window| *context_window > 0);
+    let auto_compact_percent = entry
+        .and_then(|entry| entry.effective_context_window_percent)
+        .map(u64::from)
+        .filter(|percent| *percent > 0)
+        .unwrap_or(DEFAULT_AUTO_COMPACT_PERCENT);
 
     match context_window {
         Some(context_window) => {
@@ -362,7 +364,7 @@ fn apply_auto_compact_settings(
             set_table_integer(
                 document.as_table_mut(),
                 "model_auto_compact_token_limit",
-                Some(context_window * AUTO_COMPACT_PERCENT / 100),
+                Some(context_window * auto_compact_percent / 100),
             );
         }
         None => {

@@ -295,6 +295,46 @@ fn saves_auto_compact_limits_from_the_selected_model() {
 }
 
 #[test]
+fn uses_the_catalog_effective_context_percent_for_the_auto_compact_limit() {
+    let directory = tempdir().unwrap();
+    let codex_root = directory.path().join(".codex");
+    fs::create_dir_all(&codex_root).unwrap();
+
+    let settings = CodexSettings {
+        model: Some("deepseek-flash".to_string()),
+        ..Default::default()
+    };
+    let connection = CodexConnection::Prelay {
+        endpoint_id: "endpoint-id".to_string(),
+        endpoint_name: "Prelay".to_string(),
+        relay_url: "https://relay.example.test/".to_string(),
+        endpoint_token: "endpoint-token".to_string(),
+        models: vec![serde_json::from_value(serde_json::json!({
+            "id": "deepseek-flash",
+            "display_name": "DeepSeek V4.1 Flash",
+            "context_window": 1048576,
+            "effective_context_window_percent": 55,
+        }))
+        .expect("catalog model")],
+    };
+
+    save_user_settings(
+        directory.path(),
+        &AgentSettings::CodexCli(settings),
+        Some(&AgentConnection::CodexCli(connection)),
+    )
+    .unwrap();
+
+    let saved = fs::read_to_string(codex_root.join("config.toml")).unwrap();
+    let config: toml::Value = toml::from_str(&saved).unwrap();
+    assert_eq!(config["model_context_window"].as_integer(), Some(1048576));
+    assert_eq!(
+        config["model_auto_compact_token_limit"].as_integer(),
+        Some(576716)
+    );
+}
+
+#[test]
 fn removes_auto_compact_limits_when_the_model_window_is_unknown() {
     let directory = tempdir().unwrap();
     let codex_root = directory.path().join(".codex");
