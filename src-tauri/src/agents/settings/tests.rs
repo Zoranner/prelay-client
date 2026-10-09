@@ -4,9 +4,10 @@ use tempfile::tempdir;
 
 use crate::agents::AgentClient;
 
+use super::test_helpers::catalog_model;
 use super::{
     read_user_settings, save_user_settings, AgentConnection, AgentSettings, ChatGptSettings,
-    CodexConnection, CodexSettings, OpenCodeConnection, OpenCodeSettings,
+    CodexConnection, CodexSettings, OpenCodeConnection,
 };
 
 #[test]
@@ -112,63 +113,79 @@ sandbox = "unelevated"
 }
 
 #[test]
-fn saves_opencode_prelay_provider_without_replacing_other_configuration() {
+fn reports_no_change_when_the_same_connection_is_saved_twice() {
     let directory = tempdir().unwrap();
-    let config_directory = directory.path().join(".config").join("opencode");
-    fs::create_dir_all(&config_directory).unwrap();
-    fs::write(
-        config_directory.join("opencode.jsonc"),
-        r#"{
-  // This provider is not managed by Prelay.
-  "provider": {
-    "other": { "options": { "apiKey": "other-token" } }
-  },
-  "mcp": { "keep": { "type": "local", "command": ["keep"] } }
-}"#,
-    )
-    .unwrap();
+    let codex_root = directory.path().join(".codex");
+    fs::create_dir_all(&codex_root).unwrap();
+    fs::write(codex_root.join("config.toml"), "").unwrap();
 
-    let settings = OpenCodeSettings {
-        model: Some("deepseek-coder".to_string()),
-        rules: Some("始终先阅读仓库约束。".to_string()),
+    let settings = CodexSettings {
+        model: Some("team-flash".to_string()),
         ..Default::default()
     };
-    let connection = OpenCodeConnection::Prelay {
-        relay_url: "https://relay.example.test/".to_string(),
+    let connection = CodexConnection::Prelay {
+        endpoint_id: "endpoint-id".to_string(),
+        endpoint_name: "Endpoint 1".to_string(),
+        relay_url: "https://relay.example.test".to_string(),
         endpoint_token: "endpoint-token".to_string(),
+        models: vec![catalog_model("team-flash", "Team Flash")],
+    };
+    let save = || {
+        save_user_settings(
+            directory.path(),
+            &AgentSettings::CodexCli(settings.clone()),
+            Some(&AgentConnection::CodexCli(connection.clone())),
+        )
+        .unwrap()
     };
 
+    assert!(save(), "首次保存应写入配置");
+    assert!(!save(), "内容一致时不应再改写配置");
+}
+
+#[test]
+fn clears_the_codex_connection_without_touching_other_settings() {
+    let directory = tempdir().unwrap();
+    let codex_root = directory.path().join(".codex");
+    fs::create_dir_all(&codex_root).unwrap();
+    fs::write(codex_root.join("config.toml"), "").unwrap();
+
+    let settings = CodexSettings {
+        model: Some("team-flash".to_string()),
+        sandbox: Some("workspace-write".to_string()),
+        ..Default::default()
+    };
+    let connection = CodexConnection::Prelay {
+        endpoint_id: "endpoint-id".to_string(),
+        endpoint_name: "Endpoint 1".to_string(),
+        relay_url: "https://relay.example.test".to_string(),
+        endpoint_token: "endpoint-token".to_string(),
+        models: vec![catalog_model("team-flash", "Team Flash")],
+    };
     save_user_settings(
         directory.path(),
-        &AgentSettings::OpenCode(settings),
-        Some(&AgentConnection::OpenCode(connection)),
+        &AgentSettings::CodexCli(settings.clone()),
+        Some(&AgentConnection::CodexCli(connection)),
     )
     .unwrap();
+    assert!(codex_root.join("models.json").exists());
 
-    let saved = fs::read_to_string(config_directory.join("opencode.jsonc")).unwrap();
-    let config: serde_json::Value = json5::from_str(&saved).unwrap();
-    assert_eq!(
-        config["provider"]["other"]["options"]["apiKey"],
-        "other-token"
-    );
-    assert_eq!(config["mcp"]["keep"]["command"][0], "keep");
-    assert_eq!(
-        config["provider"]["prelay"]["npm"],
-        "@ai-sdk/openai-compatible"
-    );
-    assert_eq!(
-        config["provider"]["prelay"]["options"]["baseURL"],
-        "https://relay.example.test/v1"
-    );
-    assert_eq!(
-        config["provider"]["prelay"]["options"]["apiKey"],
-        "endpoint-token"
-    );
-    assert_eq!(config["model"], "prelay/deepseek-coder");
-    assert_eq!(
-        fs::read_to_string(config_directory.join("AGENTS.md")).unwrap(),
-        "始终先阅读仓库约束。"
-    );
+    let changed =
+        save_user_settings(directory.path(), &AgentSettings::CodexCli(settings), None).unwrap();
+
+    let config: toml::Value =
+        toml::from_str(&fs::read_to_string(codex_root.join("config.toml")).unwrap()).unwrap();
+    assert!(changed, "解除接入应报告内容变化");
+    assert!(config.get("model_provider").is_none());
+    assert!(config.get("model_catalog_json").is_none());
+    assert!(config.get("model_providers").is_none());
+    assert!(!codex_root.join("models.json").exists());
+    let auth: serde_json::Value =
+        serde_json::from_str(&fs::read_to_string(codex_root.join("auth.json")).unwrap()).unwrap();
+    assert!(auth.get("OPENAI_API_KEY").is_none());
+    // 用户自己的设置保留。
+    assert_eq!(config["model"].as_str(), Some("team-flash"));
+    assert_eq!(config["sandbox_mode"].as_str(), Some("workspace-write"));
 }
 
 fn console_payload(
@@ -235,6 +252,7 @@ fn deserializes_the_settings_save_payload_sent_by_the_desktop_console() {
 
     let simple_connection = serde_json::json!({
         "kind": "prelay",
+        "endpointId": "endpoint-1",
         "endpointToken": "endpoint-token",
         "relayUrl": "https://relay.example.test",
     });

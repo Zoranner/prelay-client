@@ -43,6 +43,7 @@ pub fn run() {
             crate::commands::agents::agents_remove,
             crate::commands::agents::agent_settings_get,
             crate::commands::agents::agent_settings_save,
+            crate::commands::agents::agent_endpoint_links_get,
             crate::commands::extensions::extensions_list,
             crate::commands::extensions::extension_readme,
             crate::commands::extensions::extensions_mcp_preview,

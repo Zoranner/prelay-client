@@ -15,6 +15,8 @@ mod opencode;
 #[cfg(test)]
 mod catalog_tests;
 #[cfg(test)]
+mod opencode_tests;
+#[cfg(test)]
 mod rule_state_tests;
 #[cfg(test)]
 mod test_helpers;
@@ -56,8 +58,12 @@ pub enum CodexConnection {
 #[serde(tag = "kind")]
 pub enum OpenCodeConnection {
     Prelay {
+        endpoint_id: String,
         relay_url: String,
         endpoint_token: String,
+        /// 接入点的模型清单；缺省表示未提供，保留配置里已有的模型条目。
+        #[serde(default)]
+        models: Option<Vec<CatalogLanguageModelResponse>>,
     },
 }
 
@@ -68,6 +74,22 @@ pub enum AgentConnection {
     #[serde(rename = "chatgpt")]
     ChatGpt(CodexConnection),
     OpenCode(OpenCodeConnection),
+}
+
+impl AgentConnection {
+    /// 这条接入配置引用的是哪个宿主的哪个接入点。
+    pub(crate) fn endpoint_link(&self) -> (crate::agents::links::AgentHost, &str) {
+        use crate::agents::links::AgentHost;
+        match self {
+            Self::CodexCli(CodexConnection::Prelay { endpoint_id, .. })
+            | Self::ChatGpt(CodexConnection::Prelay { endpoint_id, .. }) => {
+                (AgentHost::Codex, endpoint_id)
+            }
+            Self::OpenCode(OpenCodeConnection::Prelay { endpoint_id, .. }) => {
+                (AgentHost::OpenCode, endpoint_id)
+            }
+        }
+    }
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -177,14 +199,14 @@ pub fn save_user_settings(
     home: &Path,
     settings: &AgentSettings,
     connection: Option<&AgentConnection>,
-) -> Result<(), String> {
-    let client = settings_client(settings);
+) -> Result<bool, String> {
+    let client = settings.client();
     let targets = agent_rule_targets(&[client], home);
     let rules = settings_rules(settings);
     let rules_changed = targets
         .iter()
         .any(|target| fs::read_to_string(target).unwrap_or_default() != rules);
-    let result = match (settings, connection) {
+    let changed = match (settings, connection) {
         (AgentSettings::CodexCli(settings), None) => {
             codex::save_codex_settings(home, settings, None)
         }
@@ -205,20 +227,22 @@ pub fn save_user_settings(
         }
         _ => Err("智能体设置与接入配置不匹配".to_string()),
     };
-    result?;
+    let changed = changed?;
     if rules_changed {
         for target in targets {
             rules::clear_rule_package_state(&target)?;
         }
     }
-    Ok(())
+    Ok(changed || rules_changed)
 }
 
-fn settings_client(settings: &AgentSettings) -> AgentClient {
-    match settings {
-        AgentSettings::CodexCli(_) => AgentClient::CodexCli,
-        AgentSettings::ChatGpt(_) => AgentClient::ChatGpt,
-        AgentSettings::OpenCode(_) => AgentClient::OpenCode,
+impl AgentSettings {
+    pub(crate) fn client(&self) -> AgentClient {
+        match self {
+            Self::CodexCli(_) => AgentClient::CodexCli,
+            Self::ChatGpt(_) => AgentClient::ChatGpt,
+            Self::OpenCode(_) => AgentClient::OpenCode,
+        }
     }
 }
 

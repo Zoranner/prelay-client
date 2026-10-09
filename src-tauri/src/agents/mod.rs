@@ -1,6 +1,7 @@
 mod discovery;
 pub(crate) mod integrations;
 pub mod items;
+pub mod links;
 mod model;
 pub mod settings;
 
@@ -12,6 +13,7 @@ pub use items::{
     agent_rule_targets, agent_rule_targets_with_clients, agent_skill_target_roots,
     agent_skill_targets, scan_agent_items, scan_user_items, uninstall_user_item,
 };
+pub use links::{AgentEndpointLinks, AgentEndpointLinksStore};
 pub use model::{
     AgentClient, AgentClientItems, AgentClientStatus, AgentClientVersion, AgentItem, AgentItemKind,
     AgentItemSource, AgentItemStatus, AgentItemsSnapshot, REGISTERED_AGENT_CLIENTS,

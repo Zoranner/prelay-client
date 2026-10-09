@@ -1,4 +1,5 @@
 use crate::{
+    agents::AgentEndpointLinksStore,
     identity::{credentials::FileCredentialStore, windows::WindowsIdentitySource},
     preferences::desktop::FileDesktopPreferencesStore,
     relay::{client::RegistrationGate, settings::FileRelaySettingsStore},
@@ -9,6 +10,7 @@ pub struct NativeState {
     pub credentials: FileCredentialStore,
     pub desktop_preferences: FileDesktopPreferencesStore,
     pub relay_settings: FileRelaySettingsStore,
+    pub agent_endpoint_links: AgentEndpointLinksStore,
     pub registration_gate: RegistrationGate,
     pub credential_lifecycle_gate: tokio::sync::Mutex<()>,
 }
@@ -25,6 +27,11 @@ impl NativeState {
             ),
             relay_settings: FileRelaySettingsStore::at(
                 app_data_dir.join("Prelay").join("relay-settings.json"),
+            ),
+            agent_endpoint_links: AgentEndpointLinksStore::at(
+                app_data_dir
+                    .join("Prelay")
+                    .join("agent-endpoint-links.json"),
             ),
             registration_gate: RegistrationGate::default(),
             credential_lifecycle_gate: tokio::sync::Mutex::new(()),

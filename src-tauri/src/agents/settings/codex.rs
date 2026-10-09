@@ -1,4 +1,4 @@
-use std::path::Path;
+use std::{fs, path::Path};
 
 use serde_json::json;
 use toml_edit::{value, DocumentMut, Item, Table};
@@ -10,7 +10,7 @@ use super::{
         ensure_table_bool, json_string, read_json, read_json_document, read_optional_text,
         read_toml, read_toml_document, set_item, set_table_bool, set_table_integer,
         set_table_string, table_mut, toml_bool, toml_integer, toml_string, toml_web_search,
-        write_text,
+        write_text_if_changed,
     },
     CodexConnection, CodexFeatures, CodexSettings,
 };
@@ -20,7 +20,7 @@ pub(super) fn save_codex_settings(
     home: &Path,
     settings: &CodexSettings,
     connection: Option<&CodexConnection>,
-) -> Result<(), String> {
+) -> Result<bool, String> {
     let config_path = home.join(".codex").join("config.toml");
     let mut document = read_toml_document(&config_path)?;
     set_item(&mut document, "model", settings.model.as_deref());
@@ -85,20 +85,21 @@ pub(super) fn save_codex_settings(
 
     ensure_desktop_enabled_reasoning_efforts(&mut document);
 
-    apply_codex_connection(home, &mut document, settings.model.as_deref(), connection)?;
-
-    write_text(&config_path, document.to_string().as_bytes())?;
+    let mut changed =
+        apply_codex_connection(home, &mut document, settings.model.as_deref(), connection)?;
+    changed |= write_text_if_changed(&config_path, document.to_string().as_bytes())?;
     if let Some(connection) = connection {
         match connection {
             CodexConnection::Prelay { endpoint_token, .. } => {
-                write_codex_auth_token(home, endpoint_token)?;
+                changed |= write_codex_auth_token(home, endpoint_token)?;
             }
         }
     }
-    write_text(
+    changed |= write_text_if_changed(
         &home.join(".codex").join("AGENTS.md"),
         settings.rules.as_deref().unwrap_or_default().as_bytes(),
-    )
+    )?;
+    Ok(changed)
 }
 
 const DEFAULT_DESKTOP_ENABLED_REASONING_EFFORTS: [&str; 7] = [
@@ -128,10 +129,12 @@ fn apply_codex_connection(
     document: &mut DocumentMut,
     model: Option<&str>,
     connection: Option<&CodexConnection>,
-) -> Result<(), String> {
+) -> Result<bool, String> {
     let Some(connection) = connection else {
-        return Ok(());
+        // 没有接入点时按“解除接入”处理：清掉地址、Key 和模型目录，保留其它设置。
+        return clear_codex_connection(home, document);
     };
+    let mut changed = false;
     match connection {
         CodexConnection::Prelay { models, .. } => {
             validate_prelay_default_model(model, models)?;
@@ -142,7 +145,8 @@ fn apply_codex_connection(
                     .and_then(Item::as_str),
                 models,
             )?;
-            let path = write_prelay_model_catalog(home, models)?;
+            let (path, models_changed) = write_prelay_model_catalog(home, models)?;
+            changed |= models_changed;
             set_item(
                 document,
                 "model_catalog_json",
@@ -188,7 +192,56 @@ fn apply_codex_connection(
     provider["wire_api"] = value("responses");
     provider.remove("experimental_bearer_token");
     provider.remove("env_key");
-    Ok(())
+    Ok(changed)
+}
+
+/// 解除 Prelay 接入：删掉我们写过的 provider 块、模型目录与 Key，其它设置原样保留。
+fn clear_codex_connection(home: &Path, document: &mut DocumentMut) -> Result<bool, String> {
+    let mut changed = false;
+    let provider_id = document
+        .as_table()
+        .get("model_provider")
+        .and_then(Item::as_str)
+        .map(str::to_string);
+    if let Some(provider_id) = provider_id {
+        let mut drop_providers = false;
+        if let Some(providers) = document
+            .as_table_mut()
+            .get_mut("model_providers")
+            .and_then(Item::as_table_mut)
+        {
+            changed |= providers.remove(&provider_id).is_some();
+            drop_providers = providers.is_empty();
+        }
+        if drop_providers {
+            changed |= document.as_table_mut().remove("model_providers").is_some();
+        }
+        changed |= document.as_table_mut().remove("model_provider").is_some();
+    }
+    changed |= document
+        .as_table_mut()
+        .remove("model_catalog_json")
+        .is_some();
+
+    let models_path = home.join(".codex").join("models.json");
+    if models_path.exists() {
+        fs::remove_file(&models_path)
+            .map_err(|error| format!("Codex 模型目录无法删除: {error}"))?;
+        changed = true;
+    }
+
+    let auth_path = home.join(".codex").join("auth.json");
+    if auth_path.exists() {
+        let mut auth = read_json_document(&auth_path, "Codex auth")?;
+        if let Some(root) = auth.as_object_mut() {
+            if root.remove("OPENAI_API_KEY").is_some() {
+                let contents = serde_json::to_vec_pretty(&auth)
+                    .map_err(|error| format!("Codex auth cannot be serialized: {error}"))?;
+                changed |= write_text_if_changed(&auth_path, &contents)?;
+            }
+        }
+    }
+    Ok(changed)
 }
 
 fn validate_prelay_reasoning_effort(
@@ -243,7 +296,7 @@ fn validate_prelay_default_model(
 fn write_prelay_model_catalog(
     home: &Path,
     models: &[CatalogLanguageModelResponse],
-) -> Result<std::path::PathBuf, String> {
+) -> Result<(std::path::PathBuf, bool), String> {
     let catalog = models
         .iter()
         .map(codex_model_profile)
@@ -251,11 +304,11 @@ fn write_prelay_model_catalog(
     let contents = serde_json::to_vec_pretty(&json!({ "models": catalog }))
         .map_err(|error| format!("Codex 模型目录无法序列化: {error}"))?;
     let path = home.join(".codex").join("models.json");
-    write_text(&path, &contents)?;
-    Ok(path)
+    let changed = write_text_if_changed(&path, &contents)?;
+    Ok((path, changed))
 }
 
-fn write_codex_auth_token(home: &Path, token: &str) -> Result<(), String> {
+fn write_codex_auth_token(home: &Path, token: &str) -> Result<bool, String> {
     let path = home.join(".codex").join("auth.json");
     let mut document = read_json_document(&path, "Codex auth")?;
     let root = document
@@ -267,7 +320,7 @@ fn write_codex_auth_token(home: &Path, token: &str) -> Result<(), String> {
     );
     let contents = serde_json::to_vec_pretty(&document)
         .map_err(|error| format!("Codex auth cannot be serialized: {error}"))?;
-    write_text(&path, &contents)
+    write_text_if_changed(&path, &contents)
 }
 
 pub(super) fn prelay_base_url(relay_url: &str) -> String {

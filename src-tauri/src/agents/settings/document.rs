@@ -78,6 +78,15 @@ pub(super) fn write_text(path: &Path, contents: &[u8]) -> Result<(), String> {
         .map_err(|error| format!("settings file cannot be committed: {error}"))
 }
 
+/// 内容一致就不写：对账会反复写同一份配置，没必要每次都改动别的应用的文件。
+pub(super) fn write_text_if_changed(path: &Path, contents: &[u8]) -> Result<bool, String> {
+    if fs::read(path).is_ok_and(|current| current == contents) {
+        return Ok(false);
+    }
+    write_text(path, contents)?;
+    Ok(true)
+}
+
 pub(super) fn table_mut<'a>(document: &'a mut DocumentMut, key: &str) -> &'a mut Table {
     if !document.as_table().contains_key(key) {
         document[key] = Item::Table(Table::new());
