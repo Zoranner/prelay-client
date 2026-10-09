@@ -52,6 +52,7 @@ const {
   baseUrl,
   enabledModels,
   isModelEnabled,
+  isProtocolManaged,
   imageGenerationModelOptions,
   languageModelOptions,
   name,
@@ -163,7 +164,14 @@ const retiredNotice = computed(() => props.retired || retiredProvider.value);
             <Input
               v-model="protocolBaseUrls[protocol]"
               :placeholder="baseUrl || '填写协议地址'"
-              :disabled="canEdit === false || pending"
+              :disabled="
+                canEdit === false || pending || isProtocolManaged(protocol)
+              "
+              :title="
+                isProtocolManaged(protocol)
+                  ? '该地址由供应商目录统一管理'
+                  : undefined
+              "
             />
             <Button
               v-if="protocol !== 'images_generations'"

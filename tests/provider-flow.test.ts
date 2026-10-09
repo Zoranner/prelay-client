@@ -367,10 +367,11 @@ test("身份目录命令只读取非敏感展示字段", () => {
   expect(relayCommand).toContain('"identity_directory_list"');
 });
 
-test("供应商表单允许覆盖各协议 Base URL，缺省用 Base URL", () => {
+test("供应商表单的协议地址由目录声明键只读、其余可覆盖", () => {
   expect(providerSource).toContain('label="Base URL"');
   expect(providerSource).toContain('v-model="protocolBaseUrls[protocol]"');
   expect(providerSource).toContain("protocolBaseUrls[protocol].trim() || null");
+  expect(providerSource).toContain("isProtocolManaged(protocol)");
   expect(providerSource).not.toContain("默认 Base URL");
 });
 
@@ -385,7 +386,7 @@ test("供应商操作使用带提示的图标按钮", () => {
   expect(providerSource).not.toContain('aria-label="获取模型"');
 });
 
-test("供应商协议按目录只读展示且地址可覆盖", () => {
+test("供应商协议按目录只读展示，目录声明的地址由目录管理", () => {
   expect(providerSource).toMatch(
     /<span class="protocol-label">\s*\{\{ protocolLabel\(protocol\) \}\}/,
   );
@@ -395,6 +396,8 @@ test("供应商协议按目录只读展示且地址可覆盖", () => {
   expect(providerSource).toMatch(
     /<Input[\s\S]{0,120}v-model="protocolBaseUrls\[protocol\]"/,
   );
+  expect(providerSource).toContain("isProtocolManaged(protocol)");
+  expect(providerSource).toContain("managedProtocols");
 });
 
 test("供应商与活动表共用协议 Tag 颜色", () => {

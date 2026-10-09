@@ -83,12 +83,20 @@ export function useProviderForm(options: ProviderFormOptions) {
       Boolean(option.model && !("reasoning_efforts" in option.model)),
     ),
   );
-  // 协议集合由供应商目录定义，表单只读展示；协议地址可以按协议覆盖，缺省用 Base URL。
+  // 协议集合由供应商目录定义，表单只读展示；目录声明了地址的协议由目录统一管理，
+  // 其余协议地址可以覆盖，缺省用 Base URL。
   const currentTemplate = computed(() =>
     providerTemplates(options.catalogProviders()).find(
       (item) => item.providerType === providerType.value,
     ),
   );
+  // 目录声明了协议地址的协议由服务端按目录对齐，表单只读展示。
+  const managedProtocols = computed(() =>
+    Object.keys(currentTemplate.value?.protocolBaseUrls ?? {}),
+  );
+  function isProtocolManaged(protocol: UpstreamProtocol) {
+    return managedProtocols.value.includes(protocol);
+  }
   const orderedUpstreamProtocols = computed(() =>
     allProtocols.filter((protocol) =>
       currentTemplate.value?.protocols.includes(protocol),
@@ -344,6 +352,7 @@ export function useProviderForm(options: ProviderFormOptions) {
     baseUrl,
     enabledModels,
     isModelEnabled,
+    isProtocolManaged,
     removeRetiredModel,
     retiredModels,
     retiredProvider,
