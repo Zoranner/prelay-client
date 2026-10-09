@@ -9,7 +9,7 @@ use super::super::command_client_version;
 use super::super::{
     agent_client_statuses_with, command_path_in, command_version_from_output,
     scan_user_items_with_installation, AgentClient, AgentClientVersion, AgentItemKind,
-    AgentItemStatus,
+    AgentItemSource, AgentItemStatus,
 };
 #[cfg(windows)]
 use super::super::{chatgpt_offline_install_version, chatgpt_package_version, newest_version};
@@ -142,6 +142,52 @@ fn scans_only_opencode_jsonc() {
         .items
         .iter()
         .all(|item| item.name != "legacy-skill"));
+}
+
+#[test]
+fn marks_extension_installed_opencode_mcp_as_team() {
+    let directory = tempdir().unwrap();
+    write(
+        directory
+            .path()
+            .join(".config")
+            .join("opencode")
+            .join("opencode.jsonc"),
+        r#"{ "mcp": { "filesystem": {}, "manual": {} } }"#,
+    );
+    write(
+        directory
+            .path()
+            .join(".config")
+            .join("opencode")
+            .join(".prelay")
+            .join("mcp.json"),
+        r#"{
+  "filesystem-mcp": {
+    "serverName": "filesystem",
+    "version": "v1.0.0",
+    "commitSha": "abc123"
+  }
+}"#,
+    );
+
+    let snapshot = scan_user_items_with_installation(directory.path(), |client| {
+        client == AgentClient::OpenCode
+    });
+    let items = &snapshot.clients[0].items;
+    let mcp = |name: &str| {
+        items
+            .iter()
+            .find(|item| item.kind == AgentItemKind::Mcp && item.name == name)
+            .unwrap()
+    };
+
+    let installed = mcp("filesystem");
+    assert_eq!(installed.source, AgentItemSource::Team);
+    assert_eq!(installed.version.as_deref(), Some("v1.0.0"));
+    assert_eq!(installed.package.as_deref(), Some("filesystem-mcp"));
+    assert_eq!(mcp("manual").source, AgentItemSource::Personal);
+    assert_eq!(mcp("manual").package, None);
 }
 
 #[test]

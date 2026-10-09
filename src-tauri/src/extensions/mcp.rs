@@ -216,6 +216,39 @@ pub(crate) fn retain_listed_mcp_packages(
     Ok(())
 }
 
+#[derive(Clone, Debug)]
+pub(crate) struct ManagedMcpServer {
+    pub package: String,
+    pub version: String,
+}
+
+/// 扩展库装进来的 MCP 服务，以服务名为键。
+///
+/// 条目扫描只读得到宿主配置里的服务名，分不清来源、也拿不到版本，
+/// 所以按宿主读一次 `.prelay/mcp.json` 认领；状态读不到时按个人条目处理。
+pub(crate) fn managed_mcp_servers(
+    home: &Path,
+    client: AgentClient,
+) -> BTreeMap<String, ManagedMcpServer> {
+    read_installed_mcp_packages(home, mcp_host(client))
+        .map(|installed| {
+            installed
+                .0
+                .into_iter()
+                .map(|(package, entry)| {
+                    (
+                        entry.server_name,
+                        ManagedMcpServer {
+                            package,
+                            version: entry.version,
+                        },
+                    )
+                })
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
 fn mcp_server_exists(home: &Path, host: McpHost, name: &str) -> Result<bool, ClientError> {
     match host {
         McpHost::Codex => codex_mcp_server_exists(home, name),

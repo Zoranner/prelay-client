@@ -263,9 +263,7 @@ async function uninstallAgentItem(item: AgentItem) {
   const confirmed = await confirmAction({
     title: `卸载 ${item.name}`,
     message: `卸载“${item.name}”？`,
-    description: managed
-      ? `该条目属于扩展包“${item.package}”，卸载会移除包内全部 Skill，且无法恢复。`
-      : "配置及相关本地文件将一并删除，且无法恢复。",
+    description: uninstallDescription(item),
     confirmText: "卸载",
     danger: true,
   });
@@ -282,6 +280,16 @@ async function uninstallAgentItem(item: AgentItem) {
   } catch {
     // The local command composable exposes the stable error to this view.
   }
+}
+
+/** 扩展库装的 MCP 只有一条宿主配置，技能包才会连带包内全部 Skill。 */
+function uninstallDescription(item: AgentItem) {
+  if (item.package === null) {
+    return "配置及相关本地文件将一并删除，且无法恢复。";
+  }
+  return item.kind === "mcp"
+    ? `该条目由扩展包“${item.package}”安装，卸载会移除这条 MCP 配置，且无法恢复。`
+    : `该条目属于扩展包“${item.package}”，卸载会移除包内全部 Skill，且无法恢复。`;
 }
 
 onMounted(() => {

@@ -1,4 +1,5 @@
 use std::{
+    collections::BTreeMap,
     fs,
     path::{Path, PathBuf},
 };
@@ -9,8 +10,9 @@ use serde_json::{Map, Value};
 use super::{AgentIntegration, AgentItem, AgentItemKind};
 use crate::agents::{
     command_client_version, command_path, deduplicate, error_item, remove_skill_directory,
-    scan_skills, write_json, AgentItemSource, AgentItemStatus,
+    scan_skills, write_json, AgentClient, AgentItemSource, AgentItemStatus,
 };
+use crate::extensions::mcp::{managed_mcp_servers, ManagedMcpServer};
 
 pub static OPENCODE: OpenCodeIntegration = OpenCodeIntegration;
 pub struct OpenCodeIntegration;
@@ -30,9 +32,10 @@ impl AgentIntegration for OpenCodeIntegration {
 
     fn scan(&self, home: &Path) -> Vec<AgentItem> {
         let path = configuration_path(home);
+        let managed_mcp = managed_mcp_servers(home, AgentClient::OpenCode);
         let mut items = if path.is_file() {
             match read_config(&path) {
-                Ok(config) => mcp_items(&config, &path),
+                Ok(config) => mcp_items(&config, &path, &managed_mcp),
                 Err(()) => vec![error_item(AgentItemKind::Mcp, &path)],
             }
         } else {
@@ -76,30 +79,41 @@ fn read_config(path: &Path) -> Result<Value, ()> {
         .ok_or(())
 }
 
-fn mcp_items(config: &Value, path: &Path) -> Vec<AgentItem> {
+fn mcp_items(
+    config: &Value,
+    path: &Path,
+    managed: &BTreeMap<String, ManagedMcpServer>,
+) -> Vec<AgentItem> {
     config
         .get("mcp")
         .and_then(Value::as_object)
         .into_iter()
         .flatten()
-        .map(|(name, entry)| AgentItem {
-            kind: AgentItemKind::Mcp,
-            name: name.to_string(),
-            version: None,
-            package: None,
-            members: Vec::new(),
-            source: AgentItemSource::Personal,
-            source_path: path.display().to_string(),
-            status: if entry
-                .get("enabled")
-                .and_then(Value::as_bool)
-                .is_some_and(|enabled| !enabled)
-            {
-                AgentItemStatus::Disabled
-            } else {
-                AgentItemStatus::Enabled
-            },
-            error_message: None,
+        .map(|(name, entry)| {
+            let managed_entry = managed.get(name);
+            AgentItem {
+                kind: AgentItemKind::Mcp,
+                name: name.to_string(),
+                version: managed_entry.map(|managed| managed.version.clone()),
+                package: managed_entry.map(|managed| managed.package.clone()),
+                members: Vec::new(),
+                source: if managed_entry.is_some() {
+                    AgentItemSource::Team
+                } else {
+                    AgentItemSource::Personal
+                },
+                source_path: path.display().to_string(),
+                status: if entry
+                    .get("enabled")
+                    .and_then(Value::as_bool)
+                    .is_some_and(|enabled| !enabled)
+                {
+                    AgentItemStatus::Disabled
+                } else {
+                    AgentItemStatus::Enabled
+                },
+                error_message: None,
+            }
         })
         .collect()
 }

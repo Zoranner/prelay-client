@@ -8,7 +8,10 @@ use std::{
 use atomic_write_file::AtomicWriteFile;
 use toml_edit::DocumentMut;
 
-use crate::extensions::skills::{managed_skill_roots, uninstall_skill_package, ManagedSkillRoot};
+use crate::extensions::{
+    mcp::{managed_mcp_servers, ManagedMcpServer},
+    skills::{managed_skill_roots, uninstall_skill_package, ManagedSkillRoot},
+};
 
 use super::{
     discovery::agent_client_is_installed,
@@ -140,7 +143,8 @@ pub(crate) fn uninstall_user_item_with_installation(
         })
         .ok_or_else(|| "未找到要卸载的本地条目。".to_string())?;
 
-    if let Some(package) = item.package.as_deref() {
+    // 只有技能包会用包名去卸载整包；MCP 条目即便来自扩展库也仍是删一条宿主配置。
+    if let (AgentItemKind::Skill, Some(package)) = (kind, item.package.as_deref()) {
         return uninstall_skill_package(Path::new(&item.source_path), package)
             .map_err(|error| error.message);
     }
@@ -150,9 +154,17 @@ pub(crate) fn uninstall_user_item_with_installation(
 pub(crate) fn scan_codex(home: &Path) -> Vec<AgentItem> {
     let codex_root = home.join(".codex");
     let config_path = codex_root.join("config.toml");
+    // 宿主配置里的 MCP 服务名不区分来源，扩展库装的要在 `.prelay/mcp.json` 里认领。
+    let managed_mcp = managed_mcp_servers(home, AgentClient::CodexCli);
     let mut items = if codex_root.exists() {
         match read_toml(&config_path) {
-            Ok(Some(value)) => toml_items(&value, "mcp_servers", AgentItemKind::Mcp, &config_path),
+            Ok(Some(value)) => toml_items(
+                &value,
+                "mcp_servers",
+                AgentItemKind::Mcp,
+                &config_path,
+                &managed_mcp,
+            ),
             Ok(None) => Vec::new(),
             Err(()) => vec![error_item(AgentItemKind::Mcp, &config_path)],
         }
@@ -181,30 +193,38 @@ fn toml_items(
     section: &str,
     kind: AgentItemKind,
     path: &Path,
+    managed: &BTreeMap<String, ManagedMcpServer>,
 ) -> Vec<AgentItem> {
     let Some(entries) = value.get(section).and_then(toml::Value::as_table) else {
         return Vec::new();
     };
     entries
         .iter()
-        .map(|(name, entry)| AgentItem {
-            kind,
-            name: name.to_owned(),
-            version: None,
-            package: None,
-            members: Vec::new(),
-            source: AgentItemSource::Personal,
-            source_path: path.display().to_string(),
-            status: if entry
-                .get("enabled")
-                .and_then(toml::Value::as_bool)
-                .is_some_and(|enabled| !enabled)
-            {
-                AgentItemStatus::Disabled
-            } else {
-                AgentItemStatus::Enabled
-            },
-            error_message: None,
+        .map(|(name, entry)| {
+            let managed_entry = managed.get(name);
+            AgentItem {
+                kind,
+                name: name.to_owned(),
+                version: managed_entry.map(|managed| managed.version.clone()),
+                package: managed_entry.map(|managed| managed.package.clone()),
+                members: Vec::new(),
+                source: if managed_entry.is_some() {
+                    AgentItemSource::Team
+                } else {
+                    AgentItemSource::Personal
+                },
+                source_path: path.display().to_string(),
+                status: if entry
+                    .get("enabled")
+                    .and_then(toml::Value::as_bool)
+                    .is_some_and(|enabled| !enabled)
+                {
+                    AgentItemStatus::Disabled
+                } else {
+                    AgentItemStatus::Enabled
+                },
+                error_message: None,
+            }
         })
         .collect()
 }
