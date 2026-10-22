@@ -14,6 +14,9 @@ impl AgentIntegration for ChatGptIntegration {
     }
     fn scan(&self, home: &Path) -> Vec<AgentItem> {
         scan_codex(home)
+            .into_iter()
+            .filter(|item| item.kind != AgentItemKind::Hook)
+            .collect()
     }
     fn version(&self) -> Option<String> {
         chatgpt_desktop_version()
@@ -37,6 +40,8 @@ impl AgentIntegration for ChatGptIntegration {
         match kind {
             AgentItemKind::Mcp => remove_codex_config_item(home, "mcp_servers", name),
             AgentItemKind::Skill => remove_skill_directory(source_path),
+            AgentItemKind::Hook => Err("Hook 仅支持 Codex CLI。".to_string()),
+            AgentItemKind::Plugin => Err("插件需要通过扩展包记录卸载。".to_string()),
         }
     }
 }

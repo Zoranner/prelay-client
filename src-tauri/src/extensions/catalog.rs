@@ -1,17 +1,22 @@
 use std::path::Path;
 
-use prelay_protocol::{ExtensionInstallBundle, ExtensionSummary};
+use std::collections::BTreeSet;
+
+use prelay_protocol::{
+    CatalogKind, ExtensionArtifactSummary, ExtensionInstallBundle, ExtensionKind, ExtensionSummary,
+};
 
 use super::{
-    install::validate_package_bundle,
-    mcp, mcp_manifest,
-    model::{ExtensionCatalogSnapshot, ExtensionInstallAction, ExtensionKind, ExtensionPackage},
+    hooks,
+    install::{install_prepared_bundle, validate_package_bundle},
+    mcp,
+    model::{ExtensionCatalogSnapshot, ExtensionInstallAction, ExtensionPackage},
     rules, skills,
 };
 use crate::{
     agents::{
-        agent_rule_targets, agent_rule_targets_with_clients, agent_skill_target_roots,
-        agent_skill_targets, installed_agent_clients, AgentClient,
+        agent_rule_targets_with_clients, agent_skill_target_roots, agent_skill_targets,
+        installed_agent_clients, AgentClient,
     },
     identity::registration::authenticated_api,
     relay::client::ClientError,
@@ -21,15 +26,10 @@ use crate::{
 pub async fn list_extensions(
     home: &Path,
     state: &NativeState,
-    kind: ExtensionKind,
+    catalog_kind: CatalogKind,
 ) -> Result<ExtensionCatalogSnapshot, ClientError> {
-    let path = match kind {
-        ExtensionKind::Rule => "/api/extensions/rules",
-        ExtensionKind::Skill => "/api/extensions/skills",
-        ExtensionKind::Mcp => "/api/extensions/mcp",
-    };
     let client = authenticated_api(state).await?;
-    let summaries: Vec<ExtensionSummary> = client.get(path).await?;
+    let summaries = load_summaries(&client, catalog_kind).await?;
     let mut packages = summaries
         .into_iter()
         .map(|summary| ExtensionPackage {
@@ -37,14 +37,15 @@ pub async fn list_extensions(
             repository: summary.repository,
             commit_sha: summary.latest.commit_sha,
             version: summary.latest.tag,
-            kind,
+            catalog_kind: summary.catalog_kind.unwrap_or(catalog_kind),
+            artifacts: summary.artifacts,
             install_action: ExtensionInstallAction::Install,
             installed_clients: Vec::new(),
         })
         .collect::<Vec<_>>();
     let clients = installed_agent_clients();
-    match kind {
-        ExtensionKind::Rule => {
+    match catalog_kind {
+        CatalogKind::Rule => {
             let targets = agent_rule_targets_with_clients(&clients, home);
             let listed = packages
                 .iter()
@@ -62,45 +63,60 @@ pub async fn list_extensions(
                 package.installed_clients = status.clients;
             }
         }
-        ExtensionKind::Skill => {
-            let targets = agent_skill_targets(&clients, home);
-            let target_roots = agent_skill_target_roots(&clients, home);
+        CatalogKind::Plugin => {
             let listed = packages
                 .iter()
                 .map(|package| package.name.clone())
                 .collect();
-            skills::retain_listed_skill_packages(&target_roots, &listed)?;
-            for package in &mut packages {
-                let status = skills::skill_installation_status(
-                    &targets,
-                    &package.name,
-                    &package.version,
-                    &package.commit_sha,
-                )?;
-                package.install_action = status.action;
-                package.installed_clients = status.clients;
-            }
-        }
-        ExtensionKind::Mcp => {
-            let listed = packages
-                .iter()
-                .map(|package| package.name.clone())
-                .collect();
+            skills::retain_listed_skill_packages(
+                &agent_skill_target_roots(&clients, home),
+                &listed,
+            )?;
             mcp::retain_listed_mcp_packages(home, &clients, &listed)?;
+            hooks::retain_listed_hook_packages(home, &listed)?;
             for package in &mut packages {
-                let status = mcp::mcp_installation_status(
-                    home,
-                    &clients,
-                    &package.name,
-                    &package.version,
-                    &package.commit_sha,
-                )?;
+                let status = package_installation_status(home, &clients, package)?;
                 package.install_action = status.action;
                 package.installed_clients = status.clients;
             }
         }
     }
     Ok(ExtensionCatalogSnapshot { packages })
+}
+
+async fn load_summaries(
+    client: &crate::relay::client::ApiClient<'_>,
+    catalog_kind: CatalogKind,
+) -> Result<Vec<ExtensionSummary>, ClientError> {
+    match catalog_kind {
+        CatalogKind::Rule => client.get("/api/extensions/rules").await,
+        CatalogKind::Plugin => match client.get("/api/extensions/plugins").await {
+            Ok(summaries) => Ok(summaries),
+            Err(error) if error.code() == "not_found" => {
+                // 旧服务端没有 /plugins；把两个过渡接口合并为单制品插件。
+                let mut summaries: Vec<ExtensionSummary> =
+                    client.get("/api/extensions/skills").await?;
+                let mcp: Vec<ExtensionSummary> = client.get("/api/extensions/mcp").await?;
+                for summary in &mut summaries {
+                    summary.catalog_kind = Some(CatalogKind::Plugin);
+                    summary.artifacts = vec![ExtensionArtifactSummary {
+                        kind: ExtensionKind::Skill,
+                        file_count: 0,
+                    }];
+                }
+                for mut summary in mcp {
+                    summary.catalog_kind = Some(CatalogKind::Plugin);
+                    summary.artifacts = vec![ExtensionArtifactSummary {
+                        kind: ExtensionKind::Mcp,
+                        file_count: 0,
+                    }];
+                    summaries.push(summary);
+                }
+                Ok(summaries)
+            }
+            Err(error) => Err(error),
+        },
+    }
 }
 
 pub async fn read_extension_readme(
@@ -121,15 +137,17 @@ pub async fn read_extension_readme(
 pub async fn update_all_extensions(
     home: &Path,
     state: &NativeState,
-    kind: ExtensionKind,
+    catalog_kind: CatalogKind,
 ) -> Result<super::model::ExtensionInstallResult, ClientError> {
-    let mut catalog = list_extensions(home, state, kind).await?;
-    catalog.packages.retain(|package| {
-        package.kind == kind && package.install_action == ExtensionInstallAction::Update
-    });
+    let mut catalog = list_extensions(home, state, catalog_kind).await?;
+    catalog
+        .packages
+        .retain(|package| package.install_action == ExtensionInstallAction::Update);
     if catalog.packages.is_empty() {
         return Ok(super::model::ExtensionInstallResult {
             message: "没有可更新扩展。".to_string(),
+            skipped: Vec::new(),
+            review: Vec::new(),
         });
     }
 
@@ -143,59 +161,142 @@ pub async fn update_all_extensions(
             ))
             .await?;
         validate_package_bundle(&package, &bundle)?;
-        install_prepared_bundle(home, &bundle, &package.installed_clients)?;
+        install_prepared_bundle(home, &bundle, &package.installed_clients, false)?;
     }
     Ok(super::model::ExtensionInstallResult {
         message: format!("已更新 {updated} 个扩展。"),
+        skipped: Vec::new(),
+        review: Vec::new(),
     })
 }
 
-/// 已通过 `validate_package_bundle` 校验的安装包按类型落到本机目标；
-/// 只覆盖该扩展已经拥有的目标，不接管同名外部内容。
-fn install_prepared_bundle(
+struct PackageInstallationStatus {
+    action: ExtensionInstallAction,
+    clients: Vec<AgentClient>,
+}
+
+fn package_installation_status(
     home: &Path,
-    bundle: &ExtensionInstallBundle,
     clients: &[AgentClient],
-) -> Result<(), ClientError> {
-    match bundle.kind {
-        ExtensionKind::Rule => {
-            let rules_file = bundle.files.first().expect("validated rule bundle");
-            for target in agent_rule_targets(clients, home) {
-                rules::install_rule(
-                    &target,
-                    &bundle.name,
-                    &bundle.version.tag,
-                    &bundle.version.commit_sha,
-                    rules_file,
-                )?;
+    package: &ExtensionPackage,
+) -> Result<PackageInstallationStatus, ClientError> {
+    let artifact_kinds = effective_artifact_kinds(package);
+    if artifact_kinds.is_empty() {
+        return Ok(PackageInstallationStatus {
+            action: ExtensionInstallAction::Install,
+            clients: Vec::new(),
+        });
+    }
+    let mut statuses = Vec::new();
+    for kind in artifact_kinds {
+        let status = match kind {
+            prelay_protocol::ExtensionKind::Rule => {
+                let targets = agent_rule_targets_with_clients(clients, home);
+                rules::rule_installation_status(
+                    &targets,
+                    &package.name,
+                    &package.version,
+                    &package.commit_sha,
+                )
+                .map(|status| (status.action, status.clients))
             }
-        }
-        ExtensionKind::Skill => {
-            for target_root in agent_skill_target_roots(clients, home) {
-                skills::install_skill_files(
-                    &target_root,
-                    &bundle.name,
-                    &bundle.version.tag,
-                    &bundle.version.commit_sha,
-                    &bundle.files,
-                    false,
-                )?;
+            prelay_protocol::ExtensionKind::Skill => {
+                let targets = agent_skill_targets(clients, home);
+                skills::skill_installation_status(
+                    &targets,
+                    &package.name,
+                    &package.version,
+                    &package.commit_sha,
+                )
+                .map(|status| (status.action, status.clients))
             }
-        }
-        ExtensionKind::Mcp => {
-            let manifest = mcp_manifest::read_mcp_manifest(
-                bundle.files.first().expect("validated MCP install bundle"),
-            )?;
-            mcp::install_mcp(
+            prelay_protocol::ExtensionKind::Mcp => mcp::mcp_installation_status(
                 home,
                 clients,
-                &bundle.name,
-                &bundle.version.tag,
-                &bundle.version.commit_sha,
-                &manifest,
-                false,
-            )?;
-        }
+                &package.name,
+                &package.version,
+                &package.commit_sha,
+            )
+            .map(|status| (status.action, status.clients)),
+            prelay_protocol::ExtensionKind::Hook => hooks::hook_installation_status(
+                home,
+                clients,
+                &package.name,
+                &package.version,
+                &package.commit_sha,
+            )
+            .map(|status| (status.action, status.clients)),
+            prelay_protocol::ExtensionKind::Unknown => continue,
+        }?;
+        statuses.push((kind, status.0, status.1));
     }
-    Ok(())
+    if statuses.is_empty() {
+        return Ok(PackageInstallationStatus {
+            action: ExtensionInstallAction::Install,
+            clients: Vec::new(),
+        });
+    }
+
+    let applicable = clients
+        .iter()
+        .copied()
+        .filter(|client| {
+            statuses
+                .iter()
+                .any(|(kind, _, _)| artifact_supports_client(*kind, *client))
+        })
+        .collect::<Vec<_>>();
+    let installed = applicable
+        .iter()
+        .copied()
+        .filter(|client| {
+            statuses.iter().all(|(kind, _, installed_clients)| {
+                !artifact_supports_client(*kind, *client) || installed_clients.contains(client)
+            })
+        })
+        .collect::<BTreeSet<_>>();
+    let outdated = statuses
+        .iter()
+        .any(|(_, action, _)| *action == ExtensionInstallAction::Update);
+    let partial = statuses
+        .iter()
+        .any(|(_, action, _)| *action == ExtensionInstallAction::Partial)
+        || (!installed.is_empty() && installed.len() < applicable.len());
+    let action = if outdated {
+        ExtensionInstallAction::Update
+    } else if applicable.is_empty() || installed.is_empty() {
+        ExtensionInstallAction::Install
+    } else if partial {
+        ExtensionInstallAction::Partial
+    } else {
+        ExtensionInstallAction::Installed
+    };
+    Ok(PackageInstallationStatus {
+        action,
+        clients: installed.into_iter().collect(),
+    })
+}
+
+fn effective_artifact_kinds(package: &ExtensionPackage) -> Vec<prelay_protocol::ExtensionKind> {
+    if !package.artifacts.is_empty() {
+        return package
+            .artifacts
+            .iter()
+            .map(|artifact| artifact.kind)
+            .collect();
+    }
+    if package.catalog_kind == CatalogKind::Rule {
+        return vec![prelay_protocol::ExtensionKind::Rule];
+    }
+    Vec::new()
+}
+
+fn artifact_supports_client(kind: prelay_protocol::ExtensionKind, client: AgentClient) -> bool {
+    match kind {
+        prelay_protocol::ExtensionKind::Hook => client == AgentClient::CodexCli,
+        prelay_protocol::ExtensionKind::Rule
+        | prelay_protocol::ExtensionKind::Skill
+        | prelay_protocol::ExtensionKind::Mcp => true,
+        prelay_protocol::ExtensionKind::Unknown => false,
+    }
 }

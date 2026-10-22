@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::agents::AgentClient;
 
-pub use prelay_protocol::ExtensionKind;
+pub use prelay_protocol::{CatalogKind, ExtensionKind};
 
 pub(crate) const SKILLS_PREFIX: &str = "skills/";
 
@@ -13,7 +13,9 @@ pub struct ExtensionPackage {
     pub repository: String,
     pub commit_sha: String,
     pub version: String,
-    pub kind: ExtensionKind,
+    pub catalog_kind: CatalogKind,
+    #[serde(default)]
+    pub artifacts: Vec<prelay_protocol::ExtensionArtifactSummary>,
     #[serde(default)]
     pub install_action: ExtensionInstallAction,
     #[serde(default)]
@@ -48,6 +50,19 @@ pub struct ExtensionInstallRequest {
 #[serde(rename_all = "camelCase")]
 pub struct ExtensionInstallResult {
     pub message: String,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub skipped: Vec<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub review: Vec<HookReviewItem>,
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct HookReviewItem {
+    pub event: String,
+    pub matcher: Option<String>,
+    pub command: String,
+    pub command_windows: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize)]

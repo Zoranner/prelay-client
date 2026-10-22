@@ -1,10 +1,10 @@
 use std::{
     collections::{BTreeMap, BTreeSet},
     fs,
-    path::{Path, PathBuf, MAIN_SEPARATOR, MAIN_SEPARATOR_STR},
+    path::{Path, PathBuf},
 };
 
-use prelay_protocol::{ExtensionMcpManifest, ExtensionMcpTransport};
+use prelay_protocol::ExtensionMcpManifest;
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -15,7 +15,11 @@ use crate::{
     relay::client::ClientError,
 };
 
-use super::{atomic_write, ExtensionInstallAction};
+use super::{
+    atomic_write,
+    mcp_manifest::{app_directory, expand_manifest},
+    ExtensionInstallAction,
+};
 
 const PRELAY_STATE_DIRECTORY: &str = ".prelay";
 const MCP_PACKAGE_STATE_FILE: &str = "mcp.json";
@@ -60,6 +64,7 @@ struct PreparedMcpInstallation {
     host: McpHost,
     installed: InstalledMcpPackages,
     previous_server: Option<String>,
+    expanded: ExtensionMcpManifest,
 }
 
 pub(crate) struct McpInstallationStatus {
@@ -76,6 +81,46 @@ pub(super) fn install_mcp(
     manifest: &ExtensionMcpManifest,
     overwrite: bool,
 ) -> Result<(), ClientError> {
+    let targets = prepare_mcp_installation(home, clients, package, manifest, overwrite)?;
+    for mut target in targets {
+        if let Some(previous_server) = target.previous_server {
+            remove_mcp_server(home, target.host, &previous_server)?;
+        }
+        target.installed.0.retain(|installed_package, entry| {
+            installed_package == package || entry.server_name != target.expanded.name
+        });
+        upsert_mcp_server(home, target.host, &target.expanded)?;
+        target.installed.0.insert(
+            package.to_string(),
+            InstalledMcpPackage {
+                server_name: target.expanded.name.clone(),
+                version: version.to_string(),
+                commit_sha: commit_sha.to_string(),
+                manifest: Some(manifest.clone()),
+            },
+        );
+        write_installed_mcp_packages(home, target.host, &target.installed)?;
+    }
+    Ok(())
+}
+
+pub(crate) fn preflight_mcp_install(
+    home: &Path,
+    clients: &[AgentClient],
+    package: &str,
+    manifest: &ExtensionMcpManifest,
+    overwrite: bool,
+) -> Result<(), ClientError> {
+    prepare_mcp_installation(home, clients, package, manifest, overwrite).map(|_| ())
+}
+
+fn prepare_mcp_installation(
+    home: &Path,
+    clients: &[AgentClient],
+    package: &str,
+    manifest: &ExtensionMcpManifest,
+    overwrite: bool,
+) -> Result<Vec<PreparedMcpInstallation>, ClientError> {
     let app_directory = app_directory()?;
     let expanded = expand_manifest(manifest, home, &app_directory)?;
     let mut targets = Vec::new();
@@ -114,29 +159,10 @@ pub(super) fn install_mcp(
             host,
             installed,
             previous_server,
+            expanded: expanded.clone(),
         });
     }
-
-    for mut target in targets {
-        if let Some(previous_server) = target.previous_server {
-            remove_mcp_server(home, target.host, &previous_server)?;
-        }
-        target.installed.0.retain(|installed_package, entry| {
-            installed_package == package || entry.server_name != expanded.name
-        });
-        upsert_mcp_server(home, target.host, &expanded)?;
-        target.installed.0.insert(
-            package.to_string(),
-            InstalledMcpPackage {
-                server_name: expanded.name.clone(),
-                version: version.to_string(),
-                commit_sha: commit_sha.to_string(),
-                manifest: Some(manifest.clone()),
-            },
-        );
-        write_installed_mcp_packages(home, target.host, &target.installed)?;
-    }
-    Ok(())
+    Ok(targets)
 }
 
 pub(crate) fn mcp_installation_status(
@@ -214,6 +240,20 @@ pub(crate) fn retain_listed_mcp_packages(
         }
     }
     Ok(())
+}
+
+pub(crate) fn uninstall_mcp_package(
+    home: &Path,
+    client: AgentClient,
+    package: &str,
+) -> Result<(), ClientError> {
+    let host = mcp_host(client);
+    let mut installed = read_installed_mcp_packages(home, host)?;
+    let Some(entry) = installed.0.remove(package) else {
+        return Ok(());
+    };
+    remove_mcp_server(home, host, &entry.server_name)?;
+    write_installed_mcp_packages(home, host, &installed)
 }
 
 #[derive(Clone, Debug)]
@@ -336,106 +376,6 @@ fn mcp_package_state_path(home: &Path, host: McpHost) -> PathBuf {
     };
     root.join(PRELAY_STATE_DIRECTORY)
         .join(MCP_PACKAGE_STATE_FILE)
-}
-
-fn expand_manifest(
-    manifest: &ExtensionMcpManifest,
-    home: &Path,
-    app_directory: &Path,
-) -> Result<ExtensionMcpManifest, ClientError> {
-    let mut expanded = manifest.clone();
-    if let ExtensionMcpTransport::Stdio { command, .. } = &mut expanded.transport {
-        for part in command.iter_mut() {
-            *part = expand_user_directories(part, home, app_directory)?;
-        }
-    }
-    Ok(expanded)
-}
-
-/// `%PRELAYHOME%` 展开为客户端主程序所在目录，由运行中的客户端进程解析。
-fn app_directory() -> Result<PathBuf, ClientError> {
-    std::env::current_exe()
-        .ok()
-        .and_then(|path| path.parent().map(Path::to_path_buf))
-        .ok_or_else(|| {
-            ClientError::new("local_extensions_error", "无法确定 Prelay 客户端程序目录。")
-        })
-}
-
-fn expand_user_directories(
-    value: &str,
-    home: &Path,
-    app_directory: &Path,
-) -> Result<String, ClientError> {
-    let variables = [
-        ("%USERPROFILE%".to_string(), home.display().to_string()),
-        (
-            "%APPDATA%".to_string(),
-            home.join("AppData").join("Roaming").display().to_string(),
-        ),
-        (
-            "%LOCALAPPDATA%".to_string(),
-            home.join("AppData").join("Local").display().to_string(),
-        ),
-        (
-            "%PRELAYHOME%".to_string(),
-            app_directory.display().to_string(),
-        ),
-    ];
-    let mut expanded = String::with_capacity(value.len());
-    let mut rest = value;
-    let mut replaced_variable = false;
-    while let Some(index) = rest.find('%') {
-        expanded.push_str(&rest[..index]);
-        let tail = &rest[index..];
-        if let Some(stripped) = tail.strip_prefix("%%") {
-            expanded.push('%');
-            rest = stripped;
-            continue;
-        }
-        match variables
-            .iter()
-            .find(|(name, _)| tail.starts_with(name.as_str()))
-        {
-            Some((name, replacement)) => {
-                expanded.push_str(replacement);
-                replaced_variable = true;
-                rest = &tail[name.len()..];
-            }
-            None => {
-                if let Some(name) = unknown_variable_name(tail) {
-                    return Err(ClientError::new(
-                        "local_extensions_error",
-                        format!("MCP 清单使用了未识别的目录变量 %{name}%"),
-                    ));
-                }
-                expanded.push('%');
-                rest = &tail[1..];
-            }
-        }
-    }
-    expanded.push_str(rest);
-    if replaced_variable && MAIN_SEPARATOR != '\\' {
-        expanded = expanded.replace('\\', MAIN_SEPARATOR_STR);
-    }
-    Ok(expanded)
-}
-
-/// 识别 `%NAME%` 形式的未知目录变量；普通文本中的 `%` 保持原样。
-fn unknown_variable_name(tail: &str) -> Option<String> {
-    let body = tail.strip_prefix('%')?;
-    let end = body.find('%')?;
-    let name = &body[..end];
-    let mut characters = name.chars();
-    if !characters.next()?.is_ascii_uppercase() {
-        return None;
-    }
-    if !characters.all(|character| {
-        character.is_ascii_uppercase() || character.is_ascii_digit() || character == '_'
-    }) {
-        return None;
-    }
-    Some(name.to_string())
 }
 
 #[cfg(test)]

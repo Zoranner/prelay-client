@@ -67,6 +67,8 @@ impl AgentIntegration for OpenCodeIntegration {
         match kind {
             AgentItemKind::Skill => remove_skill_directory(source_path),
             AgentItemKind::Mcp => remove_config_entry(&configuration_path(home), "mcp", name),
+            AgentItemKind::Hook => Err("Hook 仅支持 Codex CLI。".to_string()),
+            AgentItemKind::Plugin => Err("插件需要通过扩展包记录卸载。".to_string()),
         }
     }
 }

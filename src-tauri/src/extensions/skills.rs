@@ -90,6 +90,26 @@ pub(super) fn install_skill_files(
     write_installed_skill_packages(target_root, &installed)
 }
 
+pub(crate) fn preflight_skill_files(
+    target_root: &Path,
+    package: &str,
+    files: &[ExtensionFile],
+    overwrite: bool,
+) -> Result<(), ClientError> {
+    let contents = skill_install_contents(files)?;
+    if !contents.roots.is_disjoint(&contents.removed_roots) {
+        return Err(ClientError::new(
+            "invalid_response",
+            "skill install bundle cannot replace and delete the same skill",
+        ));
+    }
+    if !overwrite {
+        let installed = read_installed_skill_packages(target_root)?;
+        ensure_skill_roots_available(target_root, package, &contents.roots, &installed)?;
+    }
+    Ok(())
+}
+
 fn skill_install_contents(
     files: &[ExtensionFile],
 ) -> Result<SkillInstallContents<'_>, ClientError> {
@@ -234,6 +254,17 @@ pub(crate) fn uninstall_skill_package(
         }
     }
     write_installed_skill_packages(target_root, &installed)
+}
+
+pub(crate) fn uninstall_skill_package_if_present(
+    target_root: &Path,
+    package: &str,
+) -> Result<(), ClientError> {
+    let installed = read_installed_skill_packages(target_root)?;
+    if installed.packages.contains_key(package) {
+        uninstall_skill_package(target_root, package)?;
+    }
+    Ok(())
 }
 
 pub(crate) fn managed_skill_roots(target_root: &Path) -> BTreeMap<String, ManagedSkillRoot> {

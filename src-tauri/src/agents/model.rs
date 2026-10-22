@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, Copy, Deserialize, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, Copy, Deserialize, PartialEq, Eq, PartialOrd, Ord, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub enum AgentClient {
     CodexCli,
@@ -14,6 +14,8 @@ pub enum AgentClient {
 pub enum AgentItemKind {
     Mcp,
     Skill,
+    Hook,
+    Plugin,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]

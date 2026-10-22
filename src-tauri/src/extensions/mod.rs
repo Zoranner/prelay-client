@@ -1,20 +1,23 @@
 pub(crate) mod catalog;
 pub(crate) mod checks;
+pub(crate) mod hooks;
 pub(crate) mod install;
 pub(crate) mod mcp;
 pub(crate) mod mcp_manifest;
 pub(crate) mod model;
+pub(crate) mod record;
 pub(crate) mod rules;
 pub(crate) mod skill_state;
 pub(crate) mod skills;
 pub(crate) mod support;
+pub(crate) mod uninstall;
 
 pub use catalog::{list_extensions, read_extension_readme, update_all_extensions};
 pub use checks::spawn_update_checks;
 pub use install::{install_extension, read_mcp_install_manifest};
 pub use model::{
-    ExtensionCatalogSnapshot, ExtensionInstallAction, ExtensionInstallRequest,
-    ExtensionInstallResult, ExtensionKind, ExtensionPackage, McpInstallPreview,
+    CatalogKind, ExtensionCatalogSnapshot, ExtensionInstallAction, ExtensionInstallRequest,
+    ExtensionInstallResult, ExtensionKind, ExtensionPackage, HookReviewItem, McpInstallPreview,
 };
 
 pub(crate) use model::SKILLS_PREFIX;

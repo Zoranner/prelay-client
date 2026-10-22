@@ -3,8 +3,8 @@ use std::path::PathBuf;
 use crate::{
     extensions::{
         install_extension, list_extensions, read_extension_readme, read_mcp_install_manifest,
-        update_all_extensions, ExtensionCatalogSnapshot, ExtensionInstallRequest,
-        ExtensionInstallResult, ExtensionKind, ExtensionPackage, McpInstallPreview,
+        update_all_extensions, CatalogKind, ExtensionCatalogSnapshot, ExtensionInstallRequest,
+        ExtensionInstallResult, ExtensionPackage, McpInstallPreview,
     },
     relay::client::ClientError,
     NativeState,
@@ -19,7 +19,7 @@ fn user_home() -> Result<PathBuf, ClientError> {
 #[tauri::command]
 pub async fn extensions_list(
     state: tauri::State<'_, NativeState>,
-    kind: ExtensionKind,
+    kind: CatalogKind,
 ) -> Result<ExtensionCatalogSnapshot, ClientError> {
     let home = user_home()?;
     list_extensions(&home, &state, kind).await
@@ -53,7 +53,7 @@ pub async fn extensions_install(
 #[tauri::command]
 pub async fn extensions_update_all(
     state: tauri::State<'_, NativeState>,
-    kind: ExtensionKind,
+    kind: CatalogKind,
 ) -> Result<ExtensionInstallResult, ClientError> {
     let home = user_home()?;
     update_all_extensions(&home, &state, kind).await

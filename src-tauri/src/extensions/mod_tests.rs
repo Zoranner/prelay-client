@@ -1,5 +1,8 @@
 use base64::{engine::general_purpose::STANDARD as BASE64, Engine};
-use prelay_protocol::{ExtensionFile, ExtensionInstallBundle, ExtensionKind, ExtensionVersion};
+use prelay_protocol::{
+    CatalogKind, ExtensionArtifact, ExtensionArtifactSummary, ExtensionFile,
+    ExtensionInstallBundle, ExtensionKind, ExtensionVersion,
+};
 
 use super::{install::validate_package_bundle, ExtensionInstallAction, ExtensionPackage};
 
@@ -9,7 +12,11 @@ fn mcp_package() -> ExtensionPackage {
         repository: "https://git.example.test/agents/filesystem-mcp".to_string(),
         commit_sha: "expected-commit".to_string(),
         version: "v1.0.0".to_string(),
-        kind: ExtensionKind::Mcp,
+        catalog_kind: CatalogKind::Plugin,
+        artifacts: vec![ExtensionArtifactSummary {
+            kind: ExtensionKind::Mcp,
+            file_count: 1,
+        }],
         install_action: ExtensionInstallAction::Install,
         installed_clients: Vec::new(),
     }
@@ -18,16 +25,17 @@ fn mcp_package() -> ExtensionPackage {
 fn mcp_bundle(commit_sha: &str) -> ExtensionInstallBundle {
     ExtensionInstallBundle {
         name: "filesystem-mcp".to_string(),
-        kind: ExtensionKind::Mcp,
         version: ExtensionVersion {
             tag: "v1.0.0".to_string(),
             commit_sha: commit_sha.to_string(),
             updated_at: "2026-09-11T00:00:00Z".to_string(),
         },
-        files: vec![ExtensionFile {
-            path: "server.json".to_string(),
-            content_base64: BASE64.encode(
-                r#"{
+        artifacts: vec![ExtensionArtifact {
+            kind: ExtensionKind::Mcp,
+            files: vec![ExtensionFile {
+                path: "server.json".to_string(),
+                content_base64: BASE64.encode(
+                    r#"{
                     "name": "filesystem",
                     "transport": {
                         "type": "stdio",
@@ -38,8 +46,10 @@ fn mcp_bundle(commit_sha: &str) -> ExtensionInstallBundle {
                         "timeoutMs": null
                     }
                 }"#,
-            ),
+                ),
+            }],
         }],
+        skipped: Vec::new(),
     }
 }
 

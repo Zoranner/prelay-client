@@ -4,26 +4,22 @@ use tauri::{AppHandle, Emitter, Manager, Runtime};
 
 use crate::NativeState;
 
-use super::{list_extensions, ExtensionCatalogSnapshot, ExtensionKind};
+use super::{list_extensions, CatalogKind, ExtensionCatalogSnapshot};
 
 const UPDATE_CHECK_INTERVAL: Duration = Duration::from_secs(30 * 60);
-const CHECKED_KINDS: [ExtensionKind; 3] = [
-    ExtensionKind::Rule,
-    ExtensionKind::Skill,
-    ExtensionKind::Mcp,
-];
+const CHECKED_KINDS: [CatalogKind; 2] = [CatalogKind::Rule, CatalogKind::Plugin];
 pub const CATALOG_EVENT: &str = "extensions:catalog";
 
 /// 某一类扩展的目录快照推送负载，用 `kind` 让前端把快照落到对应分类。
 #[derive(Clone, serde::Serialize)]
 #[serde(rename_all = "camelCase")]
 struct CatalogEvent {
-    kind: ExtensionKind,
+    kind: CatalogKind,
     snapshot: ExtensionCatalogSnapshot,
 }
 
 /// 扩展更新检查跟随进程，而不跟随页面：启动后立即检查一次，之后按固定间隔复查。
-/// 规则、Skill、MCP 分别比对结果，只有发生变化的那一类才推送目录快照；
+/// 规则与插件分别比对结果，只有发生变化的那一类才推送目录快照；
 /// 未配置服务地址或尚未注册身份时跳过。
 pub fn spawn_update_checks<R: Runtime>(app: AppHandle<R>) {
     let Some(home) = user_home() else {

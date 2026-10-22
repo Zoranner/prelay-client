@@ -9,8 +9,11 @@ use atomic_write_file::AtomicWriteFile;
 use toml_edit::DocumentMut;
 
 use crate::extensions::{
+    hooks::{managed_hook_items, uninstall_hooks},
     mcp::{managed_mcp_servers, ManagedMcpServer},
+    record::{managed_package_names, plugin_items},
     skills::{managed_skill_roots, uninstall_skill_package, ManagedSkillRoot},
+    uninstall::uninstall_plugin_for_client,
 };
 
 use super::{
@@ -96,7 +99,17 @@ pub(crate) fn scan_user_items_with_installation(
     let mut snapshot = AgentItemsSnapshot::default();
     for client in REGISTERED_AGENT_CLIENTS {
         if is_installed(client) {
-            let items = integration(client).scan(home);
+            let managed = managed_package_names(home, client).unwrap_or_default();
+            let mut items = integration(client)
+                .scan(home)
+                .into_iter()
+                .filter(|item| {
+                    item.package
+                        .as_deref()
+                        .is_none_or(|package| !managed.contains(package))
+                })
+                .collect::<Vec<_>>();
+            items.extend(plugin_items(home, client));
             snapshot.clients.push(AgentClientItems {
                 client,
                 version: None,
@@ -148,6 +161,12 @@ pub(crate) fn uninstall_user_item_with_installation(
         return uninstall_skill_package(Path::new(&item.source_path), package)
             .map_err(|error| error.message);
     }
+    if let (AgentItemKind::Hook, Some(package)) = (kind, item.package.as_deref()) {
+        return uninstall_hooks(home, package).map_err(|error| error.message);
+    }
+    if let (AgentItemKind::Plugin, Some(package)) = (kind, item.package.as_deref()) {
+        return uninstall_plugin_for_client(home, client, package).map_err(|error| error.message);
+    }
     integration(client).uninstall(home, kind, name, &item.source_path)
 }
 
@@ -174,6 +193,7 @@ pub(crate) fn scan_codex(home: &Path) -> Vec<AgentItem> {
     for root in user_skill_roots(home) {
         items.extend(scan_skills(root));
     }
+    items.extend(managed_hook_items(home));
     deduplicate(items)
 }
 
