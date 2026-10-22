@@ -294,7 +294,7 @@ export interface Activity {
 }
 
 export type AgentClient = "codexCli" | "chatgpt" | "openCode";
-export type AgentItemKind = "mcp" | "skill";
+export type AgentItemKind = "plugin" | "mcp" | "skill" | "hook";
 export type AgentItemStatus = "enabled" | "disabled" | "error";
 export type AgentItemSource = "personal" | "team";
 
@@ -331,29 +331,29 @@ export interface AgentClientStatus {
   version: string | null;
 }
 
-export type ExtensionKind = "rule" | "mcp" | "skill";
-export type ExtensionCatalogKind = ExtensionKind;
+export type ExtensionArtifactKind = "rule" | "mcp" | "skill" | "hook";
+export type ExtensionCatalogKind = "rule" | "plugin";
 export type ExtensionInstallAction =
   "install" | "partial" | "update" | "installed";
 
+export interface ExtensionArtifactSummary {
+  kind: ExtensionArtifactKind;
+  fileCount: number;
+}
 export interface ExtensionPackage {
   name: string;
   repository: string;
   commitSha: string;
   version: string;
-  kind: ExtensionKind;
+  catalogKind: ExtensionCatalogKind;
+  artifacts: ExtensionArtifactSummary[];
   installAction: ExtensionInstallAction;
   installedClients: AgentClient[];
 }
-
-export type ExtensionCatalogPackage = Omit<ExtensionPackage, "kind"> & {
-  kind: ExtensionCatalogKind;
-};
-
+export type ExtensionCatalogPackage = ExtensionPackage;
 export interface ExtensionCatalogSnapshot {
   packages: ExtensionCatalogPackage[];
 }
-
 export type ExtensionMcpTransport =
   | {
       type: "stdio";
@@ -381,6 +381,18 @@ export interface ExtensionMcpPreview {
   version: string;
   commitSha: string;
   manifest: ExtensionMcpManifest;
+}
+export interface HookReviewItem {
+  event: string;
+  matcher: string | null;
+  command: string;
+  commandWindows: string | null;
+}
+
+export interface ExtensionInstallResult {
+  message: string;
+  skipped: string[];
+  review: HookReviewItem[];
 }
 
 export type CodexSettings = Partial<{

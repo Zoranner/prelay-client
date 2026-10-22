@@ -12,12 +12,16 @@ import {
 import type {
   AgentClient,
   ExtensionCatalogPackage,
+  ExtensionInstallResult,
   ExtensionMcpPreview,
 } from "~/stores/relay";
 import McpInstallForm from "~/components/extensions/McpInstallForm.vue";
-import { agentSectionOptions } from "~/utils/agentClient";
+import HookReviewList from "~/components/extensions/HookReviewList.vue";
 import { mcpPreviewMatchesExtension } from "~/utils/extensionMcpPreview";
-import { synchronizeExtensionInstallSelection } from "~/utils/extensionInstallSelection";
+import {
+  extensionSupportsClient,
+  synchronizeExtensionInstallSelection,
+} from "~/utils/extensionInstallSelection";
 import { errorText, toRelayError } from "~/utils/errors";
 
 const visible = defineModel<boolean>("visible", { default: false });
@@ -26,8 +30,8 @@ const props = defineProps<{
   detectedClients: AgentClient[];
 }>();
 const emit = defineEmits<{
-  installed: [kind: ExtensionCatalogPackage["kind"]];
-  refreshed: [kind: ExtensionCatalogPackage["kind"]];
+  installed: [kind: ExtensionCatalogPackage["catalogKind"]];
+  refreshed: [kind: ExtensionCatalogPackage["catalogKind"]];
 }>();
 const { invokeLocalCommand } = useLocalCommand();
 const { confirm: confirmAction } = useConfirm();
@@ -37,6 +41,7 @@ const installing = ref(false);
 const mcpPreview = ref<ExtensionMcpPreview | null>(null);
 const mcpPreviewLoading = ref(false);
 const mcpPreviewError = ref("");
+const installResult = ref<ExtensionInstallResult | null>(null);
 let mcpPreviewRequest = 0;
 const actionLabel = computed(() =>
   props.extension?.installAction === "update"
@@ -47,14 +52,16 @@ const actionLabel = computed(() =>
 );
 
 const detected = computed(() => new Set(props.detectedClients));
-const isMcp = computed(() => props.extension?.kind === "mcp");
+const isMcp = computed(() =>
+  props.extension?.artifacts.some((artifact) => artifact.kind === "mcp"),
+);
+const artifactLabels = computed(
+  () => props.extension?.artifacts.map((artifact) => artifact.kind.toUpperCase()) ?? [],
+);
 const kindIcon = computed(() => {
-  const kind = props.extension?.kind;
+  const kind = props.extension?.catalogKind;
   if (!kind) return "";
-  const section = kind === "rule" ? "rules" : kind;
-  return (
-    agentSectionOptions.find((option) => option.value === section)?.icon ?? ""
-  );
+  return kind === "rule" ? "ph:notebook" : "ph:puzzle-piece";
 });
 const identityName = computed(() =>
   isMcp.value
@@ -73,28 +80,39 @@ const transportLabel = computed(() => {
     : "HTTP";
 });
 const supportedDetectedClients = computed(() => props.detectedClients);
+const selectableClients = computed(() =>
+  supportedDetectedClients.value.filter((client) =>
+    extensionSupportsClient(props.extension?.artifacts ?? [], client),
+  ),
+);
 const clientOptions = computed(() => [
   {
     value: "codexCli",
     label: "Codex CLI",
-    disabled: !detected.value.has("codexCli"),
+    disabled:
+      !detected.value.has("codexCli") ||
+      !extensionSupportsClient(props.extension?.artifacts ?? [], "codexCli"),
   },
   {
     value: "chatgpt",
     label: "ChatGPT",
-    disabled: !detected.value.has("chatgpt"),
+    disabled:
+      !detected.value.has("chatgpt") ||
+      !extensionSupportsClient(props.extension?.artifacts ?? [], "chatgpt"),
   },
   {
     value: "openCode",
     label: "OpenCode",
-    disabled: !detected.value.has("openCode"),
+    disabled:
+      !detected.value.has("openCode") ||
+      !extensionSupportsClient(props.extension?.artifacts ?? [], "openCode"),
   },
 ]);
 function selectClients(values: AgentClient[]) {
   if (!props.extension) return;
   selectedClients.value = synchronizeExtensionInstallSelection({
     detected: supportedDetectedClients.value,
-    kind: props.extension.kind,
+    artifacts: props.extension.artifacts,
     next: values,
     previous: selectedClients.value,
   });
@@ -103,7 +121,7 @@ function selectClients(values: AgentClient[]) {
 async function install(overwrite = false) {
   if (!props.extension || !selectedClients.value.length) return;
   if (
-    props.extension.kind === "mcp" &&
+    isMcp.value &&
     (!mcpPreview.value ||
       !mcpPreviewMatchesExtension(mcpPreview.value, props.extension))
   ) {
@@ -111,7 +129,7 @@ async function install(overwrite = false) {
   }
   installing.value = true;
   try {
-    await invokeLocalCommand(
+    const result = await invokeLocalCommand<ExtensionInstallResult>(
       "extensions_install",
       {
         request: {
@@ -122,20 +140,23 @@ async function install(overwrite = false) {
       },
       { notify: false },
     );
-    visible.value = false;
-    emit("installed", props.extension.kind);
+    emit("installed", props.extension.catalogKind);
+    if (result.review.length) {
+      installResult.value = result;
+    } else {
+      visible.value = false;
+    }
   } catch (caught) {
     const error = caught as { code?: string; message?: string };
     if (!overwrite && error.code === "extension_target_exists") {
       const confirmed = await confirmAction({
-        title:
-          props.extension.kind === "mcp" ? "覆盖已有 MCP 配置" : "覆盖已有技能",
+        title: isMcp.value ? "覆盖已有 MCP 配置" : "覆盖已有技能",
         message:
-          props.extension.kind === "mcp"
+          isMcp.value
             ? "目标 MCP 服务名已存在，是否覆盖安装？"
             : "目标技能目录已存在，是否覆盖安装？",
         description:
-          props.extension.kind === "mcp"
+          isMcp.value
             ? "覆盖会替换目标 MCP 服务配置，并更新当前扩展包的版本记录。"
             : "覆盖会删除该技能目录中的现有文件，然后写入当前扩展包内容。",
         confirmText: "覆盖",
@@ -146,8 +167,8 @@ async function install(overwrite = false) {
       }
       return;
     }
-    if (props.extension?.kind === "mcp") {
-      emit("refreshed", props.extension.kind);
+    if (isMcp.value) {
+      emit("refreshed", props.extension.catalogKind);
     }
     notifications.error(errorText(toRelayError(caught)), {
       title: "扩展安装失败",
@@ -164,23 +185,25 @@ watch(
       props.extension?.name,
       props.extension?.version,
       props.extension?.commitSha,
+      props.extension?.artifacts,
     ] as const,
   async ([isVisible]) => {
     const request = ++mcpPreviewRequest;
     if (!isVisible) return;
     const extension = props.extension;
+    installResult.value = null;
     mcpPreview.value = null;
     mcpPreviewError.value = "";
     selectedClients.value = ["partial", "update"].includes(
       extension?.installAction ?? "",
     )
-      ? supportedDetectedClients.value.filter((client) =>
+      ? selectableClients.value.filter((client) =>
           extension?.installAction === "partial"
             ? !extension.installedClients.includes(client)
             : extension?.installedClients.includes(client),
         )
-      : [...supportedDetectedClients.value];
-    if (extension?.kind !== "mcp") return;
+      : [...selectableClients.value];
+    if (!extension?.artifacts.some((artifact) => artifact.kind === "mcp")) return;
     mcpPreviewLoading.value = true;
     try {
       const preview = await invokeLocalCommand<ExtensionMcpPreview>(
@@ -235,6 +258,9 @@ watch(
           >
             {{ identityVersion }}
           </span>
+          <span v-if="artifactLabels.length" class="extension-install-drawer__artifacts">
+            {{ artifactLabels.join(" · ") }}
+          </span>
         </div>
         <Tag
           v-if="transportLabel"
@@ -262,6 +288,10 @@ watch(
           {{ mcpPreviewError }}
         </p>
       </div>
+      <HookReviewList
+        v-if="installResult?.review.length"
+        :review="installResult.review"
+      />
     </div>
     <template #footer>
       <div class="extension-install-drawer__footer">
@@ -269,7 +299,13 @@ watch(
           <Button :disabled="installing" @click="visible = false">
             取消
           </Button>
+          <template v-if="installResult">
+            <Button semantic="primary" variant="solid" @click="visible = false">
+              完成
+            </Button>
+          </template>
           <Button
+            v-else
             semantic="primary"
             variant="solid"
             :disabled="
@@ -353,6 +389,11 @@ watch(
   margin-left: auto;
 }
 
+.extension-install-drawer__artifacts {
+  color: var(--st-text-muted);
+  font-size: var(--text-xs);
+}
+
 .extension-install-drawer__preview {
   min-height: 0;
   min-width: 0;
@@ -378,6 +419,7 @@ watch(
   color: var(--st-semantic-error);
   font-size: var(--text-sm);
 }
+
 
 @media (max-width: 720px) {
   .extension-install-drawer {

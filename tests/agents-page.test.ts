@@ -30,7 +30,7 @@ test("智能体页面只编排路由级状态，展示和设置由领域组件�
   expect(sidebar).not.toContain("agent-client-icon--monochrome");
   expect(content).toContain("@update:model-value");
   expect(page).toContain("agentSectionOptions");
-  expect(page).not.toContain("插件");
+  expect(page).toContain("插件");
   expect(page).toContain("MCP");
   expect(page).toContain("Skill");
   expect(content).not.toContain('icon="ph:gear-six"');

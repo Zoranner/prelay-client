@@ -1,27 +1,43 @@
-import type { AgentClient, ExtensionCatalogKind } from "~/stores/relay";
+import type {
+  AgentClient,
+  ExtensionArtifactSummary,
+} from "~/stores/relay";
 
 const codexHostAgents: AgentClient[] = ["codexCli", "chatgpt"];
 const allAgents: AgentClient[] = ["codexCli", "chatgpt", "openCode"];
 
+export function extensionSupportsClient(
+  artifacts: ExtensionArtifactSummary[],
+  client: AgentClient,
+) {
+  if (!artifacts.length) return client === "codexCli" || client === "chatgpt";
+  if (artifacts.some(({ kind }) => kind !== "hook")) return true;
+  return client === "codexCli";
+}
+
 export function linkedAgentsForExtension(
-  kind: ExtensionCatalogKind,
+  artifacts: ExtensionArtifactSummary[],
 ): AgentClient[] {
-  if (kind === "skill") return allAgents;
+  if (!artifacts.length) return codexHostAgents;
+  if (artifacts.some(({ kind }) => kind === "skill" || kind === "mcp")) {
+    return allAgents;
+  }
+  if (artifacts.every(({ kind }) => kind === "hook")) return ["codexCli"];
   return codexHostAgents;
 }
 
 export function synchronizeExtensionInstallSelection({
   detected,
-  kind,
+  artifacts,
   next,
   previous,
 }: {
   detected: AgentClient[];
-  kind: ExtensionCatalogKind;
+  artifacts: ExtensionArtifactSummary[];
   next: AgentClient[];
   previous: AgentClient[];
 }): AgentClient[] {
-  const linked = linkedAgentsForExtension(kind);
+  const linked = linkedAgentsForExtension(artifacts);
   const nextSelection = new Set(next);
   const previousSelection = new Set(previous);
   const detectedAgents = new Set(detected);

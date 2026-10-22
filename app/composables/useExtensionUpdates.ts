@@ -12,13 +12,13 @@ export function useExtensionUpdates({
   const notifications = useNotification();
   const updating = ref(false);
 
-  // 规则写入的是客户端本机规则文件，Skill 与 MCP 写入条目目录，
+  // 规则写入本机规则文件，插件按制品写入条目目录，
   // 都需要同时重读分类目录与该客户端的本机内容。
   async function refresh(kind: ExtensionCatalogKind) {
     await Promise.all([extensionCatalog.load(kind, true), refreshClient()]);
   }
 
-  async function installed(kind: "rule" | "skill" | "mcp") {
+  async function installed(kind: ExtensionCatalogKind) {
     await refresh(kind);
     notifications.success("扩展已安装");
   }

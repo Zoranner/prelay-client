@@ -127,15 +127,10 @@ const availableSectionOptions = computed(() => {
     definition?.sections.includes(value),
   );
 });
-const extensionSectionOptions: Array<{
-  value: ExtensionCatalogKind;
-  label: string;
-  icon: string;
-}> = agentSectionOptions.map((option) => {
-  const value: ExtensionCatalogKind =
-    option.value === "rules" ? "rule" : option.value;
-  return { ...option, value };
-});
+const extensionSectionOptions: { value: ExtensionCatalogKind; label: string; icon: string }[] = [
+  { value: "rule", label: "规则", icon: "ph:notebook" },
+  { value: "plugin", label: "插件", icon: "ph:puzzle-piece" },
+];
 const activeItems = computed(
   () => clientItems.value[activeClient.value]?.items ?? [],
 );
@@ -258,7 +253,9 @@ function refreshActiveClient() {
 }
 
 async function uninstallAgentItem(item: AgentItem) {
-  const kindLabel = { mcp: "MCP", skill: "Skill" }[item.kind];
+  const kindLabel = { plugin: "插件", mcp: "MCP", skill: "Skill", hook: "Hook" }[
+    item.kind
+  ];
   const managed = item.package !== null;
   const confirmed = await confirmAction({
     title: `卸载 ${item.name}`,
@@ -286,6 +283,10 @@ async function uninstallAgentItem(item: AgentItem) {
 function uninstallDescription(item: AgentItem) {
   if (item.package === null) {
     return "配置及相关本地文件将一并删除，且无法恢复。";
+  }
+  if (item.kind === "plugin") return "卸载插件会清理包内全部 Skill、MCP 和 Hook，且无法恢复。";
+  if (item.kind === "hook") {
+    return `该条目由扩展包“${item.package}”安装，卸载会移除包内全部 Hook，且无法恢复。`;
   }
   return item.kind === "mcp"
     ? `该条目由扩展包“${item.package}”安装，卸载会移除这条 MCP 配置，且无法恢复。`

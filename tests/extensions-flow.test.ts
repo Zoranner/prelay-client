@@ -106,10 +106,10 @@ test("扩展库沿用智能体工作区的分类表格与单层操作表面", ()
     agentClient.indexOf('value: "skill"'),
   );
   expect(page).not.toContain("ph:plugs-connected");
-  expect(page).not.toContain('value: "plugin"');
-  expect(catalog).toContain("mcp: emptyCatalog()");
+  expect(page).toContain('value: "plugin"');
+  expect(catalog).toContain("plugin: emptyCatalog()");
   expect(source("stores/relay.ts")).toContain(
-    'export type ExtensionCatalogPackage = Omit<ExtensionPackage, "kind"> & {',
+    "export type ExtensionCatalogPackage = ExtensionPackage;",
   );
   expect(source("stores/relay.ts")).toContain(
     "packages: ExtensionCatalogPackage[];",
@@ -183,7 +183,7 @@ test("扩展库沿用智能体工作区的分类表格与单层操作表面", ()
     "extension-install-drawer__identity-transport",
   );
   expect(installDrawer).toContain("kindIcon");
-  expect(installDrawer).toContain("agentSectionOptions");
+  expect(installDrawer).toContain("HookReviewList");
   expect(installDrawer).toContain("props.extension?.version");
   expect((installDrawer.match(/<Tag/g) ?? []).length).toBe(1);
   expect(installDrawer).toContain("extension-install-drawer__preview");
@@ -225,7 +225,9 @@ test("扩展库沿用智能体工作区的分类表格与单层操作表面", ()
   expect(installDrawer).not.toContain("首次使用时可能下载依赖或启动本地进程。");
   expect(installDrawer).toContain("extensions_mcp_preview");
   expect(installDrawer).toContain("mcpPreview");
-  expect(installDrawer).toContain('emit("refreshed", props.extension.kind)');
+  expect(installDrawer).toContain(
+    'emit("refreshed", props.extension.catalogKind)',
+  );
   expect(updates).toContain("async function refresh");
   expect(installDrawer).not.toContain('client !== "chatgpt"');
   expect(installDrawer).toContain("MCP 服务");
@@ -261,7 +263,7 @@ test("扩展库只负责安装，Skill 按包展示且整包卸载挂在智能�
   expect(workspace).not.toContain("uninstallExtension");
   expect(localCommand).not.toContain("extensions_uninstall");
   expect(page).toContain("该条目属于扩展包");
-  expect(itemList).toContain('title: "包含技能"');
+  expect(itemList).toContain('title: "包含内容"');
   expect(itemList).toContain("row.members");
   expect(itemList).toContain(
     'import { Button, Table, Tag, TagGroup, useNotification } from "@stellar/ui";',
@@ -288,9 +290,8 @@ test("扩展更新检查跟随进程，前端只订阅结果并在侧栏提示",
   expect(nativeChecks).toContain(
     "app.emit(CATALOG_EVENT, CatalogEvent { kind, snapshot })",
   );
-  expect(nativeChecks).toContain("ExtensionKind::Rule");
-  expect(nativeChecks).toContain("ExtensionKind::Skill");
-  expect(nativeChecks).toContain("ExtensionKind::Mcp");
+  expect(nativeChecks).toContain("CatalogKind::Rule");
+  expect(nativeChecks).toContain("CatalogKind::Plugin");
   expect(nativeChecks).toContain("spawn_update_checks");
   expect(app).toContain("useExtensionUpdateStream");
   expect(app).toContain("void extensionStream.start();");
@@ -306,7 +307,7 @@ test("扩展更新检查跟随进程，前端只订阅结果并在侧栏提示",
   expect(stream).not.toContain("setInterval");
   expect(catalog).toContain("function applySnapshot");
   expect(catalog).toContain("totalUpdateCount");
-  expect(catalog).toMatch(/"rule",\s*"skill",\s*"mcp",/);
+  expect(catalog).toMatch(/"rule",\s*"plugin",/);
   expect(sidebar).not.toContain("dot");
   expect(sidebar).toContain(':count="totalExtensionUpdates"');
   expect(sidebar).not.toContain(":max=");

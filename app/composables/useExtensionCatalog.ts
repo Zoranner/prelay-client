@@ -9,8 +9,7 @@ function emptyCatalog(): ExtensionCatalogSnapshot {
 
 export const extensionCatalogKinds: ExtensionCatalogKind[] = [
   "rule",
-  "skill",
-  "mcp",
+  "plugin",
 ];
 
 type CatalogState = Record<ExtensionCatalogKind, ExtensionCatalogSnapshot>;
@@ -20,8 +19,7 @@ type LoadedState = Record<ExtensionCatalogKind, boolean>;
 function emptyCatalogs(): CatalogState {
   return {
     rule: emptyCatalog(),
-    skill: emptyCatalog(),
-    mcp: emptyCatalog(),
+    plugin: emptyCatalog(),
   };
 }
 
@@ -33,13 +31,11 @@ export function useExtensionCatalog() {
   const catalogs = useState<CatalogState>("extension-catalog", emptyCatalogs);
   const loaded = useState<LoadedState>("extension-catalog-loaded", () => ({
     rule: false,
-    skill: false,
-    mcp: false,
+    plugin: false,
   }));
   const loading = useState<LoadingState>("extension-catalog-loading", () => ({
     rule: false,
-    skill: false,
-    mcp: false,
+    plugin: false,
   }));
 
   async function load(kind: ExtensionCatalogKind, force = false) {
@@ -74,8 +70,7 @@ export function useExtensionCatalog() {
 
   const updateCounts = computed<Record<ExtensionCatalogKind, number>>(() => ({
     rule: updatePackageCount("rule"),
-    skill: updatePackageCount("skill"),
-    mcp: updatePackageCount("mcp"),
+    plugin: updatePackageCount("plugin"),
   }));
   const totalUpdateCount = computed(() =>
     extensionCatalogKinds.reduce(
@@ -94,8 +89,8 @@ export function useExtensionCatalog() {
     generation += 1;
     loadPromises.clear();
     catalogs.value = emptyCatalogs();
-    loaded.value = { rule: false, skill: false, mcp: false };
-    loading.value = { rule: false, skill: false, mcp: false };
+    loaded.value = { rule: false, plugin: false };
+    loading.value = { rule: false, plugin: false };
   }
 
   function applySnapshot(

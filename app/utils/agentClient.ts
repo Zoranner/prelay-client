@@ -11,8 +11,10 @@ export const agentSectionOptions: Array<{
   icon: string;
 }> = [
   { value: "rules", label: "规则", icon: "ph:notebook" },
+  { value: "plugin", label: "插件", icon: "ph:puzzle-piece" },
   { value: "mcp", label: "MCP", icon: "ph:terminal-window" },
   { value: "skill", label: "Skill", icon: "ph:book-open-text" },
+  { value: "hook", label: "Hook", icon: "ph:webhooks-logo" },
 ];
 
 export const agentClientDefinitions: Array<{
@@ -29,7 +31,7 @@ export const agentClientDefinitions: Array<{
     icon: codexIcon,
     configurable: true,
     monochrome: true,
-    sections: ["rules", "mcp", "skill"],
+    sections: ["rules", "plugin", "mcp", "skill", "hook"],
   },
   {
     client: "chatgpt",
@@ -37,7 +39,7 @@ export const agentClientDefinitions: Array<{
     icon: openaiIcon,
     configurable: true,
     monochrome: true,
-    sections: ["rules", "mcp", "skill"],
+    sections: ["rules", "plugin", "mcp", "skill"],
   },
   {
     client: "openCode",
@@ -45,7 +47,7 @@ export const agentClientDefinitions: Array<{
     icon: openCodeIcon,
     configurable: true,
     monochrome: true,
-    sections: ["rules", "mcp", "skill"],
+    sections: ["rules", "plugin", "mcp", "skill"],
   },
 ];
 

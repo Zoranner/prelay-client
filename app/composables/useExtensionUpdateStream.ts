@@ -10,7 +10,7 @@ type CatalogEvent = {
   snapshot: ExtensionCatalogSnapshot;
 };
 
-// 后端按固定间隔检查规则、Skill、MCP 的更新，只在结果变化时推送对应目录快照；
+// 后端按固定间隔检查规则与插件的更新，只在结果变化时推送对应目录快照；
 // 这里负责订阅、落到共享状态，并在启动或服务地址变化时先自行读取一次首帧。
 export const EXTENSION_CATALOG_EVENT = "extensions:catalog";
 

@@ -10,7 +10,8 @@ const extension: ExtensionCatalogPackage = {
   repository: "https://git.example.test/agents/filesystem-mcp",
   commitSha: "expected-commit",
   version: "v1.0.0",
-  kind: "mcp",
+  catalogKind: "plugin",
+  artifacts: [{ kind: "mcp", fileCount: 1 }],
   installAction: "install",
   installedClients: [],
 };

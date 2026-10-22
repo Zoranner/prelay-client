@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Button, Table, useNotification } from "@stellar/ui";
+import { Button, Table, Tag, useNotification } from "@stellar/ui";
 import type { ExtensionCatalogPackage } from "~/stores/relay";
 import ExtensionInstallationScope from "~/components/extensions/ExtensionInstallationScope.vue";
 
@@ -65,7 +65,18 @@ const columns = [
     row-key="name"
   >
     <template #cell-name="{ row }">
-      <span :title="row.name">{{ row.name }}</span>
+      <div class="extension-catalog-name">
+        <span :title="row.name">{{ row.name }}</span>
+        <div v-if="row.artifacts.length" class="extension-catalog-artifacts">
+          <Tag
+            v-for="artifact in row.artifacts"
+            :key="artifact.kind"
+            size="small"
+          >
+            {{ artifact.kind.toUpperCase() }}
+          </Tag>
+        </div>
+      </div>
     </template>
     <template #cell-installation="{ row }">
       <ExtensionInstallationScope :package="row" />
@@ -139,6 +150,17 @@ const columns = [
   display: flex;
   justify-content: flex-end;
   gap: var(--spacing-xs);
+}
+
+.extension-catalog-name {
+  display: grid;
+  gap: 4px;
+}
+
+.extension-catalog-artifacts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
 }
 
 .extension-catalog-link {

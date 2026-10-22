@@ -24,7 +24,7 @@ const columns = computed(() => [
   ...(props.showStatus ? [{ key: "status", title: "状态", width: 88 }] : []),
   { key: "source", title: "来源", width: 96 },
   ...(showMembers.value
-    ? [{ key: "members", title: "包含技能", minWidth: 200 }]
+    ? [{ key: "members", title: "包含内容", minWidth: 200 }]
     : []),
   { key: "sourcePath", title: "位置", minWidth: 360, ellipsis: true },
   {
