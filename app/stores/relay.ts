@@ -9,12 +9,9 @@ export interface BootstrapState {
 export type UpstreamProtocol = "responses" | "openai" | "images_generations";
 
 export type CatalogProviderProtocol =
-  | "chat_completions"
-  | "responses"
-  | "anthropic_messages"
-  | "images_generations";
+  "chat_completions" | "responses" | "images_generations";
 
-export type CatalogProviderAuthScheme = "bearer" | "anthropic";
+export type CatalogProviderAuthScheme = "bearer";
 
 export interface CatalogProviderProtocolBaseUrl {
   protocol: CatalogProviderProtocol;

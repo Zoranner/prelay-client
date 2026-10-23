@@ -12,18 +12,9 @@ const catalogProvider = {
   name: "示例供应商",
   auth_scheme: "bearer",
   base_url: "https://api.example.com",
-  protocols: [
-    "chat_completions",
-    "responses",
-    "anthropic_messages",
-    "images_generations",
-  ],
+  protocols: ["chat_completions", "responses", "images_generations"],
   protocol_base_urls: [
     { protocol: "chat_completions", base_url: "https://api.example.com/v1" },
-    {
-      protocol: "anthropic_messages",
-      base_url: "https://api.example.com/v1/messages",
-    },
   ],
   language_models: ["chat-model"],
   image_generation_models: ["image-model"],
@@ -36,9 +27,9 @@ const provider = (overrides: Partial<Provider> = {}): Provider => ({
   base_url: "https://api.example.com/v1",
   api_key: "sk-provider-key",
   api_key_masked: "sk-***",
-  upstream_protocols: ["responses", "anthropic"],
+  upstream_protocols: ["responses"],
   capabilities: {
-    upstream_protocols: ["responses", "anthropic"],
+    upstream_protocols: ["responses"],
     protocol_base_urls: {
       responses: "https://responses.example.com/v1",
       openai: null,
@@ -64,15 +55,15 @@ test("协议测试使用服务端解析的上游协议能力", () => {
 test("协议测试不再自行从供应商类型推导默认协议", () => {
   expect(
     providerProtocolOptions(
-      provider({ provider_type: "anthropic", upstream_protocols: ["openai"] }),
+      provider({ provider_type: "custom", upstream_protocols: ["openai"] }),
     ),
   ).toEqual(["openai"]);
 });
 
-test("供应商表格中的协议过滤 Anthropic 并按 Chat Completions、Responses 排序", () => {
+test("供应商表格按 Chat Completions、Responses 排序协议", () => {
   expect(
     providerProtocolOptions(
-      provider({ upstream_protocols: ["responses", "anthropic", "openai"] }),
+      provider({ upstream_protocols: ["responses", "openai"] }),
     ),
   ).toEqual(["openai", "responses"]);
 });
@@ -89,10 +80,6 @@ test("供应商表格保留图像生成协议", () => {
 
 test("图像协议使用与其他协议同层的 API 名称", () => {
   expect(protocolLabel("images_generations")).toBe("Images Generations");
-});
-
-test("Anthropic 协议不再由客户端协议展示映射处理", () => {
-  expect(protocolLabel("anthropic")).toBe("-");
 });
 
 test("服务端目录供应商映射为表单协议、地址和模型", () => {

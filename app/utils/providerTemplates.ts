@@ -1,7 +1,6 @@
 import type {
   CatalogModelResponse,
   CatalogProvider,
-  CatalogProviderProtocol,
   UpstreamProtocol,
 } from "~/stores/relay";
 import { modelCatalogEntry, modelCatalogLabel } from "~/utils/modelCatalog";
@@ -97,10 +96,15 @@ export function protocolTagPalette(
         : "gray";
 }
 
-function upstreamProtocol(
-  protocol: CatalogProviderProtocol,
-): UpstreamProtocol | null {
-  if (protocol === "chat_completions") return "openai";
-  if (protocol === "anthropic_messages") return null;
-  return protocol;
+function upstreamProtocol(protocol: string): UpstreamProtocol | null {
+  switch (protocol) {
+    case "chat_completions":
+      return "openai";
+    case "responses":
+      return "responses";
+    case "images_generations":
+      return "images_generations";
+    default:
+      return null;
+  }
 }
