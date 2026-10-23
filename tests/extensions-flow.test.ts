@@ -252,6 +252,7 @@ test("扩展库只负责安装，Skill 按包展示且整包卸载挂在智能�
   const workspace = source("components/agents/AgentWorkspaceContent.vue");
   const itemList = source("components/agents/AgentItemList.vue");
   const page = source("pages/agents.vue");
+  const uninstall = source("utils/agentUninstall.ts");
   const localCommand = source("composables/useLocalCommand.ts");
   const nativeItems = readFileSync(
     new URL("../src-tauri/src/agents/items.rs", import.meta.url),
@@ -262,7 +263,8 @@ test("扩展库只负责安装，Skill 按包展示且整包卸载挂在智能�
   expect(catalogTable).not.toContain("uninstall");
   expect(workspace).not.toContain("uninstallExtension");
   expect(localCommand).not.toContain("extensions_uninstall");
-  expect(page).toContain("该条目属于扩展包");
+  expect(uninstall).toContain("该条目属于扩展包");
+  expect(page).toContain("agentUninstallDescription(item)");
   expect(itemList).toContain('title: "包含内容"');
   expect(itemList).toContain("row.members");
   expect(itemList).toContain(
@@ -307,7 +309,7 @@ test("扩展更新检查跟随进程，前端只订阅结果并在侧栏提示",
   expect(stream).not.toContain("setInterval");
   expect(catalog).toContain("function applySnapshot");
   expect(catalog).toContain("totalUpdateCount");
-  expect(catalog).toMatch(/"rule",\s*"plugin",/);
+  expect(catalog).toMatch(/"rule",\s*"plugin",?/);
   expect(sidebar).not.toContain("dot");
   expect(sidebar).toContain(':count="totalExtensionUpdates"');
   expect(sidebar).not.toContain(":max=");

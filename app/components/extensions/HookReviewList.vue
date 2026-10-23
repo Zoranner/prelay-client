@@ -10,7 +10,10 @@ defineProps<{
   <section class="hook-review">
     <h3>需要在 Codex 中审核并信任 Hook</h3>
     <ul>
-      <li v-for="item in review" :key="`${item.event}-${item.matcher}-${item.command}`">
+      <li
+        v-for="item in review"
+        :key="`${item.event}-${item.matcher}-${item.command}`"
+      >
         <strong>
           {{ item.event }}
           <template v-if="item.matcher"> · {{ item.matcher }}</template>

@@ -1,7 +1,4 @@
-import type {
-  AgentClient,
-  ExtensionArtifactSummary,
-} from "~/stores/relay";
+import type { AgentClient, ExtensionArtifactSummary } from "~/stores/relay";
 
 const codexHostAgents: AgentClient[] = ["codexCli", "chatgpt"];
 const allAgents: AgentClient[] = ["codexCli", "chatgpt", "openCode"];

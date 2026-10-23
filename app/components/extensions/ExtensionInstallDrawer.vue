@@ -56,7 +56,9 @@ const isMcp = computed(() =>
   props.extension?.artifacts.some((artifact) => artifact.kind === "mcp"),
 );
 const artifactLabels = computed(
-  () => props.extension?.artifacts.map((artifact) => artifact.kind.toUpperCase()) ?? [],
+  () =>
+    props.extension?.artifacts.map((artifact) => artifact.kind.toUpperCase()) ??
+    [],
 );
 const kindIcon = computed(() => {
   const kind = props.extension?.catalogKind;
@@ -151,14 +153,12 @@ async function install(overwrite = false) {
     if (!overwrite && error.code === "extension_target_exists") {
       const confirmed = await confirmAction({
         title: isMcp.value ? "覆盖已有 MCP 配置" : "覆盖已有技能",
-        message:
-          isMcp.value
-            ? "目标 MCP 服务名已存在，是否覆盖安装？"
-            : "目标技能目录已存在，是否覆盖安装？",
-        description:
-          isMcp.value
-            ? "覆盖会替换目标 MCP 服务配置，并更新当前扩展包的版本记录。"
-            : "覆盖会删除该技能目录中的现有文件，然后写入当前扩展包内容。",
+        message: isMcp.value
+          ? "目标 MCP 服务名已存在，是否覆盖安装？"
+          : "目标技能目录已存在，是否覆盖安装？",
+        description: isMcp.value
+          ? "覆盖会替换目标 MCP 服务配置，并更新当前扩展包的版本记录。"
+          : "覆盖会删除该技能目录中的现有文件，然后写入当前扩展包内容。",
         confirmText: "覆盖",
         danger: true,
       });
@@ -203,7 +203,8 @@ watch(
             : extension?.installedClients.includes(client),
         )
       : [...selectableClients.value];
-    if (!extension?.artifacts.some((artifact) => artifact.kind === "mcp")) return;
+    if (!extension?.artifacts.some((artifact) => artifact.kind === "mcp"))
+      return;
     mcpPreviewLoading.value = true;
     try {
       const preview = await invokeLocalCommand<ExtensionMcpPreview>(
@@ -258,7 +259,10 @@ watch(
           >
             {{ identityVersion }}
           </span>
-          <span v-if="artifactLabels.length" class="extension-install-drawer__artifacts">
+          <span
+            v-if="artifactLabels.length"
+            class="extension-install-drawer__artifacts"
+          >
             {{ artifactLabels.join(" · ") }}
           </span>
         </div>
@@ -419,7 +423,6 @@ watch(
   color: var(--st-semantic-error);
   font-size: var(--text-sm);
 }
-
 
 @media (max-width: 720px) {
   .extension-install-drawer {

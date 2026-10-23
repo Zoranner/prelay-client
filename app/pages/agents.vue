@@ -15,6 +15,7 @@ import {
   agentSectionOptions,
   sortAgentClients,
 } from "~/utils/agentClient";
+import { agentUninstallDescription } from "~/utils/agentUninstall";
 import AgentSidebar from "~/components/agents/AgentSidebar.vue";
 import AgentWorkspaceContent from "~/components/agents/AgentWorkspaceContent.vue";
 import AgentSettingsDrawer from "~/components/agents/AgentSettingsDrawer.vue";
@@ -127,7 +128,11 @@ const availableSectionOptions = computed(() => {
     definition?.sections.includes(value),
   );
 });
-const extensionSectionOptions: { value: ExtensionCatalogKind; label: string; icon: string }[] = [
+const extensionSectionOptions: {
+  value: ExtensionCatalogKind;
+  label: string;
+  icon: string;
+}[] = [
   { value: "rule", label: "规则", icon: "ph:notebook" },
   { value: "plugin", label: "插件", icon: "ph:puzzle-piece" },
 ];
@@ -253,14 +258,17 @@ function refreshActiveClient() {
 }
 
 async function uninstallAgentItem(item: AgentItem) {
-  const kindLabel = { plugin: "插件", mcp: "MCP", skill: "Skill", hook: "Hook" }[
-    item.kind
-  ];
+  const kindLabel = {
+    plugin: "插件",
+    mcp: "MCP",
+    skill: "Skill",
+    hook: "Hook",
+  }[item.kind];
   const managed = item.package !== null;
   const confirmed = await confirmAction({
     title: `卸载 ${item.name}`,
     message: `卸载“${item.name}”？`,
-    description: uninstallDescription(item),
+    description: agentUninstallDescription(item),
     confirmText: "卸载",
     danger: true,
   });
@@ -277,20 +285,6 @@ async function uninstallAgentItem(item: AgentItem) {
   } catch {
     // The local command composable exposes the stable error to this view.
   }
-}
-
-/** 扩展库装的 MCP 只有一条宿主配置，技能包才会连带包内全部 Skill。 */
-function uninstallDescription(item: AgentItem) {
-  if (item.package === null) {
-    return "配置及相关本地文件将一并删除，且无法恢复。";
-  }
-  if (item.kind === "plugin") return "卸载插件会清理包内全部 Skill、MCP 和 Hook，且无法恢复。";
-  if (item.kind === "hook") {
-    return `该条目由扩展包“${item.package}”安装，卸载会移除包内全部 Hook，且无法恢复。`;
-  }
-  return item.kind === "mcp"
-    ? `该条目由扩展包“${item.package}”安装，卸载会移除这条 MCP 配置，且无法恢复。`
-    : `该条目属于扩展包“${item.package}”，卸载会移除包内全部 Skill，且无法恢复。`;
 }
 
 onMounted(() => {

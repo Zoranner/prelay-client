@@ -7,10 +7,7 @@ function emptyCatalog(): ExtensionCatalogSnapshot {
   return { packages: [] };
 }
 
-export const extensionCatalogKinds: ExtensionCatalogKind[] = [
-  "rule",
-  "plugin",
-];
+export const extensionCatalogKinds: ExtensionCatalogKind[] = ["rule", "plugin"];
 
 type CatalogState = Record<ExtensionCatalogKind, ExtensionCatalogSnapshot>;
 type LoadingState = Record<ExtensionCatalogKind, boolean>;
