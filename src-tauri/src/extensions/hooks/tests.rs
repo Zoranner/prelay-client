@@ -1,39 +1,12 @@
 use std::fs;
 
-use base64::{engine::general_purpose::STANDARD as BASE64, Engine};
-use prelay_protocol::ExtensionFile;
 use serde_json::{json, Value};
 use tempfile::tempdir;
 
 use crate::agents::AgentClient;
 
+use super::test_support::*;
 use super::{install_hooks, uninstall_hooks};
-
-fn hook_file(value: Value) -> ExtensionFile {
-    ExtensionFile {
-        path: "hooks/hooks.json".to_string(),
-        content_base64: BASE64.encode(serde_json::to_vec(&value).unwrap()),
-    }
-}
-
-fn hooks_document(home: &std::path::Path) -> Value {
-    serde_json::from_slice(
-        &fs::read(home.join(".codex").join("hooks.json")).expect("read hooks.json"),
-    )
-    .expect("parse hooks.json")
-}
-
-fn commands(home: &std::path::Path) -> Vec<String> {
-    hooks_document(home)["hooks"]["SessionStart"]
-        .as_array()
-        .into_iter()
-        .flatten()
-        .filter_map(|group| group.get("hooks").and_then(Value::as_array))
-        .flatten()
-        .filter_map(|handler| handler.get("command").and_then(Value::as_str))
-        .map(str::to_string)
-        .collect()
-}
 
 #[test]
 fn merges_user_hooks_and_replaces_the_same_handler() {
@@ -105,6 +78,7 @@ fn merges_user_hooks_and_replaces_the_same_handler() {
         commands(directory.path()),
         ["user-command", "prelay-command"]
     );
+    assert!(hook_root(directory.path(), "commit").is_dir());
 }
 
 #[test]
@@ -147,6 +121,14 @@ fn updating_a_package_removes_its_old_handlers() {
     .unwrap();
 
     assert_eq!(commands(directory.path()), ["second-command"]);
+    assert!(!directory
+        .path()
+        .join(".prelay")
+        .join("packages")
+        .join("superpowers")
+        .join("commit-1")
+        .exists());
+    assert!(hook_root(directory.path(), "commit-2").is_dir());
 }
 
 #[test]
@@ -187,6 +169,7 @@ fn uninstall_removes_only_the_packages_handlers() {
     uninstall_hooks(directory.path(), "superpowers").unwrap();
 
     assert_eq!(commands(directory.path()), ["user-command"]);
+    assert!(!hook_root(directory.path(), "commit").exists());
     let state = fs::read(
         directory
             .path()
@@ -264,4 +247,52 @@ fn rejects_unknown_hook_events_and_non_command_handlers() {
         false,
     )
     .is_err());
+}
+
+#[test]
+fn uninstall_reports_a_conflict_when_managed_handlers_were_edited() {
+    let directory = tempdir().unwrap();
+    let file = hook_file(json!({
+        "hooks": {
+            "SessionStart": [{
+                "hooks": [{"type": "command", "command": "prelay-session"}]
+            }]
+        }
+    }));
+    install_hooks(
+        directory.path(),
+        &[AgentClient::CodexCli],
+        "superpowers",
+        "v1",
+        "commit",
+        &[file],
+        false,
+    )
+    .unwrap();
+
+    let mut document = hooks_document(directory.path());
+    document["hooks"]["SessionStart"][0]["hooks"][0]["command"] =
+        serde_json::Value::String("user-edited".to_string());
+    fs::write(
+        hooks_path(directory.path()),
+        serde_json::to_vec_pretty(&document).unwrap(),
+    )
+    .unwrap();
+
+    let error = uninstall_hooks(directory.path(), "superpowers").unwrap_err();
+    assert_eq!(error.code(), "local_extensions_conflict");
+    assert_eq!(commands(directory.path()), ["user-edited"]);
+    assert!(hook_root(directory.path(), "commit").is_dir());
+    let state: Value = serde_json::from_slice(
+        &fs::read(
+            directory
+                .path()
+                .join(".codex")
+                .join(".prelay")
+                .join("hooks.json"),
+        )
+        .unwrap(),
+    )
+    .unwrap();
+    assert!(state.get("superpowers").is_some());
 }

@@ -73,3 +73,13 @@ pub struct McpInstallPreview {
     pub commit_sha: String,
     pub manifest: prelay_protocol::ExtensionMcpManifest,
 }
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct HookInstallPreview {
+    pub name: String,
+    pub version: String,
+    pub commit_sha: String,
+    pub files: Vec<String>,
+    pub review: Vec<HookReviewItem>,
+}

@@ -1,6 +1,6 @@
 use std::{collections::BTreeSet, path::Path};
 
-use prelay_protocol::ExtensionFile;
+use prelay_protocol::{ExtensionFile, HOOKS_MANIFEST_PATH, HOOK_ROOT_PLACEHOLDER};
 use serde_json::{Map, Value};
 use sha2::{Digest, Sha256};
 
@@ -33,73 +33,118 @@ pub(super) struct IncomingHook {
 
 pub(super) fn collect_incoming_hooks(
     files: &[ExtensionFile],
+    root: Option<&Path>,
 ) -> Result<Vec<IncomingHook>, ClientError> {
+    let mut definitions = files.iter().filter(|file| file.path == HOOKS_MANIFEST_PATH);
+    let file = definitions.next().ok_or_else(|| {
+        ClientError::new("invalid_response", "Hook 安装包缺少 hooks/hooks.json。")
+    })?;
+    if definitions.next().is_some() {
+        return Err(ClientError::new(
+            "invalid_response",
+            "Hook 安装包包含多个 hooks/hooks.json。",
+        ));
+    }
+    let content = decode_extension_file(file)?;
+    let document: Value = serde_json::from_slice(&content).map_err(|error| {
+        ClientError::new(
+            "invalid_response",
+            format!("Hook 文件不是有效的 JSON：{error}"),
+        )
+    })?;
+    let Some(hooks) = document.get("hooks").and_then(Value::as_object) else {
+        return Err(ClientError::new(
+            "invalid_response",
+            "Hook 文件缺少 hooks 对象。",
+        ));
+    };
     let mut incoming = Vec::new();
-    for file in files {
-        let content = decode_extension_file(file)?;
-        let document: Value = serde_json::from_slice(&content).map_err(|error| {
-            ClientError::new(
-                "invalid_response",
-                format!("Hook 文件不是有效的 JSON：{error}"),
-            )
-        })?;
-        let Some(hooks) = document.get("hooks").and_then(Value::as_object) else {
+    for (event, groups) in hooks {
+        if !HOOK_EVENTS.contains(&event.as_str()) {
             return Err(ClientError::new(
                 "invalid_response",
-                "Hook 文件缺少 hooks 对象。",
+                format!("Hook 事件名无效：{event}"),
+            ));
+        }
+        let Some(groups) = groups.as_array() else {
+            return Err(ClientError::new(
+                "invalid_response",
+                format!("Hook 事件 {event} 的 matcher 列表无效。"),
             ));
         };
-        for (event, groups) in hooks {
-            if !HOOK_EVENTS.contains(&event.as_str()) {
+        for group in groups {
+            let Some(group) = group.as_object() else {
                 return Err(ClientError::new(
                     "invalid_response",
-                    format!("Hook 事件名无效：{event}"),
-                ));
-            }
-            let Some(groups) = groups.as_array() else {
-                return Err(ClientError::new(
-                    "invalid_response",
-                    format!("Hook 事件 {event} 的 matcher 列表无效。"),
+                    format!("Hook 事件 {event} 的 matcher 组无效。"),
                 ));
             };
-            for group in groups {
-                let Some(group) = group.as_object() else {
-                    return Err(ClientError::new(
-                        "invalid_response",
-                        format!("Hook 事件 {event} 的 matcher 组无效。"),
-                    ));
-                };
-                let matcher = group
-                    .get("matcher")
-                    .map(|value| {
-                        value.as_str().map(str::to_string).ok_or_else(|| {
-                            ClientError::new(
-                                "invalid_response",
-                                format!("Hook 事件 {event} 的 matcher 不是字符串。"),
-                            )
-                        })
+            let matcher = group
+                .get("matcher")
+                .map(|value| {
+                    value.as_str().map(str::to_string).ok_or_else(|| {
+                        ClientError::new(
+                            "invalid_response",
+                            format!("Hook 事件 {event} 的 matcher 不是字符串。"),
+                        )
                     })
-                    .transpose()?;
-                let Some(handlers) = group.get("hooks").and_then(Value::as_array) else {
-                    return Err(ClientError::new(
-                        "invalid_response",
-                        format!("Hook 事件 {event} 的 hooks 列表无效。"),
-                    ));
-                };
-                for handler in handlers {
-                    let review = review_item(event, matcher.as_deref(), handler)?;
-                    incoming.push(IncomingHook {
-                        event: event.clone(),
-                        matcher: matcher.clone(),
-                        handler: handler.clone(),
-                        hash: handler_hash(event, matcher.as_deref(), handler)?,
-                        review,
-                    });
-                }
+                })
+                .transpose()?;
+            let Some(handlers) = group.get("hooks").and_then(Value::as_array) else {
+                return Err(ClientError::new(
+                    "invalid_response",
+                    format!("Hook 事件 {event} 的 hooks 列表无效。"),
+                ));
+            };
+            for handler in handlers {
+                let handler = expand_handler(handler, root)?;
+                let review = review_item(event, matcher.as_deref(), &handler)?;
+                incoming.push(IncomingHook {
+                    event: event.clone(),
+                    matcher: matcher.clone(),
+                    handler: handler.clone(),
+                    hash: handler_hash(event, matcher.as_deref(), &handler)?,
+                    review,
+                });
             }
         }
     }
     Ok(incoming)
+}
+
+fn expand_handler(handler: &Value, root: Option<&Path>) -> Result<Value, ClientError> {
+    let mut expanded = handler.clone();
+    let Some(object) = expanded.as_object_mut() else {
+        return Err(ClientError::new("invalid_response", "Hook handler 无效。"));
+    };
+    for key in ["command", "commandWindows"] {
+        let Some(value) = object.get_mut(key) else {
+            continue;
+        };
+        let Some(text) = value.as_str() else {
+            return Err(ClientError::new(
+                "invalid_response",
+                format!("Hook handler 的 {key} 不是字符串。"),
+            ));
+        };
+        if text.contains("${PLUGIN_ROOT}") || text.contains("${CLAUDE_PLUGIN_ROOT}") {
+            return Err(ClientError::new(
+                "extension_install_unsupported",
+                "Prelay 包不能使用 Codex 原生插件的目录变量。",
+            ));
+        }
+        if text.trim().is_empty() {
+            return Err(ClientError::new(
+                "invalid_response",
+                format!("Hook handler 的 {key} 为空。"),
+            ));
+        }
+        if let Some(root) = root {
+            *value =
+                Value::String(text.replace(HOOK_ROOT_PLACEHOLDER, &root.display().to_string()));
+        }
+    }
+    Ok(expanded)
 }
 
 pub(super) fn read_hook_document(path: &Path) -> Result<Value, ClientError> {
@@ -271,10 +316,16 @@ fn review_item(
     let command_windows = handler
         .get("commandWindows")
         .map(|value| {
-            value
-                .as_str()
-                .map(str::to_string)
-                .ok_or_else(|| ClientError::new("invalid_response", "commandWindows 不是字符串。"))
+            let command = value.as_str().ok_or_else(|| {
+                ClientError::new("invalid_response", "commandWindows 不是字符串。")
+            })?;
+            if command.trim().is_empty() {
+                return Err(ClientError::new(
+                    "invalid_response",
+                    "commandWindows 为空。",
+                ));
+            }
+            Ok(command.to_string())
         })
         .transpose()?;
     Ok(HookReviewItem {

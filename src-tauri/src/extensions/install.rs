@@ -3,7 +3,7 @@ use std::{
     path::Path,
 };
 
-use prelay_protocol::{ExtensionFile, ExtensionInstallBundle, ExtensionKind};
+use prelay_protocol::{ExtensionFile, ExtensionInstallBundle, ExtensionKind, HOOKS_MANIFEST_PATH};
 
 use super::{
     hooks, mcp, mcp_manifest,
@@ -11,6 +11,8 @@ use super::{
     record::{client_key, upsert_extension_record, InstalledTargetRecord},
     rules, skills,
 };
+
+use super::model::HookInstallPreview;
 use crate::{
     agents::{agent_rule_targets, agent_skill_target_roots, AgentClient},
     identity::registration::authenticated_api,
@@ -57,6 +59,54 @@ pub async fn read_mcp_install_manifest(
                 .first()
                 .ok_or_else(|| ClientError::new("invalid_response", "MCP 制品为空。"))?,
         )?,
+    })
+}
+
+pub async fn read_hook_install_preview(
+    home: &Path,
+    state: &NativeState,
+    package: &ExtensionPackage,
+) -> Result<HookInstallPreview, ClientError> {
+    if !package
+        .artifacts
+        .iter()
+        .any(|artifact| artifact.kind == ExtensionKind::Hook)
+    {
+        return Err(ClientError::new(
+            "invalid_request",
+            "只有包含 Hook 制品的扩展可以读取安装预览。",
+        ));
+    }
+    let client = authenticated_api(state).await?;
+    let bundle: ExtensionInstallBundle = client
+        .get(&format!(
+            "/api/extensions/{}/versions/{}/install",
+            package.name, package.version
+        ))
+        .await?;
+    validate_package_bundle(package, &bundle)?;
+    let artifact = bundle
+        .artifacts
+        .iter()
+        .find(|artifact| artifact.kind == ExtensionKind::Hook)
+        .ok_or_else(|| ClientError::new("invalid_response", "安装包缺少 Hook 制品。"))?;
+    let files = artifact
+        .files
+        .iter()
+        .map(|file| file.path.clone())
+        .collect();
+    let review = hooks::preview_hooks(
+        home,
+        &bundle.name,
+        &bundle.version.commit_sha,
+        &artifact.files,
+    )?;
+    Ok(HookInstallPreview {
+        name: bundle.name,
+        version: bundle.version.tag,
+        commit_sha: bundle.version.commit_sha,
+        files,
+        review,
     })
 }
 
@@ -118,7 +168,13 @@ pub(crate) fn install_prepared_bundle(
                 mcp::preflight_mcp_install(home, clients, &bundle.name, &manifest, overwrite)?;
             }
             ExtensionKind::Hook => {
-                hooks::preflight_hooks(home, clients, &artifact.files)?;
+                hooks::preflight_hooks(
+                    home,
+                    clients,
+                    &bundle.name,
+                    &bundle.version.commit_sha,
+                    &artifact.files,
+                )?;
             }
             ExtensionKind::Rule | ExtensionKind::Unknown => {}
         }
@@ -298,6 +354,12 @@ fn validate_bundle(bundle: &ExtensionInstallBundle) -> Result<(), ClientError> {
                     && mcp_manifest::read_mcp_manifest(&artifact.files[0]).is_ok() => {}
             ExtensionKind::Hook
                 if artifact.files.iter().all(|file| safe_hook_path(&file.path))
+                    && artifact
+                        .files
+                        .iter()
+                        .filter(|file| file.path == HOOKS_MANIFEST_PATH)
+                        .count()
+                        == 1
                     && hooks::validate_hook_files(&artifact.files).is_ok() => {}
             ExtensionKind::Unknown => {
                 return Err(ClientError::new(
@@ -325,15 +387,12 @@ fn safe_skill_path(path: &str) -> bool {
 }
 
 fn safe_hook_path(path: &str) -> bool {
-    path.strip_prefix("hooks/").is_some_and(|name| {
-        !name.is_empty()
-            && !name.contains('/')
-            && name.ends_with(".json")
-            && !path.contains('\\')
-            && path
-                .split('/')
-                .all(|part| !part.is_empty() && !matches!(part, "." | ".."))
-    })
+    path.starts_with("hooks/")
+        && !path.contains('\\')
+        && !path.contains('\0')
+        && path
+            .split('/')
+            .all(|part| !part.is_empty() && !matches!(part, "." | ".."))
 }
 
 #[cfg(test)]

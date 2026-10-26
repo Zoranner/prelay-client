@@ -1,11 +1,10 @@
 use std::{
-    collections::{BTreeMap, BTreeSet},
+    collections::BTreeSet,
     fs,
     path::{Path, PathBuf},
 };
 
 use prelay_protocol::ExtensionFile;
-use serde::{Deserialize, Serialize};
 
 use crate::{
     agents::{AgentClient, AgentItem, AgentItemKind, AgentItemSource, AgentItemStatus},
@@ -15,28 +14,17 @@ use crate::{
 use super::{atomic_write, model::HookReviewItem, ExtensionInstallAction};
 
 mod merge;
+mod root;
+mod state;
 use merge::{
     add_handler, collect_incoming_hooks, document_hashes, hooks_object_mut, read_hook_document,
-    remove_hash, storage_error,
+    remove_hash,
 };
-
-const PRELAY_STATE_DIRECTORY: &str = ".prelay";
-const HOOK_PACKAGE_STATE_FILE: &str = "hooks.json";
-
-#[derive(Debug, Default, Deserialize, Serialize)]
-#[serde(transparent)]
-struct InstalledHookPackages(BTreeMap<String, InstalledHookPackage>);
-
-#[derive(Debug, Clone, Deserialize, Serialize)]
-#[serde(rename_all = "camelCase")]
-struct InstalledHookPackage {
-    version: String,
-    commit_sha: String,
-    #[serde(default)]
-    hashes: BTreeSet<String>,
-    #[serde(default)]
-    review: Vec<HookReviewItem>,
-}
+use root::{
+    hook_package_root, install_hook_support_files, remove_hook_root, restore_document,
+    restore_hook_root,
+};
+use state::{read_installed_hook_packages, write_installed_hook_packages, InstalledHookPackage};
 
 pub(crate) struct HookInstallationStatus {
     pub action: ExtensionInstallAction,
@@ -59,27 +47,45 @@ pub(super) fn install_hooks(
         return Err(ClientError::new("invalid_response", "Hook 安装包为空。"));
     }
 
+    let root = hook_package_root(home, package, commit_sha)?;
+    let incoming = collect_incoming_hooks(files, Some(&root))?;
     let hooks_path = hooks_path(home);
+    let original_contents = fs::read(&hooks_path).ok();
     let mut document = read_hook_document(&hooks_path)?;
-    let incoming = collect_incoming_hooks(files)?;
     let mut installed = read_installed_hook_packages(home)?;
     let previous = installed.0.get(package).cloned();
-    let hooks = hooks_object_mut(&mut document)?;
+    let backup = install_hook_support_files(&root, files)?;
 
-    if let Some(previous) = &previous {
-        for hash in &previous.hashes {
-            remove_hash(hooks, hash);
+    let merged = (|| {
+        let hooks = hooks_object_mut(&mut document)?;
+        if let Some(previous) = &previous {
+            for hash in &previous.hashes {
+                remove_hash(hooks, hash);
+            }
         }
+        for entry in &incoming {
+            remove_hash(hooks, &entry.hash);
+            add_handler(
+                hooks,
+                &entry.event,
+                entry.matcher.as_deref(),
+                entry.handler.clone(),
+            );
+        }
+        let contents = serde_json::to_vec_pretty(&document).map_err(|error| {
+            ClientError::new(
+                "local_extensions_error",
+                format!("无法序列化 Codex Hook 配置：{error}"),
+            )
+        })?;
+        atomic_write(&hooks_path, &contents)
+    })();
+    if let Err(error) = merged {
+        restore_document(&hooks_path, original_contents.as_deref());
+        restore_hook_root(&root, backup);
+        return Err(error);
     }
-    for entry in &incoming {
-        remove_hash(hooks, &entry.hash);
-        add_handler(
-            hooks,
-            &entry.event,
-            entry.matcher.as_deref(),
-            entry.handler.clone(),
-        );
-    }
+
     let hashes = incoming
         .iter()
         .map(|entry| entry.hash.clone())
@@ -98,31 +104,50 @@ pub(super) fn install_hooks(
         },
     );
 
-    let contents = serde_json::to_vec_pretty(&document).map_err(|error| {
-        ClientError::new(
-            "local_extensions_error",
-            format!("无法序列化 Codex Hook 配置：{error}"),
-        )
-    })?;
-    atomic_write(&hooks_path, &contents)?;
-    write_installed_hook_packages(home, &installed)?;
+    if let Err(error) = write_installed_hook_packages(home, &installed) {
+        restore_document(&hooks_path, original_contents.as_deref());
+        restore_hook_root(&root, backup);
+        return Err(error);
+    }
+    if let Some(backup) = backup {
+        let _ = fs::remove_dir_all(backup);
+    }
+    if let Some(previous) = previous.filter(|previous| previous.commit_sha != commit_sha) {
+        remove_hook_root(home, package, &previous.commit_sha)?;
+    }
     Ok(review)
 }
 
 pub(crate) fn validate_hook_files(files: &[ExtensionFile]) -> Result<(), ClientError> {
-    collect_incoming_hooks(files).map(|_| ())
+    collect_incoming_hooks(files, None).map(|_| ())
+}
+
+pub(super) fn preview_hooks(
+    home: &Path,
+    package: &str,
+    commit_sha: &str,
+    files: &[ExtensionFile],
+) -> Result<Vec<HookReviewItem>, ClientError> {
+    let root = hook_package_root(home, package, commit_sha)?;
+    Ok(collect_incoming_hooks(files, Some(&root))?
+        .into_iter()
+        .map(|entry| entry.review)
+        .collect())
 }
 
 pub(crate) fn preflight_hooks(
     home: &Path,
     clients: &[AgentClient],
+    package: &str,
+    commit_sha: &str,
     files: &[ExtensionFile],
 ) -> Result<(), ClientError> {
     if !clients.contains(&AgentClient::CodexCli) {
         return Ok(());
     }
+    let root = hook_package_root(home, package, commit_sha)?;
     read_hook_document(&hooks_path(home))?;
-    collect_incoming_hooks(files).map(|_| ())
+    collect_incoming_hooks(files, Some(&root)).map(|_| ())
 }
 
 pub(crate) fn hook_installation_status(
@@ -147,7 +172,8 @@ pub(crate) fn hook_installation_status(
     };
     let document = read_hook_document(&hooks_path(home))?;
     let present = document_hashes(&document);
-    let missing = current.hashes.iter().any(|hash| !present.contains(hash));
+    let root_missing = !hook_package_root(home, package, &current.commit_sha)?.is_dir();
+    let missing = root_missing || current.hashes.iter().any(|hash| !present.contains(hash));
     if missing {
         return Ok(HookInstallationStatus {
             action: ExtensionInstallAction::Partial,
@@ -176,6 +202,13 @@ pub(crate) fn uninstall_hooks(home: &Path, package: &str) -> Result<(), ClientEr
     let hooks_path = hooks_path(home);
     if hooks_path.exists() {
         let mut document = read_hook_document(&hooks_path)?;
+        let present = document_hashes(&document);
+        if current.hashes.iter().any(|hash| !present.contains(hash)) {
+            return Err(ClientError::new(
+                "local_extensions_conflict",
+                format!("扩展包 {package} 的 Hook 条目已被手动修改，未删除本机安装记录。"),
+            ));
+        }
         let hooks = hooks_object_mut(&mut document)?;
         for hash in &current.hashes {
             remove_hash(hooks, hash);
@@ -188,6 +221,7 @@ pub(crate) fn uninstall_hooks(home: &Path, package: &str) -> Result<(), ClientEr
         })?;
         atomic_write(&hooks_path, &contents)?;
     }
+    remove_hook_root(home, package, &current.commit_sha)?;
     write_installed_hook_packages(home, &installed)
 }
 
@@ -247,40 +281,9 @@ fn hooks_path(home: &Path) -> PathBuf {
     home.join(".codex").join("hooks.json")
 }
 
-fn hook_package_state_path(home: &Path) -> PathBuf {
-    home.join(".codex")
-        .join(PRELAY_STATE_DIRECTORY)
-        .join(HOOK_PACKAGE_STATE_FILE)
-}
-
-fn read_installed_hook_packages(home: &Path) -> Result<InstalledHookPackages, ClientError> {
-    let path = hook_package_state_path(home);
-    match fs::read(&path) {
-        Ok(contents) => serde_json::from_slice(&contents).map_err(|error| {
-            ClientError::new(
-                "local_extensions_error",
-                format!("无法读取已安装 Hook 状态：{error}"),
-            )
-        }),
-        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
-            Ok(InstalledHookPackages::default())
-        }
-        Err(error) => Err(storage_error(error)),
-    }
-}
-
-fn write_installed_hook_packages(
-    home: &Path,
-    packages: &InstalledHookPackages,
-) -> Result<(), ClientError> {
-    let contents = serde_json::to_vec(packages).map_err(|error| {
-        ClientError::new(
-            "local_extensions_error",
-            format!("无法保存已安装 Hook 状态：{error}"),
-        )
-    })?;
-    atomic_write(&hook_package_state_path(home), &contents)
-}
-
+#[cfg(test)]
+mod root_tests;
+#[cfg(test)]
+mod test_support;
 #[cfg(test)]
 mod tests;

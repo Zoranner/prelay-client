@@ -14,10 +14,11 @@ pub(crate) mod uninstall;
 
 pub use catalog::{list_extensions, read_extension_readme, update_all_extensions};
 pub use checks::spawn_update_checks;
-pub use install::{install_extension, read_mcp_install_manifest};
+pub use install::{install_extension, read_hook_install_preview, read_mcp_install_manifest};
 pub use model::{
     CatalogKind, ExtensionCatalogSnapshot, ExtensionInstallAction, ExtensionInstallRequest,
-    ExtensionInstallResult, ExtensionKind, ExtensionPackage, HookReviewItem, McpInstallPreview,
+    ExtensionInstallResult, ExtensionKind, ExtensionPackage, HookInstallPreview, HookReviewItem,
+    McpInstallPreview,
 };
 
 pub(crate) use model::SKILLS_PREFIX;
