@@ -13,11 +13,11 @@ import type {
   AgentClient,
   ExtensionCatalogPackage,
   ExtensionInstallResult,
-  ExtensionMcpPreview,
 } from "~/stores/relay";
 import McpInstallForm from "~/components/extensions/McpInstallForm.vue";
+import HookInstallPreviewPanel from "~/components/extensions/HookInstallPreview.vue";
 import HookReviewList from "~/components/extensions/HookReviewList.vue";
-import { mcpPreviewMatchesExtension } from "~/utils/extensionMcpPreview";
+import { hookPreviewMatchesExtension } from "~/utils/extensionHookPreview";
 import {
   extensionSupportsClient,
   synchronizeExtensionInstallSelection,
@@ -38,11 +38,16 @@ const { confirm: confirmAction } = useConfirm();
 const notifications = useNotification();
 const selectedClients = ref<AgentClient[]>([]);
 const installing = ref(false);
-const mcpPreview = ref<ExtensionMcpPreview | null>(null);
-const mcpPreviewLoading = ref(false);
-const mcpPreviewError = ref("");
 const installResult = ref<ExtensionInstallResult | null>(null);
-let mcpPreviewRequest = 0;
+const {
+  mcpPreview,
+  mcpLoading: mcpPreviewLoading,
+  mcpError: mcpPreviewError,
+  hookPreview,
+  hookLoading: hookPreviewLoading,
+  hookError: hookPreviewError,
+  load: loadInstallPreviews,
+} = useExtensionInstallPreview();
 const actionLabel = computed(() =>
   props.extension?.installAction === "update"
     ? "更新"
@@ -50,10 +55,12 @@ const actionLabel = computed(() =>
       ? "补装"
       : "安装",
 );
-
 const detected = computed(() => new Set(props.detectedClients));
 const isMcp = computed(() =>
   props.extension?.artifacts.some((artifact) => artifact.kind === "mcp"),
+);
+const isHook = computed(() =>
+  props.extension?.artifacts.some((artifact) => artifact.kind === "hook"),
 );
 const artifactLabels = computed(
   () =>
@@ -129,6 +136,13 @@ async function install(overwrite = false) {
   ) {
     return;
   }
+  if (
+    isHook.value &&
+    (!hookPreview.value ||
+      !hookPreviewMatchesExtension(hookPreview.value, props.extension))
+  ) {
+    return;
+  }
   installing.value = true;
   try {
     const result = await invokeLocalCommand<ExtensionInstallResult>(
@@ -188,12 +202,9 @@ watch(
       props.extension?.artifacts,
     ] as const,
   async ([isVisible]) => {
-    const request = ++mcpPreviewRequest;
     if (!isVisible) return;
     const extension = props.extension;
     installResult.value = null;
-    mcpPreview.value = null;
-    mcpPreviewError.value = "";
     selectedClients.value = ["partial", "update"].includes(
       extension?.installAction ?? "",
     )
@@ -203,30 +214,7 @@ watch(
             : extension?.installedClients.includes(client),
         )
       : [...selectableClients.value];
-    if (!extension?.artifacts.some((artifact) => artifact.kind === "mcp"))
-      return;
-    mcpPreviewLoading.value = true;
-    try {
-      const preview = await invokeLocalCommand<ExtensionMcpPreview>(
-        "extensions_mcp_preview",
-        { package: extension },
-        { notify: false, trackPending: false },
-      );
-      if (
-        request === mcpPreviewRequest &&
-        visible.value &&
-        props.extension &&
-        mcpPreviewMatchesExtension(preview, props.extension)
-      ) {
-        mcpPreview.value = preview;
-      }
-    } catch (caught) {
-      if (request === mcpPreviewRequest) {
-        mcpPreviewError.value = errorText(toRelayError(caught));
-      }
-    } finally {
-      if (request === mcpPreviewRequest) mcpPreviewLoading.value = false;
-    }
+    await loadInstallPreviews(extension);
   },
 );
 </script>
@@ -292,9 +280,24 @@ watch(
           {{ mcpPreviewError }}
         </p>
       </div>
+      <div v-if="isHook" class="extension-install-drawer__preview">
+        <Loading
+          v-if="hookPreviewLoading"
+          visible
+          text="正在读取 Hook 安装内容..."
+        />
+        <HookInstallPreviewPanel
+          v-else-if="hookPreview"
+          :preview="hookPreview"
+        />
+        <p v-else class="extension-install-drawer__error">
+          {{ hookPreviewError }}
+        </p>
+      </div>
       <HookReviewList
         v-if="installResult?.review.length"
         :review="installResult.review"
+        :files="isHook ? hookPreview?.files : undefined"
       />
     </div>
     <template #footer>
@@ -313,7 +316,10 @@ watch(
             semantic="primary"
             variant="solid"
             :disabled="
-              installing || !selectedClients.length || (isMcp && !mcpPreview)
+              installing ||
+              !selectedClients.length ||
+              (isMcp && !mcpPreview) ||
+              (isHook && !hookPreview)
             "
             @click="install()"
           >

@@ -14,6 +14,7 @@ export type LocalCommand =
   | "extensions_list"
   | "extension_readme"
   | "extensions_mcp_preview"
+  | "extensions_hook_preview"
   | "extensions_install"
   | "extensions_update_all";
 

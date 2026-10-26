@@ -199,6 +199,11 @@ test("扩展库沿用智能体工作区的分类表格与单层操作表面", ()
     /\.extension-install-drawer__preview \{[^}]*overflow-y: auto/,
   );
   const mcpInstallForm = source("components/extensions/McpInstallForm.vue");
+  const hookPreviewPanel = source(
+    "components/extensions/HookInstallPreview.vue",
+  );
+  const hookReviewList = source("components/extensions/HookReviewList.vue");
+  const previewComposable = source("composables/useExtensionInstallPreview.ts");
   expect(mcpInstallForm).not.toContain("<Badge");
   expect(mcpInstallForm).not.toContain("mcp-install-identity");
   expect(mcpInstallForm).toContain("mcp-install-spec");
@@ -223,8 +228,17 @@ test("扩展库沿用智能体工作区的分类表格与单层操作表面", ()
   expect(installDrawer).not.toContain("mcpPreview.manifest.transport.enabled");
   expect(installDrawer).not.toContain("mcpRiskAccepted");
   expect(installDrawer).not.toContain("首次使用时可能下载依赖或启动本地进程。");
-  expect(installDrawer).toContain("extensions_mcp_preview");
+  expect(previewComposable).toContain("extensions_mcp_preview");
   expect(installDrawer).toContain("mcpPreview");
+  expect(previewComposable).toContain("extensions_hook_preview");
+  expect(previewComposable).toContain("hookPreviewMatchesExtension");
+  expect(installDrawer).toContain("useExtensionInstallPreview");
+  expect(installDrawer).toContain("HookInstallPreviewPanel");
+  expect(installDrawer).toContain("hookPreview");
+  expect(hookPreviewPanel).toContain("preview.files");
+  expect(hookReviewList).toContain("将写入的 Hook 支持文件");
+  expect(hookReviewList).toContain("Hook 不会运行");
+  expect(hookReviewList).toContain("commandWindows");
   expect(installDrawer).toContain(
     'emit("refreshed", props.extension.catalogKind)',
   );
@@ -263,6 +277,7 @@ test("扩展库只负责安装，Skill 按包展示且整包卸载挂在智能�
   expect(catalogTable).not.toContain("uninstall");
   expect(workspace).not.toContain("uninstallExtension");
   expect(localCommand).not.toContain("extensions_uninstall");
+  expect(localCommand).toContain("extensions_hook_preview");
   expect(uninstall).toContain("该条目属于扩展包");
   expect(page).toContain("agentUninstallDescription(item)");
   expect(itemList).toContain('title: "包含内容"');
