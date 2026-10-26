@@ -248,22 +248,7 @@ export interface UserLeaderboardEntry {
   success_rate: number;
 }
 
-export interface ModelStats {
-  model_requested: string | null;
-  model_requested_display_name?: string | null;
-  total_requests: number;
-  successful_requests: number;
-  failed_requests: number;
-  input_tokens: number;
-  output_tokens: number;
-  average_latency_ms: number | null;
-}
-
-export interface ProviderStats extends ModelStats {
-  provider_id: string | null;
-  provider_name: string | null;
-  average_first_token_ms: number | null;
-}
+export type { ModelStats, ProviderStats } from "./stats";
 
 export interface Activity {
   id: string;

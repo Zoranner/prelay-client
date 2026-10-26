@@ -16,6 +16,7 @@ const props = withDefaults(
 
 const entries = computed(() =>
   props.rows
+    .filter((row) => row.model_requested !== null)
     .map((row) => ({
       id: row.model_requested ?? "unknown",
       name:

@@ -50,8 +50,8 @@ const modelRows = computed(() =>
 );
 const providerRows = computed(() =>
   providers.value.map((row, index) => ({
-    id: row.provider_id ?? `unknown-${index}`,
-    name: row.provider_name ?? "未识别供应商",
+    id: row.provider_type ?? `deleted-provider-${index}`,
+    name: row.provider_name ?? "已删除供应商",
     total_requests: row.total_requests,
     successful_requests: row.successful_requests,
     input_tokens: row.input_tokens,
