@@ -8,7 +8,7 @@ test("编辑供应商通过原生命令回填创建人可见的密钥", () => {
   const page = read("app/pages/providers.vue");
   const command = read("src-tauri/src/commands/providers.rs");
   const application = read("src-tauri/src/app/mod.rs");
-  const relayCommand = read("app/composables/useRelayCommand.ts");
+  const relayCommand = read("app/composables/command/relay.ts");
 
   expect(page).toContain('invokeCommand<Provider>("providers_get"');
   expect(page).toContain("editable = { ...provider, ...detail }");

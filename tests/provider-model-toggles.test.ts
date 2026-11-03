@@ -1,20 +1,17 @@
 import { expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
 
-import { endpointModelsForProvider } from "../app/utils/endpointModels";
-import { setModelCatalog } from "../app/utils/modelCatalog";
+import { endpointModelsForProvider } from "../app/utils/model/endpoints";
+import { setModelCatalog } from "../app/stores/modelCatalog";
 
 const providerSource = [
-  "../app/components/providers/ProviderForm.vue",
-  "../app/composables/useProviderForm.ts",
+  "../app/components/providers/Form.vue",
+  "../app/composables/providerForm.ts",
 ]
   .map((path) => readFileSync(new URL(path, import.meta.url), "utf8"))
   .join("\n");
 const togglesSource = readFileSync(
-  new URL(
-    "../app/components/providers/ProviderModelToggles.vue",
-    import.meta.url,
-  ),
+  new URL("../app/components/providers/ModelToggles.vue", import.meta.url),
   "utf8",
 );
 const pageSource = readFileSync(
@@ -22,7 +19,7 @@ const pageSource = readFileSync(
   "utf8",
 );
 const providerFormSource = readFileSync(
-  new URL("../app/components/providers/ProviderForm.vue", import.meta.url),
+  new URL("../app/components/providers/Form.vue", import.meta.url),
   "utf8",
 );
 
@@ -37,7 +34,7 @@ test("供应商表单显式导入模型开关组件", () => {
   // 目录组件名带路径前缀，缺省解析不到这个标签，模板会静默渲染为空。
   expect(providerFormSource).toContain("import ProviderModelToggles");
   expect(providerFormSource).toContain(
-    'from "~/components/providers/ProviderModelToggles.vue"',
+    'from "~/components/providers/ModelToggles.vue"',
   );
 });
 

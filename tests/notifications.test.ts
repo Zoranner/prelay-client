@@ -10,8 +10,8 @@ test("通知由 Stellar UI 的全局容器承载，不插入页面和抽屉内�
     "../app/pages/settings.vue",
     "../app/pages/setup.vue",
     "../app/pages/stats.vue",
-    "../app/components/endpoints/EndpointForm.vue",
-    "../app/components/providers/ProviderForm.vue",
+    "../app/components/endpoints/Form.vue",
+    "../app/components/providers/Form.vue",
   ];
 
   for (const surface of surfaces) {
@@ -29,7 +29,7 @@ test("通知由 Stellar UI 的全局容器承载，不插入页面和抽屉内�
 
 test("客户端不保留自定义通知实现", () => {
   const composable = readFileSync(
-    new URL("../app/composables/useRelayCommand.ts", import.meta.url),
+    new URL("../app/composables/command/relay.ts", import.meta.url),
     "utf8",
   );
 

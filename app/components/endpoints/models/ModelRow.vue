@@ -4,7 +4,7 @@ import {
   endpointMappingIssueHint,
   endpointMappingIssueLabel,
   type EndpointMappingIssue,
-} from "~/utils/endpointModels";
+} from "~/utils/model/endpoints";
 
 defineProps<{
   provider: string;

@@ -1,4 +1,6 @@
 <script setup lang="ts">
+defineOptions({ name: "ProviderModelToggles" });
+
 import { Tag } from "@stellar/ui";
 
 export type ProviderModelState = "enabled" | "available" | "retired";

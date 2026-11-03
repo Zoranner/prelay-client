@@ -1,13 +1,10 @@
 import { expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
 
-import { getProviderOperationFeedback } from "../app/utils/providerOperations";
+import { getProviderOperationFeedback } from "../app/utils/provider/operations";
 
 const providerFormDomain = () =>
-  [
-    "../app/components/providers/ProviderForm.vue",
-    "../app/composables/useProviderForm.ts",
-  ]
+  ["../app/components/providers/Form.vue", "../app/composables/providerForm.ts"]
     .map((path) => readFileSync(new URL(path, import.meta.url), "utf8"))
     .join("\n");
 
@@ -57,7 +54,7 @@ test("协议测试成功时使用服务端返回的协议字段", () => {
 
 test("Nuxt 供应商操作 DTO 只声明 Tauri 实际返回的字段", () => {
   const source = readFileSync(
-    new URL("../app/utils/providerOperations.ts", import.meta.url),
+    new URL("../app/utils/provider/operations.ts", import.meta.url),
     "utf8",
   );
 
@@ -129,7 +126,7 @@ test("供应商保存命令发送启用清单", () => {
 
 test("共享供应商前端类型只保留可见元数据和统计展示字段", () => {
   const relay = readFileSync(
-    new URL("../app/stores/relay.ts", import.meta.url),
+    new URL("../app/types/relay.ts", import.meta.url),
     "utf8",
   );
 

@@ -4,22 +4,22 @@ import type {
   Provider,
   ProviderCapabilities,
   UpstreamProtocol,
-} from "~/stores/relay";
+} from "~/types/relay";
 import {
   type ProviderTemplate,
   protocolLabel,
-  providerModelOptions,
   providerTemplateForType,
   providerTemplates,
-} from "~/utils/providerTemplates";
+} from "~/utils/provider/templates";
 import {
   modelCatalogProviderModels,
+  providerModelOptions,
   useModelCatalog,
-} from "~/utils/modelCatalog";
+} from "~/stores/modelCatalog";
 import {
   getProviderOperationFeedback,
   type ProviderOperationResult,
-} from "~/utils/providerOperations";
+} from "~/utils/provider/operations";
 
 export type ProviderOperationInput = {
   provider_type: string;

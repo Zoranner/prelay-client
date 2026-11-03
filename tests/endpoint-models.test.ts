@@ -8,8 +8,8 @@ import {
   groupEndpointModels,
   moveEndpointMapping,
   normalizeEndpointModelIdentities,
-} from "../app/utils/endpointModels";
-import { modelCatalogEntry, setModelCatalog } from "../app/utils/modelCatalog";
+} from "../app/utils/model/endpoints";
+import { modelCatalogEntry, setModelCatalog } from "../app/stores/modelCatalog";
 import { readFileSync } from "node:fs";
 
 test("接入点候选顺序只在同一模型分组内上下调整", () => {
@@ -240,7 +240,7 @@ test("接入点归组优先使用服务端模型显示名", () => {
 
 test("共享 Provider 选项保留原始 ID并标记只读来源", () => {
   const source = readFileSync(
-    new URL("../app/utils/endpointModels.ts", import.meta.url),
+    new URL("../app/utils/model/endpoints.ts", import.meta.url),
     "utf8",
   );
 

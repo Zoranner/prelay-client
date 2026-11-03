@@ -1,14 +1,14 @@
 import { expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
-import { identityAvatarSrc } from "../app/utils/identityAvatar";
+import { identityAvatarSrc } from "../app/utils/ui/avatar";
 
 const read = (path: string) =>
   readFileSync(new URL(path, import.meta.url), "utf8");
 const scopeSource = read(
-  "../app/components/providers/ProviderVisibilityScope.vue",
+  "../app/components/providers/sharing/VisibilityScope.vue",
 );
-const listSource = read("../app/components/providers/ProviderList.vue");
-const avatarSource = read("../app/utils/identityAvatar.ts");
+const listSource = read("../app/components/providers/List.vue");
+const avatarSource = read("../app/utils/ui/avatar.ts");
 
 test("可见范围三态复用组件库头像组的胶囊形态", () => {
   expect(scopeSource).toContain("maxScopeAvatars = 3");

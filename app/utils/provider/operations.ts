@@ -1,4 +1,4 @@
-import { protocolLabel } from "~/utils/providerTemplates";
+import { protocolLabel } from "~/utils/provider/templates";
 
 export interface ProviderOperationResult {
   ok: boolean;

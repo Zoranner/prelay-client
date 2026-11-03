@@ -1,10 +1,12 @@
 <script setup lang="ts">
+defineOptions({ name: "ProviderList" });
+
 import { Avatar, Button, Table, Tag } from "@stellar/ui";
-import type { IdentityDirectoryEntry, ProviderListItem } from "~/stores/relay";
-import ProviderVisibilityScope from "~/components/providers/ProviderVisibilityScope.vue";
-import { identityAvatarSrc } from "~/utils/identityAvatar";
-import { providerProtocolOptions } from "~/utils/providerCapabilities";
-import { protocolLabel, protocolTagPalette } from "~/utils/providerTemplates";
+import type { IdentityDirectoryEntry, ProviderListItem } from "~/types/relay";
+import ProviderVisibilityScope from "~/components/providers/sharing/VisibilityScope.vue";
+import { identityAvatarSrc } from "~/utils/ui/avatar";
+import { providerProtocolOptions } from "~/utils/provider/capabilities";
+import { protocolLabel, protocolTagPalette } from "~/utils/provider/templates";
 
 type ProviderRow = ProviderListItem &
   Record<string, unknown> & { ping: ReturnType<typeof pingStatus> };

@@ -1,4 +1,6 @@
 <script setup lang="ts">
+defineOptions({ name: "ProviderSharingDrawer" });
+
 import {
   Button,
   Drawer,
@@ -14,7 +16,7 @@ import type {
   ProviderSharing,
   ProviderSharingInput,
   ProviderUsage,
-} from "~/stores/relay";
+} from "~/types/relay";
 
 const visible = defineModel<boolean>("visible", { default: false });
 const props = defineProps<{

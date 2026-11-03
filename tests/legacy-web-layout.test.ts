@@ -6,9 +6,9 @@ const source = (path: string) =>
 
 test("桌面客户端按参考工程采用 shell、dashboard 和业务域目录", () => {
   const app = source("app.vue");
-  const shell = source("components/dashboard/DashboardShell.vue");
+  const shell = source("components/dashboard/frame/Shell.vue");
   const styles = source("assets/css/main.css");
-  const panelSection = source("components/shell/PanelSection.vue");
+  const panelSection = source("components/shell/layout/PanelSection.vue");
   const config = readFileSync(
     new URL("../nuxt.config.ts", import.meta.url),
     "utf8",
@@ -38,8 +38,8 @@ test("供应商和接入点页面通过 Stellar UI 的 PanelSection、Table 和 
   }
 
   for (const component of [
-    "components/providers/ProviderList.vue",
-    "components/endpoints/EndpointList.vue",
+    "components/providers/List.vue",
+    "components/endpoints/List.vue",
   ]) {
     const content = source(component);
     expect(content).toContain('from "@stellar/ui"');
@@ -50,12 +50,12 @@ test("供应商和接入点页面通过 Stellar UI 的 PanelSection、Table 和 
 
 test("供应商和接入点表单保留历史业务字段，并用 Stellar UI 表单组件承载", () => {
   const providerForm = [
-    source("components/providers/ProviderForm.vue"),
-    source("composables/useProviderForm.ts"),
+    source("components/providers/Form.vue"),
+    source("composables/providerForm.ts"),
   ].join("\n");
   const endpointForm = [
-    source("components/endpoints/EndpointForm.vue"),
-    source("components/endpoints/EndpointMappingPicker.vue"),
+    source("components/endpoints/Form.vue"),
+    source("components/endpoints/models/MappingPicker.vue"),
   ].join("\n");
 
   expect(providerForm).toContain("catalogProviders");
@@ -70,8 +70,8 @@ test("供应商和接入点表单保留历史业务字段，并用 Stellar UI �
 });
 
 test("编辑抽屉的表单章节不再嵌套边框", () => {
-  const providerForm = source("components/providers/ProviderForm.vue");
-  const endpointForm = source("components/endpoints/EndpointForm.vue");
+  const providerForm = source("components/providers/Form.vue");
+  const endpointForm = source("components/endpoints/Form.vue");
 
   for (const form of [providerForm, endpointForm]) {
     expect(form).toMatch(/\.\w+-form\s*\{\s*padding: var\(--spacing-lg\);/);
@@ -80,7 +80,7 @@ test("编辑抽屉的表单章节不再嵌套边框", () => {
 });
 
 test("供应商模型分组使用间距区分而不是分割线", () => {
-  const providerForm = source("components/providers/ProviderForm.vue");
+  const providerForm = source("components/providers/Form.vue");
 
   expect(providerForm).not.toMatch(/\.model-group h4\s*\{[^}]*border-bottom:/s);
 });

@@ -1,4 +1,6 @@
 <script setup lang="ts">
+defineOptions({ name: "ProviderForm" });
+
 import {
   Alert,
   Button,
@@ -7,17 +9,17 @@ import {
   Input,
   Select,
 } from "@stellar/ui";
-import type { CatalogProvider, Provider } from "~/stores/relay";
+import type { CatalogProvider, Provider } from "~/types/relay";
 import {
   type ProviderFormPayload,
   type ProviderOperationInput,
   useProviderForm,
-} from "~/composables/useProviderForm";
-import type { ProviderOperationResult } from "~/utils/providerOperations";
-import { modelCatalogLabel } from "~/utils/modelCatalog";
+} from "~/composables/providerForm";
+import type { ProviderOperationResult } from "~/utils/provider/operations";
+import { modelCatalogLabel } from "~/stores/modelCatalog";
 import ProviderModelToggles, {
   type ProviderModelToggle,
-} from "~/components/providers/ProviderModelToggles.vue";
+} from "~/components/providers/ModelToggles.vue";
 
 const props = defineProps<{
   provider?: Provider | null;

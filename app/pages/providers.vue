@@ -4,18 +4,16 @@ import type {
   IdentityDirectoryEntry,
   Provider,
   ProviderListItem,
-  ProviderSharing,
-  ProviderSharingInput,
-  ProviderUsage,
   UpstreamProtocol,
-} from "~/stores/relay";
-import type { ProviderFormPayload } from "~/composables/useProviderForm";
-import { type ProviderOperationResult } from "~/utils/providerOperations";
+} from "~/types/relay";
+import type { ProviderFormPayload } from "~/composables/providerForm";
+import { useProviderSharing } from "~/composables/providerSharing";
+import { type ProviderOperationResult } from "~/utils/provider/operations";
 import { Button, Drawer, useConfirm, useNotification } from "@stellar/ui";
-import ProviderForm from "~/components/providers/ProviderForm.vue";
-import ProviderList from "~/components/providers/ProviderList.vue";
-import ProviderSharingDrawer from "~/components/providers/ProviderSharingDrawer.vue";
-import PanelSection from "~/components/shell/PanelSection.vue";
+import ProviderForm from "~/components/providers/Form.vue";
+import ProviderList from "~/components/providers/List.vue";
+import ProviderSharingDrawer from "~/components/providers/sharing/Drawer.vue";
+import PanelSection from "~/components/shell/layout/PanelSection.vue";
 
 const { pending, invokeCommand } = useRelayCommand();
 const { confirm: confirmAction } = useConfirm();
@@ -27,14 +25,23 @@ const editingProvider = ref<EditableProvider | null>(null);
 const showForm = ref(false);
 const loadingProviders = ref(false);
 const pingStates = ref<Record<string, ProviderPingState>>({});
-const sharingProvider = ref<ProviderListItem | null>(null);
-const sharing = ref<ProviderSharing | null>(null);
 const identities = ref<IdentityDirectoryEntry[]>([]);
-const sharingUsage = ref<ProviderUsage | null>(null);
-const showSharing = ref(false);
-const loadingSharing = ref(false);
 const formDirty = ref(false);
 let exitRegistration: ReturnType<typeof workspaceExit.register> | undefined;
+const {
+  close: closeProviderSharing,
+  loading: loadingSharing,
+  open: openProviderSharing,
+  provider: sharingProvider,
+  save: saveSharing,
+  sharing,
+  usage: sharingUsage,
+  visible: showSharing,
+} = useProviderSharing({
+  providers,
+  identities,
+  loadProviders,
+});
 
 type ProviderPingState = {
   checking: boolean;
@@ -79,17 +86,6 @@ async function loadProviders() {
   } finally {
     loadingProviders.value = false;
   }
-}
-
-function emptyUsage(): ProviderUsage {
-  return {
-    total_requests: 0,
-    input_tokens: 0,
-    output_tokens: 0,
-    total_tokens: 0,
-    latest_used_at: null,
-    users: [],
-  };
 }
 
 async function pingProvider(provider: ProviderListItem) {
@@ -187,76 +183,6 @@ async function editProvider(provider: ProviderListItem) {
   }
   editingProvider.value = editable;
   showForm.value = true;
-}
-
-async function openProviderSharing(provider: ProviderListItem) {
-  sharingProvider.value = provider;
-  sharing.value = null;
-  sharingUsage.value = null;
-  showSharing.value = true;
-  loadingSharing.value = true;
-  try {
-    const [sharingResponse, identityList, usageResponse] = await Promise.all([
-      invokeCommand<ProviderSharing>("providers_sharing_get", {
-        providerId: provider.id,
-      }),
-      invokeCommand<IdentityDirectoryEntry[]>("identity_directory_list"),
-      invokeCommand<ProviderUsage>("providers_usage_get", {
-        providerId: provider.id,
-        range: "all",
-      }),
-    ]);
-    sharing.value = sharingResponse;
-    identities.value = identityList;
-    sharingUsage.value = usageResponse;
-  } catch {
-    // The command composable exposes the error to this view.
-  } finally {
-    loadingSharing.value = false;
-  }
-}
-
-function closeProviderSharing() {
-  showSharing.value = false;
-  sharingProvider.value = null;
-  sharing.value = null;
-  sharingUsage.value = null;
-}
-
-async function saveSharing(input: ProviderSharingInput) {
-  if (!sharingProvider.value) return;
-  try {
-    sharing.value = await invokeCommand<ProviderSharing>(
-      "providers_sharing_save",
-      {
-        providerId: sharingProvider.value.id,
-        input,
-      },
-    );
-    await loadProviders();
-    const refreshedProvider = providers.value.find(
-      (provider) => provider.id === sharingProvider.value?.id,
-    );
-    if (refreshedProvider) {
-      sharingProvider.value = refreshedProvider;
-      try {
-        sharingUsage.value = await invokeCommand<ProviderUsage>(
-          "providers_usage_get",
-          {
-            providerId: refreshedProvider.id,
-            range: "all",
-          },
-        );
-      } catch {
-        sharingUsage.value = emptyUsage();
-      }
-    } else {
-      closeProviderSharing();
-    }
-    notifications.success("共享设置已保存");
-  } catch {
-    // The command composable exposes the error to this view.
-  }
 }
 
 function newProvider() {

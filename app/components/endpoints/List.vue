@@ -1,7 +1,9 @@
 <script setup lang="ts">
+defineOptions({ name: "EndpointList" });
+
 import { Button, Table, TagGroup } from "@stellar/ui";
-import type { EndpointModel, RelayEndpoint } from "~/stores/relay";
-import { modelCatalogLabel } from "~/utils/modelCatalog";
+import type { EndpointModel, RelayEndpoint } from "~/types/relay";
+import { modelCatalogLabel } from "~/stores/modelCatalog";
 
 type EndpointRow = RelayEndpoint & Record<string, unknown>;
 

@@ -1,10 +1,12 @@
 <script setup lang="ts">
+defineOptions({ name: "EndpointForm" });
+
 import { Alert, Button, Input, useNotification } from "@stellar/ui";
 import type {
   EndpointModel,
   ProviderListItem,
   RelayEndpoint,
-} from "~/stores/relay";
+} from "~/types/relay";
 import {
   availableEndpointModelsForProvider,
   checkEndpointMapping,
@@ -17,13 +19,13 @@ import {
   providerOptionLabel,
   type EndpointModelGroup,
   type EndpointModelLike,
-} from "~/utils/endpointModels";
+} from "~/utils/model/endpoints";
 import {
   modelCatalogLabel,
   modelCatalogProviderModels,
-} from "~/utils/modelCatalog";
-import EndpointModelRow from "~/components/endpoints/EndpointModelRow.vue";
-import EndpointMappingPicker from "~/components/endpoints/EndpointMappingPicker.vue";
+} from "~/stores/modelCatalog";
+import EndpointModelRow from "~/components/endpoints/models/ModelRow.vue";
+import EndpointMappingPicker from "~/components/endpoints/models/MappingPicker.vue";
 const props = defineProps<{
   endpoint?: RelayEndpoint | null;
   providers: ProviderListItem[];

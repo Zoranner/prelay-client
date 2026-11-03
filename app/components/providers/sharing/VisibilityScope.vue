@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { AvatarGroup, type AvatarGroupItem } from "@stellar/ui";
-import type { IdentityDirectoryEntry, ProviderListItem } from "~/stores/relay";
-import { identityAvatarSrc } from "~/utils/identityAvatar";
+import type { IdentityDirectoryEntry, ProviderListItem } from "~/types/relay";
+import { identityAvatarSrc } from "~/utils/ui/avatar";
 
 const props = defineProps<{
   provider: ProviderListItem;

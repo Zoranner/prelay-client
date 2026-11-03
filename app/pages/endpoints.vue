@@ -1,15 +1,15 @@
 <script setup lang="ts">
 import {
-  useRelayStore,
   type BootstrapState,
   type EndpointModel,
   type ProviderListItem,
   type RelayEndpoint,
-} from "~/stores/relay";
+} from "~/types/relay";
+import { useRelayStore } from "~/stores/relay";
 import { Button, Drawer, useConfirm, useNotification } from "@stellar/ui";
-import EndpointForm from "~/components/endpoints/EndpointForm.vue";
-import EndpointList from "~/components/endpoints/EndpointList.vue";
-import PanelSection from "~/components/shell/PanelSection.vue";
+import EndpointForm from "~/components/endpoints/Form.vue";
+import EndpointList from "~/components/endpoints/List.vue";
+import PanelSection from "~/components/shell/layout/PanelSection.vue";
 
 type EndpointFormPayload = {
   id?: string;

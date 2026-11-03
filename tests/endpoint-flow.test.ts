@@ -6,20 +6,20 @@ const endpointPage = readFileSync(
   "utf8",
 );
 const endpointForm = readFileSync(
-  new URL("../app/components/endpoints/EndpointForm.vue", import.meta.url),
+  new URL("../app/components/endpoints/Form.vue", import.meta.url),
   "utf8",
 );
 const endpointList = readFileSync(
-  new URL("../app/components/endpoints/EndpointList.vue", import.meta.url),
+  new URL("../app/components/endpoints/List.vue", import.meta.url),
   "utf8",
 );
 const endpointModelRow = readFileSync(
-  new URL("../app/components/endpoints/EndpointModelRow.vue", import.meta.url),
+  new URL("../app/components/endpoints/models/ModelRow.vue", import.meta.url),
   "utf8",
 );
 const endpointPicker = readFileSync(
   new URL(
-    "../app/components/endpoints/EndpointMappingPicker.vue",
+    "../app/components/endpoints/models/MappingPicker.vue",
     import.meta.url,
   ),
   "utf8",
@@ -45,7 +45,7 @@ test("接入点页面提供模型映射和 Token 重置", () => {
 
 test("接入点 Provider 选项包含共享来源和创建人信息", () => {
   const endpointModels = readFileSync(
-    new URL("../app/utils/endpointModels.ts", import.meta.url),
+    new URL("../app/utils/model/endpoints.ts", import.meta.url),
     "utf8",
   );
   expect(endpointModels).toContain("owner_display_name");
@@ -56,7 +56,7 @@ test("接入点 Provider 选项包含共享来源和创建人信息", () => {
 
 test("接入点引用共享 Provider 时保存 payload 仍只有原始 ID 和上游模型", () => {
   const endpointModels = readFileSync(
-    new URL("../app/utils/endpointModels.ts", import.meta.url),
+    new URL("../app/utils/model/endpoints.ts", import.meta.url),
     "utf8",
   );
   expect(endpointForm).toContain("provider.id");
@@ -144,7 +144,7 @@ test("接入点模型选择器显式导入并回传选择结果", () => {
   // 目录组件名带路径前缀，缺省解析不到这个标签，模板会静默渲染为空。
   expect(endpointForm).toContain("import EndpointMappingPicker");
   expect(endpointForm).toContain(
-    'from "~/components/endpoints/EndpointMappingPicker.vue"',
+    'from "~/components/endpoints/models/MappingPicker.vue"',
   );
   expect(endpointPicker).toContain(':model-value="providerId"');
   expect(endpointPicker).toContain(':model-value="upstreamModel"');

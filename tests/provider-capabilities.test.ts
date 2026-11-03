@@ -1,11 +1,11 @@
 import { expect, test } from "bun:test";
 
-import type { Provider } from "../app/stores/relay";
-import { providerProtocolOptions } from "../app/utils/providerCapabilities";
+import type { Provider } from "../app/types/relay";
+import { providerProtocolOptions } from "../app/utils/provider/capabilities";
 import {
   protocolLabel,
   providerTemplateForType,
-} from "../app/utils/providerTemplates";
+} from "../app/utils/provider/templates";
 
 const catalogProvider = {
   id: "example",

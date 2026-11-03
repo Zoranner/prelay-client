@@ -1,11 +1,11 @@
 import { expect, test } from "bun:test";
 import { existsSync, readFileSync } from "node:fs";
-import { setModelCatalog } from "../app/utils/modelCatalog";
-import { providerModelOptions } from "../app/utils/providerTemplates";
+import { setModelCatalog } from "../app/stores/modelCatalog";
+import { providerModelOptions } from "../app/stores/modelCatalog";
 
 const providerSource = [
-  "../app/components/providers/ProviderForm.vue",
-  "../app/composables/useProviderForm.ts",
+  "../app/components/providers/Form.vue",
+  "../app/composables/providerForm.ts",
 ]
   .map((path) => readFileSync(new URL(path, import.meta.url), "utf8"))
   .join("\n");
@@ -17,11 +17,11 @@ function pageSource() {
   );
 }
 const providerListSource = readFileSync(
-  new URL("../app/components/providers/ProviderList.vue", import.meta.url),
+  new URL("../app/components/providers/List.vue", import.meta.url),
   "utf8",
 );
 const providerSharingDrawerUrl = new URL(
-  "../app/components/providers/ProviderSharingDrawer.vue",
+  "../app/components/providers/sharing/Drawer.vue",
   import.meta.url,
 );
 const providerSharingDrawerSource = existsSync(providerSharingDrawerUrl)
@@ -89,7 +89,7 @@ test("编辑供应商向原生层传递表单中回填的密钥", () => {
 
 test("编辑供应商将密钥可见性切换交给组件库输入框", () => {
   const relay = readFileSync(
-    new URL("../app/stores/relay.ts", import.meta.url),
+    new URL("../app/types/relay.ts", import.meta.url),
     "utf8",
   );
 
@@ -107,7 +107,7 @@ test("供应商表格使用组件库表格，并通过供应商 ID 执行 Ping",
     "utf8",
   );
   const list = readFileSync(
-    new URL("../app/components/providers/ProviderList.vue", import.meta.url),
+    new URL("../app/components/providers/List.vue", import.meta.url),
     "utf8",
   );
   expect(page).not.toContain('"providers_discover_models"');
@@ -185,16 +185,22 @@ test("供应商分享抽屉支持三种范围、身份选择和完整使用明�
 
 test("供应商页面通过 Tauri commands 管理分享、统计和撤销后的刷新", () => {
   const page = pageSource();
+  const sharing = readFileSync(
+    new URL("../app/composables/providerSharing.ts", import.meta.url),
+    "utf8",
+  );
 
-  expect(page).toContain(
+  expect(sharing).toContain(
     'invokeCommand<ProviderSharing>("providers_sharing_get"',
   );
-  expect(page).toContain(
+  expect(sharing).toContain(
     'invokeCommand<IdentityDirectoryEntry[]>("identity_directory_list")',
   );
-  expect(page).toContain('invokeCommand<ProviderUsage>("providers_usage_get"');
-  expect(page).toContain('"providers_sharing_save"');
-  expect(page).toContain("await loadProviders()");
+  expect(sharing).toContain(
+    'invokeCommand<ProviderUsage>("providers_usage_get"',
+  );
+  expect(sharing).toContain('"providers_sharing_save"');
+  expect(sharing).toContain("await options.loadProviders()");
   expect(page).toContain("<ProviderSharingDrawer");
   expect(page).toContain("@save-sharing");
 });
@@ -276,11 +282,11 @@ test("供应商模型清单与接入点使用同一类列表工作流", () => {
 
 test("供应商模型清单保存在供应商记录里", () => {
   const relay = readFileSync(
-    new URL("../app/stores/relay.ts", import.meta.url),
+    new URL("../app/types/relay.ts", import.meta.url),
     "utf8",
   );
   const form = readFileSync(
-    new URL("../app/composables/useProviderForm.ts", import.meta.url),
+    new URL("../app/composables/providerForm.ts", import.meta.url),
     "utf8",
   );
   const page = pageSource();
@@ -304,7 +310,7 @@ test("供应商分享命令通过已认证管理 API 使用协议 DTO", () => {
     "utf8",
   );
   const relayCommand = readFileSync(
-    new URL("../app/composables/useRelayCommand.ts", import.meta.url),
+    new URL("../app/composables/command/relay.ts", import.meta.url),
     "utf8",
   );
 
@@ -349,7 +355,7 @@ test("身份目录命令只读取非敏感展示字段", () => {
     "utf8",
   );
   const relayCommand = readFileSync(
-    new URL("../app/composables/useRelayCommand.ts", import.meta.url),
+    new URL("../app/composables/command/relay.ts", import.meta.url),
     "utf8",
   );
 
@@ -402,11 +408,11 @@ test("供应商协议按目录只读展示，目录声明的地址由目录管�
 
 test("供应商与活动表共用协议 Tag 颜色", () => {
   const providerList = readFileSync(
-    new URL("../app/components/providers/ProviderList.vue", import.meta.url),
+    new URL("../app/components/providers/List.vue", import.meta.url),
     "utf8",
   );
   const requestTable = readFileSync(
-    new URL("../app/components/activity/RequestTable.vue", import.meta.url),
+    new URL("../app/components/activity/Table.vue", import.meta.url),
     "utf8",
   );
 

@@ -7,13 +7,13 @@ import {
   setModelCatalogStatus,
   setModelCatalog,
   useModelCatalog,
-} from "../app/utils/modelCatalog";
-import type { ProviderCatalogResponse } from "../app/stores/relay";
-import { groupEndpointModels } from "../app/utils/endpointModels";
+} from "../app/stores/modelCatalog";
+import type { ProviderCatalogResponse } from "../app/types/relay";
+import { groupEndpointModels } from "../app/utils/model/endpoints";
 import {
   saveWithAgentValidation,
   validatePrelayModelSelection,
-} from "../app/composables/useAgentSettings";
+} from "../app/composables/agent/settings";
 
 const source = (path: string) =>
   readFileSync(new URL(`../app/${path}`, import.meta.url), "utf8");
@@ -75,7 +75,7 @@ test("模型目录暴露显式加载状态并保留完整索引", () => {
 
 test("目录请求状态和 URL 请求代次必须防止旧响应覆盖", () => {
   const app = source("app.vue");
-  const catalog = source("utils/modelCatalog.ts");
+  const catalog = source("stores/modelCatalog.ts");
   expect(catalog).toContain('setModelCatalogStatus("loading")');
   expect(catalog).toContain("setModelCatalog(value)");
   expect(catalog).toContain('setModelCatalogStatus("error")');
@@ -119,7 +119,7 @@ test("实际目录请求协调器报告 loading、error 并丢弃过期响应", 
 });
 
 test("目录不可用时阻止 Prelay 智能体保存且不保留自定义连接", () => {
-  const settings = source("composables/useAgentSettings.ts");
+  const settings = source("composables/agent/settings.ts");
   expect(settings).toContain("validatePrelayModelSelection");
   expect(settings).toContain("目录尚未加载完成");
   expect(settings).toContain("modelCatalogEntry");
@@ -205,9 +205,9 @@ test("实际智能体保存门禁只允许目录可用的 Prelay 保存", async 
 });
 
 test("供应商表单用目录条目做可选清单，接入点选项读供应商模型清单", () => {
-  const provider = source("composables/useProviderForm.ts");
-  const endpoint = source("components/endpoints/EndpointForm.vue");
-  const endpointModels = source("utils/endpointModels.ts");
+  const provider = source("composables/providerForm.ts");
+  const endpoint = source("components/endpoints/Form.vue");
+  const endpointModels = source("utils/model/endpoints.ts");
   expect(provider).toContain("modelCatalogProviderModels");
   expect(provider).not.toContain("providers_discover_models");
   expect(endpointModels).toContain("provider.models");

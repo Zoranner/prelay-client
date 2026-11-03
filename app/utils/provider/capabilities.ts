@@ -1,4 +1,4 @@
-import type { Provider, UpstreamProtocol } from "~/stores/relay";
+import type { Provider, UpstreamProtocol } from "~/types/relay";
 
 const protocolValues: UpstreamProtocol[] = [
   "openai",

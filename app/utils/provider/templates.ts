@@ -1,9 +1,4 @@
-import type {
-  CatalogModelResponse,
-  CatalogProvider,
-  UpstreamProtocol,
-} from "~/stores/relay";
-import { modelCatalogEntry, modelCatalogLabel } from "~/utils/modelCatalog";
+import type { CatalogProvider, UpstreamProtocol } from "~/types/relay";
 
 export type ProviderTemplate = {
   value: string;
@@ -16,12 +11,6 @@ export type ProviderTemplate = {
   imageGenerationModels: string[];
   models: string[];
   custom?: boolean;
-};
-
-export type ProviderModelOption = {
-  value: string;
-  label: string;
-  model: CatalogModelResponse | undefined;
 };
 
 export function providerTemplates(catalogProviders: CatalogProvider[]) {
@@ -60,16 +49,6 @@ export function catalogProviderTemplate(
     imageGenerationModels: provider.image_generation_models,
     models: [...provider.language_models, ...provider.image_generation_models],
   };
-}
-
-export function providerModelOptions(
-  modelIds: string[],
-): ProviderModelOption[] {
-  return modelIds.map((id) => ({
-    value: id,
-    label: modelCatalogLabel(id),
-    model: modelCatalogEntry(id),
-  }));
 }
 
 export type ProtocolTagPalette = "blue" | "cyan" | "violet" | "amber" | "gray";
