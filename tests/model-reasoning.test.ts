@@ -1,13 +1,13 @@
 import { describe, expect, test } from "bun:test";
-import type { CatalogLanguageModelResponse } from "~/stores/relay";
+import type { CatalogLanguageModelResponse } from "~/types/relay";
 import {
   codexSettingsPayload,
   createAgentConfiguration,
-} from "~/utils/agentSettings";
+} from "~/utils/agent/settings";
 import {
   normalizeReasoningEffort,
   reasoningEffortOptions,
-} from "~/utils/modelReasoning";
+} from "~/utils/model/reasoning";
 
 function model(
   reasoning_efforts: string[] | null,

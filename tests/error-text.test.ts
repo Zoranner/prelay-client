@@ -96,7 +96,7 @@ test("校验失败把服务端给出的具体原因交回界面", () => {
 });
 
 test("管理命令通知优先展示具体原因", () => {
-  expect(source("composables/useRelayCommand.ts")).toContain(
+  expect(source("composables/command/relay.ts")).toContain(
     "errorReason(relayError) ?? errorText(relayError)",
   );
 });
@@ -126,13 +126,13 @@ test("错误字符串仍按已知错误码识别", () => {
 test("界面展示错误时统一使用文案层", () => {
   for (const path of [
     "app.vue",
-    "composables/useRelayCommand.ts",
-    "composables/useLocalCommand.ts",
-    "composables/useClientUpdate.ts",
+    "composables/command/relay.ts",
+    "composables/command/local.ts",
+    "composables/clientUpdate.ts",
   ]) {
     expect(source(path)).toContain("errorText(");
   }
-  expect(source("components/extensions/ExtensionInstallDrawer.vue")).toContain(
+  expect(source("components/extensions/install/Drawer.vue")).toContain(
     "errorText(",
   );
 });
