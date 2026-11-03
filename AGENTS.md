@@ -18,6 +18,7 @@
 ## 开发与验证
 
 - Node.js 相关操作只使用 Bun，不使用 `npm`、`npx` 或生成 `package-lock.json` 的命令。
+- 依赖从公司内网 registry 安装，首次安装前需要具备内网访问和源认证条件。
 - 首次准备依赖或协议子模块缺失时执行：
 
 ```text
@@ -30,6 +31,8 @@ git submodule update --init --recursive
 ```text
 bun test
 bun run typecheck
+bun run lint
+bun run format:check
 bun run generate
 ```
 

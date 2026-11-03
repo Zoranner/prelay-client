@@ -4,6 +4,8 @@ Prelay 的 Windows 桌面客户端，使用 Tauri 2、Nuxt 4 和 Tailwind 4 管�
 
 ## 开发
 
+依赖从公司内网 registry 安装，首次安装前需要具备内网访问和源认证条件。
+
 ```text
 bun install --frozen-lockfile
 bun run tauri dev
@@ -20,5 +22,7 @@ git submodule update --init --recursive
 ```text
 bun test
 bun run typecheck
+bun run lint
+bun run format:check
 bun run generate
 ```

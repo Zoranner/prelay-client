@@ -27,3 +27,49 @@ test("客户端源文件不超过 450 行", () => {
 
   expect(oversized).toEqual([]);
 });
+
+test("前端目录不保留单文件包装层", () => {
+  const roots = [
+    "app/components",
+    "app/utils",
+    "app/composables",
+    "app/stores",
+    "app/types",
+  ];
+  const singleEntryDirectories = roots.flatMap((root) => {
+    const directories = [root];
+    const result: Array<{ path: string; entries: string[] }> = [];
+    while (directories.length > 0) {
+      const path = directories.pop();
+      if (!path) continue;
+      const entries = readdirSync(path, { withFileTypes: true });
+      if (entries.length < 2) {
+        result.push({
+          path,
+          entries: entries.map((entry) => entry.name),
+        });
+      }
+      directories.push(
+        ...entries
+          .filter((entry) => entry.isDirectory())
+          .map((entry) => join(path, entry.name)),
+      );
+    }
+    return result;
+  });
+
+  expect(singleEntryDirectories).toEqual([]);
+});
+
+test("每个组合式模块都导出 use 组合式函数", () => {
+  const missingComposable = sourceFiles("app/composables")
+    .filter(
+      (path) =>
+        !/export\s+(?:async\s+)?function\s+use\w+/.test(
+          readFileSync(path, "utf8"),
+        ),
+    )
+    .map((path) => path);
+
+  expect(missingComposable).toEqual([]);
+});
