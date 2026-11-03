@@ -1,4 +1,6 @@
 <script setup lang="ts">
+defineOptions({ name: "AppTitlebar" });
+
 import type { UnlistenFn } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { Button } from "@stellar/ui";

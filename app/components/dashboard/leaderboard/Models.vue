@@ -1,9 +1,11 @@
 <script setup lang="ts">
+defineOptions({ name: "DashboardModelsLeaderboard" });
+
 import { Card, EmptyState, Skeleton } from "@stellar/ui";
 
-import type { ModelStats } from "~/stores/relay";
-import { modelCatalogLabel } from "~/utils/modelCatalog";
-import { formatTokens } from "~/utils/tokenFormat";
+import type { ModelStats } from "~/types/relay";
+import { modelCatalogLabel } from "~/stores/modelCatalog";
+import { formatTokens } from "~/utils/stats/tokenFormat";
 
 const props = withDefaults(
   defineProps<{

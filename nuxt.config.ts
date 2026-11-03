@@ -1,7 +1,7 @@
 import tailwindcss from "@tailwindcss/vite";
 
 const shikiLite = decodeURIComponent(
-  new URL("./app/utils/shikiLite.ts", import.meta.url).pathname,
+  new URL("./app/utils/ui/shiki.ts", import.meta.url).pathname,
 ).slice(1);
 
 export default defineNuxtConfig({
@@ -22,6 +22,9 @@ export default defineNuxtConfig({
     port: 18081,
   },
   css: ["~/assets/css/main.css"],
+  imports: {
+    dirs: ["composables/**"],
+  },
   vite: {
     plugins: [tailwindcss()],
     resolve: {

@@ -7,17 +7,17 @@ import type {
   StatsRange,
   TokenUsageTimelinePoint,
   UserLeaderboardEntry,
-} from "~/stores/relay";
+} from "~/types/relay";
 import { Button } from "@stellar/ui";
-import StatsRangeSelect from "~/components/dashboard/StatsRangeSelect.vue";
-import StatsBreakdownTable from "~/components/dashboard/StatsBreakdownTable.vue";
-import ModelLeaderboard from "~/components/dashboard/ModelLeaderboard.vue";
-import StatsOverviewPanel from "~/components/dashboard/StatsOverview.vue";
-import StatsScopeSwitch from "~/components/dashboard/StatsScopeSwitch.vue";
-import TokenUsageTrendChart from "~/components/dashboard/TokenUsageTrendChart.vue";
-import PanelSection from "~/components/shell/PanelSection.vue";
-import UserLeaderboardTable from "~/components/dashboard/UserLeaderboardTable.vue";
-import { modelCatalogLabel } from "~/utils/modelCatalog";
+import StatsRangeSelect from "~/components/dashboard/stats/RangeSelect.vue";
+import StatsBreakdownTable from "~/components/dashboard/stats/BreakdownTable.vue";
+import ModelLeaderboard from "~/components/dashboard/leaderboard/Models.vue";
+import StatsOverviewPanel from "~/components/dashboard/stats/Overview.vue";
+import StatsScopeSwitch from "~/components/dashboard/stats/ScopeSwitch.vue";
+import TokenUsageTrendChart from "~/components/dashboard/charts/TokenTrend.vue";
+import PanelSection from "~/components/shell/layout/PanelSection.vue";
+import UserLeaderboardTable from "~/components/dashboard/leaderboard/Users.vue";
+import { modelCatalogLabel } from "~/stores/modelCatalog";
 
 const { pending, invokeCommand } = useRelayCommand();
 const overview = ref<StatsOverview | null>(null);

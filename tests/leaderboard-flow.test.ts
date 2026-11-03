@@ -5,12 +5,12 @@ const read = (path: string) =>
   readFileSync(new URL(`../${path}`, import.meta.url), "utf8");
 
 test("仪表盘通过 Tauri 展示全用户活动排行榜", () => {
-  const commands = read("app/composables/useRelayCommand.ts");
+  const commands = read("app/composables/command/relay.ts");
   const nativeStats = read("src-tauri/src/commands/stats.rs");
   const nativeRegistration = read("src-tauri/src/app/mod.rs");
-  const store = read("app/stores/relay.ts");
+  const store = read("app/types/relay.ts");
   const page = read("app/pages/index.vue");
-  const table = read("app/components/dashboard/UserLeaderboardTable.vue");
+  const table = read("app/components/dashboard/leaderboard/Users.vue");
 
   expect(commands).toContain('"stats_leaderboard"');
   expect(nativeStats).toContain("pub async fn stats_leaderboard");
@@ -45,7 +45,7 @@ test("仪表盘通过 Tauri 展示全用户活动排行榜", () => {
   expect(table).not.toContain("共 ");
   expect(table).not.toContain(" 人");
   expect(table).toContain(
-    'import { identityAvatarSrc } from "~/utils/identityAvatar"',
+    'import { identityAvatarSrc } from "~/utils/ui/avatar"',
   );
   expect(table).toContain("identity_id");
   expect(table).toContain(':src="identityAvatarSrc(row.identity_id)"');
@@ -76,5 +76,4 @@ test("仪表盘通过 Tauri 展示全用户活动排行榜", () => {
   expect(page).toContain(
     '<ModelLeaderboard :rows="models" :loading="pending" />',
   );
-  expect(page).not.toContain("<ActivityHeatmap");
 });

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { StatsScope } from "~/stores/relay";
+import type { StatsScope } from "~/types/relay";
 
 const model = defineModel<StatsScope>({ required: true });
 

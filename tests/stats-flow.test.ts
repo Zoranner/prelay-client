@@ -7,11 +7,11 @@ const page = (name: string) =>
 test("活动页只读取和展示活动明细", () => {
   const stats = page("stats");
   const table = readFileSync(
-    new URL("../app/components/activity/RequestTable.vue", import.meta.url),
+    new URL("../app/components/activity/Table.vue", import.meta.url),
     "utf8",
   );
   const tableStyles = readFileSync(
-    new URL("../app/components/activity/RequestTable.css", import.meta.url),
+    new URL("../app/components/activity/Table.css", import.meta.url),
     "utf8",
   );
   const requestLogDto = readFileSync(
@@ -19,7 +19,7 @@ test("活动页只读取和展示活动明细", () => {
     "utf8",
   );
   const relayStore = readFileSync(
-    new URL("../app/stores/relay.ts", import.meta.url),
+    new URL("../app/types/relay.ts", import.meta.url),
     "utf8",
   );
   expect(stats).toContain('"stats_activities"');
@@ -113,12 +113,12 @@ test("活动页只读取和展示活动明细", () => {
 
 test("活动和仪表盘优先显示模型显示名并回退到目录或 ID", () => {
   const activity = readFileSync(
-    new URL("../app/components/activity/RequestTable.vue", import.meta.url),
+    new URL("../app/components/activity/Table.vue", import.meta.url),
     "utf8",
   );
   const breakdown = readFileSync(
     new URL(
-      "../app/components/dashboard/StatsBreakdownTable.vue",
+      "../app/components/dashboard/stats/BreakdownTable.vue",
       import.meta.url,
     ),
     "utf8",

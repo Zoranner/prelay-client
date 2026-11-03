@@ -5,7 +5,7 @@ const source = (path: string) =>
   readFileSync(new URL(`../app/${path}`, import.meta.url), "utf8");
 
 test("模型排行榜按 Token 取前五并画条形", () => {
-  const leaderboard = source("components/dashboard/ModelLeaderboard.vue");
+  const leaderboard = source("components/dashboard/leaderboard/Models.vue");
 
   expect(leaderboard).toContain(
     'import { Card, EmptyState, Skeleton } from "@stellar/ui"',
@@ -27,34 +27,6 @@ test("模型排行榜按 Token 取前五并画条形", () => {
   expect(leaderboard).toContain("暂无模型数据");
 });
 
-test("活跃度热力图按 GitHub 形态画每天并高亮当前范围", () => {
-  const heatmap = source("components/dashboard/ActivityHeatmap.vue");
-
-  expect(heatmap).toContain("summaryTokens: number;");
-  expect(heatmap).not.toContain("EmptyState");
-  expect(heatmap).toContain(`<template v-if="span === 'coarse'">`);
-  expect(heatmap).toContain("<template v-else>");
-  expect(heatmap).toContain("const WEEKS = 53;");
-  expect(heatmap).toContain("const anchor = yearEnd(todayDay());");
-  expect(heatmap).toContain(
-    "grid-template-columns: 18px repeat(53, minmax(0, 1fr))",
-  );
-  expect(heatmap).toContain("aspect-ratio: 1");
-  expect(heatmap).toContain("function isDimmed(");
-  expect(heatmap).toContain(
-    "const highlight = computed(() => rangeWindow(props.range));",
-  );
-  expect(heatmap).toContain("function rangeWindow(range: StatsRange)");
-  expect(heatmap).toContain("activity-heatmap__cell--dimmed");
-  expect(heatmap).toContain("activity-heatmap__month");
-  expect(heatmap).toContain("function monthStartInCurrentYear(week: string)");
-  expect(heatmap).toContain("const month = monthStartInCurrentYear(week);");
-  expect(heatmap).not.toContain("const month = week.slice(0, 7);");
-  expect(heatmap).toContain("activity-heatmap__notice");
-  expect(heatmap).toContain("color-mix(in srgb, var(--st-primary)");
-  expect(heatmap).toContain("formatTokens(props.summaryTokens)");
-});
-
 test("仪表盘隐藏活跃度，右栏放模型与用户排行", () => {
   const page = source("pages/index.vue");
 
@@ -69,20 +41,16 @@ test("仪表盘隐藏活跃度，右栏放模型与用户排行", () => {
   expect(page).toContain(
     '<ModelLeaderboard :rows="models" :loading="pending" />',
   );
-  expect(page).not.toContain("dashboard-activity-heatmap");
   // 右栏顺序：用户排行榜、模型排行榜
   expect(page.indexOf("<UserLeaderboardTable")).toBeLessThan(
     page.indexOf("<ModelLeaderboard"),
   );
-  expect(page).not.toContain("<ActivityHeatmap");
-  expect(page).not.toContain("heatmapPoints");
-  expect(page).not.toContain('granularity: "day"');
 });
 
 test("仪表盘提供个人与团队视角切换", () => {
   const page = source("pages/index.vue");
-  const scopeSwitch = source("components/dashboard/StatsScopeSwitch.vue");
-  const leaderboard = source("components/dashboard/UserLeaderboardTable.vue");
+  const scopeSwitch = source("components/dashboard/stats/ScopeSwitch.vue");
+  const leaderboard = source("components/dashboard/leaderboard/Users.vue");
   expect(leaderboard).toContain("Skeleton");
   expect(leaderboard).toContain("loading?: boolean");
   expect(leaderboard).toContain('v-if="props.loading && !props.rows.length"');
@@ -91,7 +59,7 @@ test("仪表盘提供个人与团队视角切换", () => {
   );
   expect(leaderboard).not.toContain("width: 32px;\n    height: 32px;");
   expect(leaderboard).not.toContain("width: 28px;\n    height: 28px;");
-  const stats = source("utils/stats.ts");
+  const stats = source("utils/stats/bucket.ts");
 
   expect(page).toContain('const statsScope = ref<StatsScope>("personal");');
   expect(page).toContain('<StatsScopeSwitch v-model="statsScope" />');

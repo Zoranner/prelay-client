@@ -1,0 +1,1 @@
+export const CONTENTS_COLUMN_WIDTH = 160;

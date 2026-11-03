@@ -1,8 +1,11 @@
 <script setup lang="ts">
+defineOptions({ name: "DashboardShell" });
+
 import { Avatar, Badge, Sidebar, SidebarItem } from "@stellar/ui";
-import DashboardStatusbar from "~/components/dashboard/DashboardStatusbar.vue";
-import { identityAvatarSrc } from "~/utils/identityAvatar";
-import { type BootstrapState, useRelayStore } from "~/stores/relay";
+import DashboardStatusbar from "~/components/dashboard/frame/Statusbar.vue";
+import { identityAvatarSrc } from "~/utils/ui/avatar";
+import type { BootstrapState } from "~/types/relay";
+import { useRelayStore } from "~/stores/relay";
 
 defineProps<{
   relayUrl: string | null;

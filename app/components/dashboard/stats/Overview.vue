@@ -1,9 +1,11 @@
 <script setup lang="ts">
-import type { StatsOverview as StatsOverviewData } from "~/stores/relay";
+defineOptions({ name: "DashboardStatsOverview" });
+
+import type { StatsOverview as StatsOverviewData } from "~/types/relay";
 
 import { StatCard } from "@stellar/ui";
 
-import { formatTokens } from "~/utils/tokenFormat";
+import { formatTokens } from "~/utils/stats/tokenFormat";
 
 const props = defineProps<{ overview: StatsOverviewData | null }>();
 

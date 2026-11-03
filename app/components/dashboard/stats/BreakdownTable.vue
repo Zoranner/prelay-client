@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { Table } from "@stellar/ui";
-import { modelCatalogLabel } from "~/utils/modelCatalog";
-import { formatTokens } from "~/utils/tokenFormat";
+import { modelCatalogLabel } from "~/stores/modelCatalog";
+import { formatTokens } from "~/utils/stats/tokenFormat";
 
 type StatsBreakdownRow = Record<string, unknown> & {
   id: string;

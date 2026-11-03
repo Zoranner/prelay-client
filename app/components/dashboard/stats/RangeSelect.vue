@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { Button, DropdownMenu, Icon, MenuDivider, MenuItem } from "@stellar/ui";
 
-import type { StatsRange } from "~/stores/relay";
+import type { StatsRange } from "~/types/relay";
 
 type RangeOption = {
   label: string;

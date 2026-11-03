@@ -1,10 +1,10 @@
 <script setup lang="ts">
 import { Card } from "@stellar/ui";
-import type * as ECharts from "echarts";
+import type { ECharts } from "./echarts";
 
-import type { StatsRange, TokenUsageTimelinePoint } from "~/stores/relay";
-import { parseTimelineBucket } from "~/utils/stats";
-import { formatTokens } from "~/utils/tokenFormat";
+import type { StatsRange, TokenUsageTimelinePoint } from "~/types/relay";
+import { parseTimelineBucket } from "~/utils/stats/bucket";
+import { formatTokens, formatTrendValue } from "~/utils/stats/tokenFormat";
 
 const props = defineProps<{
   points: TokenUsageTimelinePoint[];
@@ -12,9 +12,10 @@ const props = defineProps<{
 }>();
 
 const chartElement = ref<HTMLElement | null>(null);
-let chart: ECharts.ECharts | undefined;
+let chart: ECharts | undefined;
 let resizeObserver: ResizeObserver | undefined;
-let echarts: typeof import("echarts") | undefined;
+let initChart:
+  Awaited<ReturnType<typeof import("./echarts").loadECharts>> | undefined;
 let disposed = false;
 
 function formatHourBucket(date: Date, includeDate: boolean) {
@@ -69,6 +70,34 @@ function themeColor(name: string) {
     .trim();
 }
 
+type TooltipItem = {
+  axisValueLabel?: string;
+  marker?: string;
+  seriesName?: string;
+  value?: unknown;
+};
+
+function tooltipValue(item: TooltipItem) {
+  const raw = Array.isArray(item.value)
+    ? item.value[item.value.length - 1]
+    : item.value;
+  const value = typeof raw === "number" ? raw : Number(raw);
+  if (!Number.isFinite(value)) return String(raw ?? "-");
+  return formatTrendValue(value, item.seriesName === "缓存命中率");
+}
+
+function tooltipFormatter(params: unknown) {
+  const items = (Array.isArray(params) ? params : [params]).filter(
+    (item): item is TooltipItem => typeof item === "object" && item !== null,
+  );
+  const title = items[0]?.axisValueLabel;
+  const rows = items.map(
+    (item) =>
+      `${item.marker ?? ""}${item.seriesName ?? ""}：${tooltipValue(item)}`,
+  );
+  return [title, ...rows].filter(Boolean).join("<br/>");
+}
+
 function renderChart() {
   if (!chart) return;
   const colors = {
@@ -109,6 +138,7 @@ function renderChart() {
       borderWidth: 1,
       padding: [10, 12],
       textStyle: { color: colors.primaryText },
+      formatter: tooltipFormatter,
     },
     xAxis: {
       type: "category",
@@ -194,9 +224,10 @@ function renderChart() {
 
 onMounted(async () => {
   if (!chartElement.value) return;
-  echarts = await import("echarts");
-  if (disposed || !chartElement.value || !echarts) return;
-  chart = echarts.init(chartElement.value);
+  const { loadECharts } = await import("./echarts");
+  initChart = await loadECharts();
+  if (disposed || !chartElement.value || !initChart) return;
+  chart = initChart(chartElement.value);
   renderChart();
   window.addEventListener("prelay:theme-changed", renderChart);
   resizeObserver = new ResizeObserver(() => chart?.resize());

@@ -1,5 +1,7 @@
 <script setup lang="ts">
-import type { Activity } from "~/stores/relay";
+defineOptions({ name: "ActivityRequestsTable" });
+
+import type { Activity } from "~/types/relay";
 import {
   Button,
   Icon,
@@ -9,8 +11,8 @@ import {
   Table,
   Tag,
 } from "@stellar/ui";
-import { protocolLabel, protocolTagPalette } from "~/utils/providerTemplates";
-import { modelCatalogLabel } from "~/utils/modelCatalog";
+import { protocolLabel, protocolTagPalette } from "~/utils/provider/templates";
+import { modelCatalogLabel } from "~/stores/modelCatalog";
 
 type RequestTableRow = Activity & Record<string, unknown>;
 
@@ -291,4 +293,4 @@ function updateLimit(value: string | number | boolean | null) {
   </Modal>
 </template>
 
-<style scoped src="./RequestTable.css"></style>
+<style scoped src="./Table.css"></style>

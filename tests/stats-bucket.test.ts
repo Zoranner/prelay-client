@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 
-import { parseTimelineBucket } from "../app/utils/stats";
+import { parseTimelineBucket } from "../app/utils/stats/bucket";
 
 test("时间桶兼容 SQLite 本地时间和 ISO 时间字符串", () => {
   expect(parseTimelineBucket("2026-08-22 08:00:00")?.toISOString()).toBe(

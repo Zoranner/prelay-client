@@ -1,4 +1,6 @@
 <script setup lang="ts">
+defineOptions({ name: "DashboardStatusbar" });
+
 import { getVersion } from "@tauri-apps/api/app";
 import { Button, useConfirm } from "@stellar/ui";
 

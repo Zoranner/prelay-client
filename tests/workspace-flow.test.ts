@@ -6,8 +6,8 @@ const source = (path: string) =>
 
 test("桌面壳层按仪表盘组织客户端入口", () => {
   const app = source("app.vue");
-  const navigation = source("components/dashboard/DashboardShell.vue");
-  const titlebar = source("components/shell/AppTitlebar.vue");
+  const navigation = source("components/dashboard/frame/Shell.vue");
+  const titlebar = source("components/shell/Titlebar.vue");
 
   expect(app).toContain("DashboardShell");
   expect(navigation).toContain("SidebarItem");
@@ -22,12 +22,10 @@ test("桌面壳层按仪表盘组织客户端入口", () => {
 
 test("仪表盘按选定范围展示指标、趋势和统计列表", () => {
   const page = source("pages/index.vue");
-  const overview = source("components/dashboard/StatsOverview.vue");
-  const rangeSelect = source("components/dashboard/StatsRangeSelect.vue");
-  const table = source("components/dashboard/StatsBreakdownTable.vue");
-  const tokenUsageTrend = source(
-    "components/dashboard/TokenUsageTrendChart.vue",
-  );
+  const overview = source("components/dashboard/stats/Overview.vue");
+  const rangeSelect = source("components/dashboard/stats/RangeSelect.vue");
+  const table = source("components/dashboard/stats/BreakdownTable.vue");
+  const tokenUsageTrend = source("components/dashboard/charts/TokenTrend.vue");
 
   expect(page).toContain('"stats_overview"');
   expect(page).toContain('"stats_models"');
@@ -71,7 +69,7 @@ test("仪表盘按选定范围展示指标、趋势和统计列表", () => {
   expect(page).toContain("模型统计");
   expect(table).toContain("fixed-header");
   expect(table).toContain("height: 272px");
-  expect(tokenUsageTrend).toContain('from "echarts"');
+  expect(tokenUsageTrend).toContain('from "./echarts"');
   expect(tokenUsageTrend).toContain("full-height");
   expect(tokenUsageTrend).toContain("height: 400px");
   expect(tokenUsageTrend).toContain('left: "center"');

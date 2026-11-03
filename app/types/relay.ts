@@ -1,0 +1,405 @@
+export interface BootstrapState {
+  identity_id: string;
+  relay_url?: string;
+  display_name: string;
+  avatar_seed: string;
+  has_device_credential: boolean;
+}
+
+export type UpstreamProtocol = "responses" | "openai" | "images_generations";
+
+export type CatalogProviderProtocol =
+  "chat_completions" | "responses" | "images_generations";
+
+export type CatalogProviderAuthScheme = "bearer";
+
+export interface CatalogProviderProtocolBaseUrl {
+  protocol: CatalogProviderProtocol;
+  base_url: string;
+}
+
+export interface CatalogProvider {
+  id: string;
+  name: string;
+  auth_scheme: CatalogProviderAuthScheme;
+  base_url: string;
+  protocols: CatalogProviderProtocol[];
+  protocol_base_urls: CatalogProviderProtocolBaseUrl[];
+  language_models: string[];
+  image_generation_models: string[];
+}
+
+export interface CatalogTruncationPolicyResponse {
+  mode: string;
+  limit: number;
+}
+
+export interface CatalogLanguageModelResponse {
+  id: string;
+  display_name: string;
+  description: string | null;
+  reasoning_efforts: string[] | null;
+  default_reasoning_effort: string | null;
+  context_window: number | null;
+  max_context_window: number | null;
+  effective_context_window_percent: number | null;
+  input_modalities: string[] | null;
+  supports_parallel_tool_calls: boolean | null;
+  supports_reasoning_summaries: boolean | null;
+  supports_image_detail_original: boolean | null;
+  support_verbosity: boolean | null;
+  default_verbosity: string | null;
+  apply_patch_tool_type: string | null;
+  web_search_tool_type: string | null;
+  truncation_policy: CatalogTruncationPolicyResponse | null;
+  reasoning_summary_format: string | null;
+  default_reasoning_summary: string | null;
+  shell_type: string | null;
+  visibility: string | null;
+  supported_in_api: boolean | null;
+  priority: number | null;
+  base_instructions: string | null;
+  experimental_supported_tools: string[] | null;
+  minimal_client_version: string | null;
+}
+
+export interface CatalogImageGenerationModelResponse {
+  id: string;
+  display_name: string;
+  description: string | null;
+  input_modalities: string[] | null;
+  output_modalities: string[] | null;
+  sizes: string[] | null;
+  quality_options: string[] | null;
+  background_options: string[] | null;
+  output_formats: string[] | null;
+  supports_editing: boolean | null;
+  supports_mask: boolean | null;
+  supports_reference_images: boolean | null;
+  visibility: string | null;
+  supported_in_api: boolean | null;
+  priority: number | null;
+}
+
+export type CatalogModelResponse =
+  CatalogLanguageModelResponse | CatalogImageGenerationModelResponse;
+
+export interface ProviderCatalogResponse {
+  language_models: CatalogLanguageModelResponse[];
+  image_generation_models: CatalogImageGenerationModelResponse[];
+  providers: CatalogProvider[];
+}
+
+export interface ProviderProtocolBaseUrls {
+  responses?: string | null;
+  openai?: string | null;
+  images_generations?: string | null;
+}
+
+export interface ProviderCapabilities {
+  upstream_protocols?: string[] | null;
+  protocol_base_urls?: ProviderProtocolBaseUrls | null;
+  tool_calls?: boolean | null;
+  reasoning?: boolean | null;
+  tool_choice?: boolean | null;
+  parallel_tool_calls?: boolean | null;
+  system_messages?: boolean | null;
+  structured_outputs?: boolean | null;
+  streaming_usage?: boolean | null;
+  max_context_tokens?: number | null;
+  max_output_tokens?: number | null;
+}
+
+export interface Provider {
+  id: string;
+  name: string;
+  provider_type: string;
+  base_url: string;
+  api_key?: string;
+  api_key_masked?: string;
+  capabilities: ProviderCapabilities;
+  upstream_protocols: string[];
+  models: string[];
+  created_at: string;
+}
+
+export interface ProviderCredentialFields {
+  api_key: string;
+  api_key_masked: string;
+}
+
+export type ProviderVisibility = "private" | "selected" | "all";
+
+export interface ProviderListItem {
+  id: string;
+  name: string;
+  provider_type: string;
+  base_url: string;
+  capabilities: ProviderCapabilities;
+  upstream_protocols: string[];
+  models: string[];
+  owner_identity_id: string;
+  owner_display_name: string;
+  visibility: ProviderVisibility;
+  selected_identity_ids: string[];
+  can_manage: boolean;
+  created_at: string;
+}
+
+export interface ProviderSharing {
+  visibility: ProviderVisibility;
+  selected_identity_ids: string[];
+  can_manage: boolean;
+}
+
+export interface ProviderSharingInput {
+  visibility: ProviderVisibility;
+  identity_ids: string[];
+}
+
+export interface ProviderUsage {
+  total_requests: number;
+  input_tokens: number;
+  output_tokens: number;
+  total_tokens: number;
+  latest_used_at: string | null;
+  users: ProviderUsageUser[];
+}
+
+export interface ProviderUsageUser {
+  identity_id: string;
+  display_name: string;
+  request_count: number;
+  input_tokens: number;
+  output_tokens: number;
+  total_tokens: number;
+  latest_used_at: string | null;
+}
+
+export interface IdentityDirectoryEntry {
+  identity_id: string;
+  display_name: string;
+}
+
+export interface EndpointModel {
+  id?: string;
+  endpoint_id?: string;
+  model_name: string;
+  provider_id: string;
+  upstream_model: string;
+  display_name?: string;
+  created_at?: string;
+}
+
+export interface RelayEndpoint {
+  id: string;
+  name: string;
+  protocol: string;
+  token: string;
+  models: EndpointModel[];
+  created_at: string;
+}
+
+export interface StatsOverview {
+  total_requests: number;
+  successful_requests: number;
+  failed_requests: number;
+  input_tokens: number;
+  total_input_tokens: number;
+  output_tokens: number;
+  cache_read_tokens: number;
+  cache_write_tokens: number;
+  average_latency_ms: number | null;
+}
+
+export interface TokenUsageTimelinePoint {
+  bucket: string;
+  input_tokens: number;
+  total_input_tokens: number;
+  output_tokens: number;
+  cache_read_tokens: number;
+  cache_write_tokens: number;
+}
+
+export type StatsRange =
+  | "today"
+  | "yesterday"
+  | "this_week"
+  | "last_week"
+  | "this_month"
+  | "last_month"
+  | "this_year"
+  | "last_year"
+  | "all";
+
+export type LeaderboardMetric =
+  "activities" | "total_tokens" | "successful_activities" | "success_rate";
+
+// 统计口径：personal 只看当前身份，team 聚合全站
+export type StatsScope = "personal" | "team";
+
+export interface UserLeaderboardEntry {
+  rank: number;
+  identity_id: string;
+  display_name: string;
+  activity_count: number;
+  total_tokens: number;
+  successful_activities: number;
+  success_rate: number;
+}
+
+export type { ModelStats, ProviderStats } from "./stats";
+
+export interface Activity {
+  id: string;
+  created_at: string;
+  protocol_in: string | null;
+  protocol_upstream: string | null;
+  endpoint_name: string | null;
+  provider_name: string | null;
+  model_requested: string | null;
+  model_requested_display_name?: string | null;
+  model_upstream: string | null;
+  model_upstream_display_name?: string | null;
+  status: string;
+  http_status: number | null;
+  error_code: string | null;
+  error_message: string | null;
+  input_tokens: number | null;
+  output_tokens: number | null;
+  is_streaming: boolean | null;
+  first_token_ms: number | null;
+  cache_read_tokens: number | null;
+  cache_write_tokens: number | null;
+  latency_ms: number | null;
+  upstream_request_id: string | null;
+}
+
+export type AgentClient = "codexCli" | "chatgpt";
+export type AgentItemKind = "plugin" | "mcp" | "skill" | "hook";
+export type AgentItemSource = "personal" | "team" | "system";
+
+export interface AgentItem {
+  kind: AgentItemKind;
+  name: string;
+  version: string | null;
+  package: string | null;
+  members: string[];
+  source: AgentItemSource;
+  sourcePath: string;
+  errorMessage: string | null;
+}
+
+export interface AgentClientItems {
+  client: AgentClient;
+  version: string | null;
+  items: AgentItem[];
+}
+
+export interface AgentItemsSnapshot {
+  clients: AgentClientItems[];
+}
+
+export interface AgentClientVersion {
+  client: AgentClient;
+  version: string | null;
+}
+
+export interface AgentClientStatus {
+  client: AgentClient;
+  installed: boolean;
+  version: string | null;
+}
+
+export type ExtensionArtifactKind = "rule" | "mcp" | "skill" | "hook";
+export type ExtensionCatalogKind = "rule" | "plugin";
+export type ExtensionInstallAction =
+  "install" | "partial" | "update" | "installed";
+
+export interface ExtensionArtifactSummary {
+  kind: ExtensionArtifactKind;
+  fileCount: number;
+}
+export interface ExtensionPackage {
+  name: string;
+  repository: string;
+  commitSha: string;
+  version: string;
+  catalogKind: ExtensionCatalogKind;
+  artifacts: ExtensionArtifactSummary[];
+  installAction: ExtensionInstallAction;
+  installedClients: AgentClient[];
+}
+export type ExtensionCatalogPackage = ExtensionPackage;
+export interface ExtensionCatalogSnapshot {
+  packages: ExtensionCatalogPackage[];
+}
+export type ExtensionMcpTransport =
+  | {
+      type: "stdio";
+      command: string[];
+      cwd: string | null;
+      environment: Record<string, string>;
+      enabled: boolean;
+      timeoutMs: number | null;
+    }
+  | {
+      type: "http";
+      url: string;
+      headers: Record<string, string>;
+      enabled: boolean;
+      timeoutMs: number | null;
+    };
+
+export interface ExtensionMcpManifest {
+  name: string;
+  transport: ExtensionMcpTransport;
+}
+
+export interface ExtensionMcpPreview {
+  name: string;
+  version: string;
+  commitSha: string;
+  manifest: ExtensionMcpManifest;
+}
+
+export interface HookReviewItem {
+  event: string;
+  matcher: string | null;
+  command: string;
+  commandWindows: string | null;
+}
+
+export interface ExtensionInstallResult {
+  message: string;
+  skipped: string[];
+  review: HookReviewItem[];
+}
+
+export type CodexSettings = Partial<{
+  endpointName: string;
+  baseUrl: string;
+  model: string;
+  reasoningEffort: string;
+  personality: string;
+  webSearch: boolean;
+  sandbox: string;
+  maxThreads: number;
+  maxDepth: number;
+  jobMaxRuntimeSeconds: number;
+  networkAccess: boolean;
+  shellEnvironmentInherit: string;
+  windowsSandbox: string;
+  features: Partial<{
+    memories: boolean;
+    goals: boolean;
+    workspaceDependencies: boolean;
+  }>;
+  rules: string;
+}>;
+
+export type ChatGptSettings = CodexSettings;
+
+export type AgentSettings =
+  | { client: "codexCli"; settings: CodexSettings }
+  | { client: "chatgpt"; settings: ChatGptSettings };

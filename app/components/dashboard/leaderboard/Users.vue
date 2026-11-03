@@ -1,9 +1,11 @@
 <script setup lang="ts">
+defineOptions({ name: "DashboardUsersLeaderboard" });
+
 import { Avatar, Card, Skeleton } from "@stellar/ui";
 
-import type { UserLeaderboardEntry } from "~/stores/relay";
-import { identityAvatarSrc } from "~/utils/identityAvatar";
-import { formatTokens } from "~/utils/tokenFormat";
+import type { UserLeaderboardEntry } from "~/types/relay";
+import { identityAvatarSrc } from "~/utils/ui/avatar";
+import { formatTokens } from "~/utils/stats/tokenFormat";
 
 type UserLeaderboardRow = UserLeaderboardEntry & Record<string, unknown>;
 

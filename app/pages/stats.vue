@@ -1,9 +1,9 @@
 <script setup lang="ts">
-import type { Activity } from "~/stores/relay";
+import type { Activity } from "~/types/relay";
 import { Button } from "@stellar/ui";
-import RequestTable from "~/components/activity/RequestTable.vue";
-import PanelSection from "~/components/shell/PanelSection.vue";
-import { modelCatalogLabel } from "~/utils/modelCatalog";
+import RequestTable from "~/components/activity/Table.vue";
+import PanelSection from "~/components/shell/layout/PanelSection.vue";
+import { modelCatalogLabel } from "~/stores/modelCatalog";
 
 const { pending, invokeCommand } = useRelayCommand();
 const activities = ref<Activity[]>([]);

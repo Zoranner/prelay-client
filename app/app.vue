@@ -3,13 +3,13 @@ import { isTauri } from "@tauri-apps/api/core";
 import type { UnlistenFn } from "@tauri-apps/api/event";
 import { listen } from "@tauri-apps/api/event";
 import { Button, NotificationContainer, Result } from "@stellar/ui";
-import type { ProviderCatalogResponse } from "~/stores/relay";
-import AppTitlebar from "~/components/shell/AppTitlebar.vue";
+import type { ProviderCatalogResponse } from "~/types/relay";
+import AppTitlebar from "~/components/shell/Titlebar.vue";
 import ClientUpdateDialog from "~/components/settings/ClientUpdateDialog.vue";
 import DesktopPreferencesDialog from "~/components/settings/DesktopPreferencesDialog.vue";
-import DashboardShell from "~/components/dashboard/DashboardShell.vue";
-import { setModelCatalog } from "~/utils/modelCatalog";
-import { loadModelCatalogRequest } from "~/utils/modelCatalog";
+import DashboardShell from "~/components/dashboard/frame/Shell.vue";
+import { setModelCatalog } from "~/stores/modelCatalog";
+import { loadModelCatalogRequest } from "~/stores/modelCatalog";
 import { errorDetail, errorText } from "~/utils/errors";
 
 const managementApi = useRelayManagementApiStatus();

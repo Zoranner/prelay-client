@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { codeToHtml } from "../app/utils/shikiLite";
+import { codeToHtml } from "../app/utils/ui/shiki";
 
 test("轻量代码高亮适配器转义代码并保留语言标记", async () => {
   const html = await codeToHtml('<script>alert("x")</script>', {
@@ -12,6 +12,6 @@ test("轻量代码高亮适配器转义代码并保留语言标记", async () =>
 });
 
 test("轻量 Shiki 适配器不承担组件库的 token 高亮", async () => {
-  const module = await import("../app/utils/shikiLite");
+  const module = await import("../app/utils/ui/shiki");
   expect("codeToTokensBase" in module).toBe(false);
 });
