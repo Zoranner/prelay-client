@@ -9,13 +9,13 @@ const source = (path: string) =>
 
 test("智能体页面只编排路由级状态，展示和设置由领域组件承担", () => {
   const page = source("pages/agents.vue");
-  const shell = source("components/dashboard/DashboardShell.vue");
-  const sidebar = source("components/agents/AgentSidebar.vue");
-  const content = source("components/agents/AgentWorkspaceContent.vue");
-  const drawer = source("components/agents/AgentSettingsDrawer.vue");
-  const installDrawer = source(
-    "components/extensions/ExtensionInstallDrawer.vue",
-  );
+  const shell = source("components/dashboard/frame/Shell.vue");
+  const sidebar = source("components/agents/workspace/Sidebar.vue");
+  const clientContent = source("components/agents/workspace/Content.vue");
+  const extensionContent = source("components/extensions/library/Content.vue");
+  const selection = source("composables/agent/pageSelection.ts");
+  const drawer = source("components/agents/settings/Drawer.vue");
+  const installDrawer = source("components/extensions/install/Drawer.vue");
 
   expect(shell).toContain(
     '{ label: "智能体", path: "/agents", icon: "ph:robot" }',
@@ -23,50 +23,57 @@ test("智能体页面只编排路由级状态，展示和设置由领域组件�
   expect(page).toContain('title="智能体"');
   expect(page).toContain("availableSectionOptions");
   expect(page).toContain("AgentSidebar");
-  expect(page).toContain("AgentWorkspaceContent");
+  expect(page).toContain("AgentClientContent");
+  expect(page).toContain("ExtensionLibraryContent");
   expect(page).toContain("AgentSettingsDrawer");
   expect(sidebar).toContain("agent-client-list");
   expect(sidebar).toContain("AgentClientIcon");
   expect(sidebar).not.toContain("agent-client-icon--monochrome");
-  expect(content).toContain("@update:model-value");
-  expect(page).toContain("agentSectionOptions");
-  expect(page).toContain("插件");
-  expect(page).toContain("MCP");
-  expect(page).toContain("Skill");
-  expect(content).not.toContain('icon="ph:gear-six"');
+  expect(clientContent).toContain("@update:model-value");
+  expect(clientContent).toContain('activeSection.value === "plugin"');
+  expect(clientContent).toContain("show-version");
+  expect(clientContent).not.toContain("showItemStatus");
+  expect(extensionContent).toContain("@update:model-value");
+  expect(extensionContent).toContain("<ExtensionCatalogTable");
+  expect(selection).toContain("agentSectionOptions");
+  expect(selection).toContain("AgentSectionOption");
+  expect(clientContent).not.toContain('icon="ph:gear-six"');
   expect(drawer).toContain("CodexSettingsForm");
   expect(drawer).toContain("ChatGptSettingsForm");
-  expect(drawer).toContain("OpenCodeSettingsForm");
+  expect(drawer).not.toContain("OpenCodeSettingsForm");
   expect(drawer).not.toContain("ClaudeCodeSettingsForm");
   expect(installDrawer).not.toContain("claudeCode");
   expect(drawer).toContain("agent-settings-form");
 });
 
 test("进入智能体页面时默认选中客户端列表第一项", () => {
-  const page = source("pages/agents.vue");
+  const selection = source("composables/agent/pageSelection.ts");
 
-  expect(page).toMatch(
-    /const activeWorkspace = ref<AgentWorkspace>\(\s+agentClients\.value\[0\]\?\.\s*client \?\? "chatgpt",\s+\);/,
+  expect(selection).toContain(
+    'const initialClient = agentClients.value[0]?.client ?? "chatgpt";',
   );
-  expect(page).toContain(
+  expect(selection).toContain(
+    "const activeWorkspace = ref<AgentWorkspace>(initialClient);",
+  );
+  expect(selection).toContain(
     'const fallback = agentClients.value[0]?.client ?? "chatgpt";',
   );
-  expect(page).not.toContain(
+  expect(selection).not.toContain(
     'const activeWorkspace = ref<AgentWorkspace>("codexCli");',
   );
-  expect(page).not.toContain(
+  expect(selection).not.toContain(
     'const fallback =\n        clientStatuses.value.find((status) => status.installed)?.client ??\n        "codexCli";',
   );
 });
 
 test("接入点目录或服务地址晚于本机配置返回时重新反推智能体接入点", () => {
-  const settings = source("composables/useAgentSettings.ts");
+  const settings = source("composables/agent/settings.ts");
 
   expect(settings).toContain("endpointOptionsForClient");
   expect(settings).toContain("watch(");
   expect(settings).toContain("if (codexCli) hydrate(codexCli);");
   expect(settings).toContain("if (chatgpt) hydrate(chatgpt);");
-  expect(settings).toContain("if (openCode) hydrate(openCode);");
+  expect(settings).not.toContain("openCode");
 });
 
 test("智能体刷新按钮是带图标的主操作并保留加载反馈", () => {
@@ -78,7 +85,7 @@ test("智能体刷新按钮是带图标的主操作并保留加载反馈", () =>
 });
 
 test("规则编辑器独立负责输入、预览和滚动同步", () => {
-  const rulesEditor = source("components/agents/AgentRulesEditor.vue");
+  const rulesEditor = source("components/agents/workspace/RulesEditor.vue");
 
   expect(rulesEditor).toContain("defineModel<string>");
   expect(rulesEditor).toContain("Textarea");
@@ -88,13 +95,13 @@ test("规则编辑器独立负责输入、预览和滚动同步", () => {
   expect(rulesEditor).toContain("agent-rules__editor");
   expect(rulesEditor).toContain("agent-rules__preview");
   expect(rulesEditor).not.toContain("padding: 0 0 var(--spacing-lg);");
-  expect(source("components/agents/AgentWorkspaceContent.vue")).not.toContain(
+  expect(source("components/agents/workspace/Content.vue")).not.toContain(
     "padding-top: var(--spacing-md);",
   );
 });
 
 test("Codex 设置表单独立承载连接、执行和运行环境字段", () => {
-  const form = source("components/agents/CodexSettingsForm.vue");
+  const form = source("components/agents/settings/forms/Codex.vue");
 
   expect(form).toContain("defineModel<CodexSettingsDraft>");
   expect(form).toContain("模型与接入");

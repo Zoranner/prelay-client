@@ -40,7 +40,7 @@ mock.module("~/utils/errors", () => ({
 }));
 
 const { useRelayCommand, useRelayManagementApiStatus } =
-  await import("../app/composables/useRelayCommand");
+  await import("../app/composables/command/relay");
 
 test("并行 command 在最后一个请求结束前保持 pending", async () => {
   requests.length = 0;

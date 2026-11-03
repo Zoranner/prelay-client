@@ -16,11 +16,11 @@ test("网络错误字符串会保留为 network_error", () => {
 });
 
 test("服务地址只在全屏服务地址页通过连接命令确认", () => {
-  const settings = source("composables/useRelaySettings.ts");
+  const settings = source("composables/relaySettings.ts");
   const setup = source("pages/setup.vue");
   const settingsPage = source("pages/settings.vue");
   const middleware = source("middleware/setup.global.ts");
-  const statusbar = source("components/dashboard/DashboardStatusbar.vue");
+  const statusbar = source("components/dashboard/frame/Statusbar.vue");
 
   expect(settings).toContain('"relay_settings_connect"');
   expect(setup).toContain("await settings.connect(relayUrl.value)");

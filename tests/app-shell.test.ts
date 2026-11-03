@@ -61,18 +61,15 @@ test("桌面窗口只保留自绘标题栏和内容工作区", () => {
     "utf8",
   );
   const titlebar = readFileSync(
-    new URL("../app/components/shell/AppTitlebar.vue", import.meta.url),
+    new URL("../app/components/shell/Titlebar.vue", import.meta.url),
     "utf8",
   );
   const shell = readFileSync(
-    new URL("../app/components/dashboard/DashboardShell.vue", import.meta.url),
+    new URL("../app/components/dashboard/frame/Shell.vue", import.meta.url),
     "utf8",
   );
   const statusbar = readFileSync(
-    new URL(
-      "../app/components/dashboard/DashboardStatusbar.vue",
-      import.meta.url,
-    ),
+    new URL("../app/components/dashboard/frame/Statusbar.vue", import.meta.url),
     "utf8",
   );
   const capability = readFileSync(
@@ -109,7 +106,7 @@ test("桌面窗口只保留自绘标题栏和内容工作区", () => {
 
 test("客户端更新在检查、下载和待安装之间保持明确状态", () => {
   const update = readFileSync(
-    new URL("../app/composables/useClientUpdate.ts", import.meta.url),
+    new URL("../app/composables/clientUpdate.ts", import.meta.url),
     "utf8",
   );
   const dialog = readFileSync(
@@ -137,7 +134,7 @@ test("客户端更新在检查、下载和待安装之间保持明确状态", ()
 
 test("桌面客户端启动后自动下载可用更新并提示安装", () => {
   const update = readFileSync(
-    new URL("../app/composables/useClientUpdate.ts", import.meta.url),
+    new URL("../app/composables/clientUpdate.ts", import.meta.url),
     "utf8",
   );
 
@@ -165,20 +162,20 @@ test("模型目录随服务地址切换重新加载且旧请求不能覆盖新�
 test("仪表盘趋势图按需加载 ECharts", () => {
   const chart = readFileSync(
     new URL(
-      "../app/components/dashboard/TokenUsageTrendChart.vue",
+      "../app/components/dashboard/charts/TokenTrend.vue",
       import.meta.url,
     ),
     "utf8",
   );
 
-  expect(chart).toContain('await import("echarts")');
+  expect(chart).toContain('await import("./echarts")');
   expect(chart).not.toContain('import * as echarts from "echarts"');
 });
 
 test("仪表盘趋势图将输出堆叠在输入之上", () => {
   const chart = readFileSync(
     new URL(
-      "../app/components/dashboard/TokenUsageTrendChart.vue",
+      "../app/components/dashboard/charts/TokenTrend.vue",
       import.meta.url,
     ),
     "utf8",
@@ -192,7 +189,7 @@ test("仪表盘趋势图将输出堆叠在输入之上", () => {
 test("仪表盘周趋势显示小时刻度", () => {
   const chart = readFileSync(
     new URL(
-      "../app/components/dashboard/TokenUsageTrendChart.vue",
+      "../app/components/dashboard/charts/TokenTrend.vue",
       import.meta.url,
     ),
     "utf8",
@@ -214,7 +211,7 @@ test("桌面和网页标题栏复用 Prelay 图标资产", () => {
     ),
   );
   const titlebar = readFileSync(
-    new URL("../app/components/shell/AppTitlebar.vue", import.meta.url),
+    new URL("../app/components/shell/Titlebar.vue", import.meta.url),
     "utf8",
   );
 
@@ -239,11 +236,11 @@ test("仪表盘头像使用 DiceBear Cutouts 预设", () => {
     readFileSync(new URL("../package.json", import.meta.url), "utf8"),
   );
   const shell = readFileSync(
-    new URL("../app/components/dashboard/DashboardShell.vue", import.meta.url),
+    new URL("../app/components/dashboard/frame/Shell.vue", import.meta.url),
     "utf8",
   );
   const avatar = readFileSync(
-    new URL("../app/utils/identityAvatar.ts", import.meta.url),
+    new URL("../app/utils/ui/avatar.ts", import.meta.url),
     "utf8",
   );
 
@@ -294,18 +291,15 @@ test("客户端仅使用组件库已定义的主题令牌", () => {
     "utf8",
   );
   const diagnostics = readFileSync(
-    new URL("../app/components/activity/RequestTable.vue", import.meta.url),
+    new URL("../app/components/activity/Table.vue", import.meta.url),
     "utf8",
   );
   const agents = readFileSync(
-    new URL("../app/components/agents/AgentItemList.vue", import.meta.url),
+    new URL("../app/components/agents/workspace/ItemList.vue", import.meta.url),
     "utf8",
   );
   const statusbar = readFileSync(
-    new URL(
-      "../app/components/dashboard/DashboardStatusbar.vue",
-      import.meta.url,
-    ),
+    new URL("../app/components/dashboard/frame/Statusbar.vue", import.meta.url),
     "utf8",
   );
 
@@ -317,11 +311,11 @@ test("客户端仅使用组件库已定义的主题令牌", () => {
 
 test("设置入口打开桌面偏好弹窗", () => {
   const titlebar = readFileSync(
-    new URL("../app/components/shell/AppTitlebar.vue", import.meta.url),
+    new URL("../app/components/shell/Titlebar.vue", import.meta.url),
     "utf8",
   );
   const preferences = readFileSync(
-    new URL("../app/composables/useDesktopPreferences.ts", import.meta.url),
+    new URL("../app/composables/preferences/desktop.ts", import.meta.url),
     "utf8",
   );
 

@@ -2,8 +2,8 @@ import { expect, test } from "bun:test";
 import {
   mcpPreviewMatchesExtension,
   type ExtensionMcpPreview,
-} from "~/utils/extensionMcpPreview";
-import type { ExtensionCatalogPackage } from "~/stores/relay";
+} from "~/utils/extension/mcpPreview";
+import type { ExtensionCatalogPackage } from "~/types/relay";
 
 const extension: ExtensionCatalogPackage = {
   name: "filesystem-mcp",

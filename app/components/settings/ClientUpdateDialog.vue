@@ -1,4 +1,6 @@
 <script setup lang="ts">
+defineOptions({ name: "ClientUpdateDialog" });
+
 import { Button, Modal } from "@stellar/ui";
 
 const visible = defineModel<boolean>("visible", { default: false });

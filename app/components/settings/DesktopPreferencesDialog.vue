@@ -1,6 +1,8 @@
 <script setup lang="ts">
+defineOptions({ name: "DesktopPreferencesDialog" });
+
 import { Button, Modal, RadioGroup, Toggle } from "@stellar/ui";
-import type { DesktopPreferences } from "~/composables/useDesktopPreferences";
+import type { DesktopPreferences } from "~/composables/preferences/desktop";
 
 const visible = defineModel<boolean>("visible", { default: false });
 const desktopPreferences = useDesktopPreferences();

@@ -3,7 +3,7 @@ import { expect, test } from "bun:test";
 import {
   agentClientDefinitions,
   agentSectionOptions,
-} from "../app/utils/agentClient";
+} from "../app/utils/agent/client";
 
 test("智能体客户端按独立安装形态保留产品与图标身份", () => {
   expect(agentClientDefinitions).toEqual([
@@ -21,15 +21,7 @@ test("智能体客户端按独立安装形态保留产品与图标身份", () =>
       icon: expect.stringContaining("openai.svg"),
       configurable: true,
       monochrome: true,
-      sections: ["rules", "plugin", "mcp", "skill"],
-    },
-    {
-      client: "openCode",
-      label: "OpenCode",
-      icon: expect.stringContaining("opencode.svg"),
-      configurable: true,
-      monochrome: true,
-      sections: ["rules", "plugin", "mcp", "skill"],
+      sections: ["rules", "plugin", "mcp", "skill", "hook"],
     },
   ]);
 });

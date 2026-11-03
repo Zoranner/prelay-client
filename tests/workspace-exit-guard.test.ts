@@ -2,7 +2,7 @@ import { expect, test } from "bun:test";
 import { existsSync, readFileSync } from "node:fs";
 
 const guardPath = new URL(
-  "../app/composables/useWorkspaceExitGuard.ts",
+  "../app/composables/workspaceExitGuard.ts",
   import.meta.url,
 );
 
@@ -21,7 +21,7 @@ test("切换服务地址前由工作区退出守卫统一判断活动编辑面",
 
 test("智能体设置放弃修改时恢复所有客户端草稿", () => {
   const source = readFileSync(
-    new URL("../app/composables/useAgentSettings.ts", import.meta.url),
+    new URL("../app/composables/agent/settings.ts", import.meta.url),
     "utf8",
   );
 
@@ -32,9 +32,7 @@ test("智能体设置放弃修改时恢复所有客户端草稿", () => {
   expect(source).toContain(
     'copyAgentClientSettings(configuration, draft, "chatgpt")',
   );
-  expect(source).toContain(
-    'copyAgentClientSettings(configuration, draft, "openCode")',
-  );
+  expect(source).not.toContain("openCode");
   expect(source).not.toContain("claudeCode");
 });
 
@@ -42,7 +40,7 @@ test("状态栏和有草稿的编辑面都接入工作区退出守卫", () => {
   const source = (path: string) =>
     readFileSync(new URL(`../app/${path}`, import.meta.url), "utf8");
 
-  expect(source("components/dashboard/DashboardStatusbar.vue")).toContain(
+  expect(source("components/dashboard/frame/Statusbar.vue")).toContain(
     "useWorkspaceExitGuard",
   );
   expect(source("components/settings/DesktopPreferencesDialog.vue")).toContain(

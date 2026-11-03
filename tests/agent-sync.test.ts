@@ -4,8 +4,8 @@ import {
   agentModelFallback,
   linkedEndpoint,
   type AgentEndpointLinks,
-} from "../app/utils/agentSync";
-import { setModelCatalog } from "../app/utils/modelCatalog";
+} from "../app/utils/agent/sync";
+import { setModelCatalog } from "../app/stores/modelCatalog";
 
 const RELAY_URL = "https://relay.example.test";
 
@@ -41,7 +41,7 @@ function useCatalog(modelIds: string[]) {
   });
 }
 
-const noLinks: AgentEndpointLinks = { codex: null, opencode: null };
+const noLinks: AgentEndpointLinks = { codex: null };
 
 test("按本地记录认出宿主引用的接入点", () => {
   useCatalog(["k3", "k3-mini"]);
@@ -51,9 +51,8 @@ test("按本地记录认出宿主引用的接入点", () => {
   ];
 
   const resolved = linkedEndpoint({
-    client: "codexCli",
     settings: { endpointName: "旧名字", baseUrl: `${RELAY_URL}/v1` },
-    links: { codex: "endpoint-2", opencode: null },
+    links: { codex: "endpoint-2" },
     endpoints,
     relayUrl: RELAY_URL,
   });
@@ -62,23 +61,13 @@ test("按本地记录认出宿主引用的接入点", () => {
   expect(resolved?.id).toBe("endpoint-2");
 });
 
-test("没有记录时按名字或 token 认领一次", () => {
+test("没有记录时按名字认领一次", () => {
   useCatalog(["k3"]);
   const endpoints = [endpoint("endpoint-1", "Endpoint 1", "token-1", ["k3"])];
 
   expect(
     linkedEndpoint({
-      client: "codexCli",
       settings: { endpointName: "Endpoint 1", baseUrl: `${RELAY_URL}/v1` },
-      links: noLinks,
-      endpoints,
-      relayUrl: RELAY_URL,
-    })?.id,
-  ).toBe("endpoint-1");
-  expect(
-    linkedEndpoint({
-      client: "openCode",
-      settings: { endpointToken: "token-1", baseUrl: `${RELAY_URL}/v1` },
       links: noLinks,
       endpoints,
       relayUrl: RELAY_URL,
@@ -87,9 +76,8 @@ test("没有记录时按名字或 token 认领一次", () => {
   // 服务地址已经换掉的旧配置不参与认领。
   expect(
     linkedEndpoint({
-      client: "openCode",
       settings: {
-        endpointToken: "token-1",
+        endpointName: "Endpoint 1",
         baseUrl: "https://old.example.test/v1",
       },
       links: noLinks,
@@ -105,9 +93,8 @@ test("记录指向已删除的接入点时不下结论", () => {
 
   expect(
     linkedEndpoint({
-      client: "codexCli",
       settings: { endpointName: "Endpoint 1", baseUrl: `${RELAY_URL}/v1` },
-      links: { codex: "endpoint-1", opencode: null },
+      links: { codex: "endpoint-1" },
       endpoints,
       relayUrl: RELAY_URL,
     }),

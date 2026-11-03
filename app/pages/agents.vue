@@ -1,89 +1,48 @@
 <script setup lang="ts">
-import { Button, useConfirm, useNotification } from "@stellar/ui";
-import type {
-  AgentClient,
-  AgentItem,
-  AgentItemKind,
-  BootstrapState,
-  ExtensionCatalogKind,
-  ExtensionCatalogPackage,
-  RelayEndpoint,
-} from "~/stores/relay";
-import { useRelayStore } from "~/stores/relay";
-import {
-  agentClientDefinitions,
-  agentSectionOptions,
-  sortAgentClients,
-} from "~/utils/agentClient";
-import { agentUninstallDescription } from "~/utils/agentUninstall";
-import AgentSidebar from "~/components/agents/AgentSidebar.vue";
-import AgentWorkspaceContent from "~/components/agents/AgentWorkspaceContent.vue";
-import AgentSettingsDrawer from "~/components/agents/AgentSettingsDrawer.vue";
-import ExtensionDetailDrawer from "~/components/extensions/ExtensionDetailDrawer.vue";
-import ExtensionInstallDrawer from "~/components/extensions/ExtensionInstallDrawer.vue";
-import PanelSection from "~/components/shell/PanelSection.vue";
+import { Button } from "@stellar/ui";
+import type { AgentClient } from "~/types/relay";
+import AgentClientContent from "~/components/agents/workspace/Content.vue";
+import AgentSettingsDrawer from "~/components/agents/settings/Drawer.vue";
+import AgentSidebar from "~/components/agents/workspace/Sidebar.vue";
+import ExtensionDetailDrawer from "~/components/extensions/DetailDrawer.vue";
+import ExtensionInstallDrawer from "~/components/extensions/install/Drawer.vue";
+import ExtensionLibraryContent from "~/components/extensions/library/Content.vue";
+import PanelSection from "~/components/shell/layout/PanelSection.vue";
 
-type AgentSection = "rules" | AgentItemKind;
-type AgentWorkspace = AgentClient | "extensions";
-
-const { pending: agentsPending, invokeLocalCommand } = useLocalCommand();
-const { pending: endpointsPending, invokeCommand } = useRelayCommand();
-const { confirm: confirmAction } = useConfirm();
-const notifications = useNotification();
-const workspaceExit = useWorkspaceExitGuard();
-const { bootstrap, setBootstrap } = useRelayStore();
-const agentWorkspace = useAgentWorkspace();
-const extensionCatalog = useExtensionCatalog();
+const workspace = useAgentWorkspace();
 const {
-  clientStatuses,
   clientStatusesLoaded,
   clientStatusesLoading,
-  clientItems,
-  itemsLoading,
   settings: cachedAgentSettings,
-  settingsLoading: agentSettingsLoading,
-} = agentWorkspace;
-const endpoints = ref<RelayEndpoint[]>([]);
-const agentClients = computed(() =>
-  sortAgentClients(
-    agentClientDefinitions.map((definition) => {
-      const status = clientStatuses.value.find(
-        ({ client }) => client === definition.client,
-      );
-      return {
-        ...definition,
-        installed: clientStatusesLoaded.value && Boolean(status?.installed),
-        version: clientStatusesLoaded.value ? (status?.version ?? "-") : "-",
-      };
-    }),
-  ),
-);
-const activeWorkspace = ref<AgentWorkspace>(
-  agentClients.value[0]?.client ?? "chatgpt",
-);
-const lastActiveClient = ref<AgentClient>(
-  agentClients.value[0]?.client ?? "chatgpt",
-);
-const activeClient = computed<AgentClient>(() =>
-  activeWorkspace.value === "extensions"
-    ? lastActiveClient.value
-    : activeWorkspace.value,
-);
-const activeSection = ref<AgentSection>("rules");
-const activeExtensionSection = ref<ExtensionCatalogKind>("rule");
-const selectedExtension = ref<ExtensionCatalogPackage | null>(null);
-const showExtensionDetails = ref(false);
-const showExtensionInstall = ref(false);
-let settingsExitRegistration:
-  ReturnType<typeof workspaceExit.register> | undefined;
-let rulesExitRegistration:
-  ReturnType<typeof workspaceExit.register> | undefined;
+} = workspace;
+const selection = useAgentPageSelection(workspace);
+const {
+  activateClient,
+  activateExtensions,
+  activeClient,
+  activeClientDetected,
+  activeSection,
+  activeWorkspace,
+  agentClients,
+  availableSectionOptions,
+  isAgentContentLoading,
+  sectionItems,
+} = selection;
+const pageData = useAgentPageData();
+const {
+  bootstrap,
+  endpoints,
+  load: loadAgentPage,
+  pending: pagePending,
+} = pageData;
+const { pending: agentsPending, invokeLocalCommand } = useLocalCommand();
+const pending = computed(() => agentsPending.value || pagePending.value);
 
 const agentSettings = useAgentSettings({
   activeClient,
   bootstrap,
   endpoints,
-  reloadSettings: agentWorkspace.reloadSettings,
+  reloadSettings: workspace.reloadSettings,
   save: (request) => invokeLocalCommand("agent_settings_save", request),
   settings: cachedAgentSettings,
 });
@@ -101,11 +60,8 @@ const {
 } = agentSettings;
 const agentRules = useAgentRules({
   configuration: agentConfiguration,
-  reloadSettings: agentWorkspace.reloadSettings,
+  reloadSettings: workspace.reloadSettings,
   save: (request) => invokeLocalCommand("agent_settings_save", request),
-});
-const extensionActions = useExtensionUpdates({
-  refreshClient: () => agentWorkspace.refreshClient(activeClient.value),
 });
 useAgentRulesHydration({
   activeClient,
@@ -118,90 +74,45 @@ const activeRules = computed({
     agentRules.draft[activeClient.value] = rules;
   },
 });
-
-const sectionOptions = agentSectionOptions;
-const availableSectionOptions = computed(() => {
-  const definition = agentClientDefinitions.find(
-    (candidate) => candidate.client === activeClient.value,
-  );
-  return sectionOptions.filter(({ value }) =>
-    definition?.sections.includes(value),
-  );
+const extensionLibrary = useExtensionLibrary({
+  refreshClient: () => workspace.refreshClient(activeClient.value),
+  relayUrl: computed(() => bootstrap.value?.relay_url ?? null),
+  visible: computed(() => activeWorkspace.value === "extensions"),
 });
-const extensionSectionOptions: {
-  value: ExtensionCatalogKind;
-  label: string;
-  icon: string;
-}[] = [
-  { value: "rule", label: "规则", icon: "ph:notebook" },
-  { value: "plugin", label: "插件", icon: "ph:puzzle-piece" },
-];
-const activeItems = computed(
-  () => clientItems.value[activeClient.value]?.items ?? [],
-);
-const activeKind = computed<AgentItemKind | null>(() =>
-  activeSection.value === "rules" ? null : activeSection.value,
-);
-const sectionItems = computed(() =>
-  activeKind.value
-    ? activeItems.value.filter((item) => item.kind === activeKind.value)
-    : [],
-);
-const extensionPackages = computed(
-  () => extensionCatalog.catalogs.value[activeExtensionSection.value].packages,
-);
-const extensionUpdates = computed(
-  () => extensionCatalog.updateCounts.value[activeExtensionSection.value],
-);
-const totalExtensionUpdates = extensionCatalog.totalUpdateCount;
-const pending = computed(() => agentsPending.value || endpointsPending.value);
-const activeClientDetected = computed(() =>
-  isClientInstalled(activeClient.value),
-);
+const {
+  activeSection: extensionSection,
+  installed: extensionInstalled,
+  loading: extensionLoading,
+  openDetails: openExtensionDetails,
+  openInstall: openExtensionInstall,
+  packages: extensionPackages,
+  refresh: refreshExtensions,
+  selected: selectedExtension,
+  showDetails: showExtensionDetails,
+  showInstall: showExtensionInstall,
+  totalUpdates: totalExtensionUpdates,
+  updateAll: updateAllExtensions,
+  updates: extensionUpdates,
+  updating: extensionUpdating,
+} = extensionLibrary;
+const itemActions = useAgentItemActions({
+  client: activeClient,
+  refreshClient: workspace.refreshClient,
+  remove: (request) => invokeLocalCommand("agents_remove", request),
+});
 
-function isClientInstalled(client: AgentClient) {
-  return clientStatuses.value.some(
-    (status) => status.client === client && status.installed,
-  );
-}
-
-function isAgentContentLoading(client: AgentClient) {
-  return itemsLoading.value[client] || agentSettingsLoading.value[client];
-}
+const workspaceExit = useWorkspaceExitGuard();
+type ExitRegistration = ReturnType<typeof workspaceExit.register>;
+let settingsExitRegistration: ExitRegistration | undefined;
+let rulesExitRegistration: ExitRegistration | undefined;
 
 async function selectClient(client: AgentClient) {
   if (showSettings.value && settingsExitRegistration) {
     const canSwitch = await settingsExitRegistration.requestExit();
     if (!canSwitch) return;
   }
-  lastActiveClient.value = client;
-  activeWorkspace.value = client;
+  activateClient(client);
   agentRules.pause();
-  if (
-    !availableSectionOptions.value.some(
-      ({ value }) => value === activeSection.value,
-    )
-  ) {
-    activeSection.value = availableSectionOptions.value[0]?.value ?? "mcp";
-  }
-  if (clientStatusesLoaded.value && isClientInstalled(client)) {
-    void agentWorkspace.refreshClient(client);
-  }
-}
-
-function selectExtensionCatalog() {
-  activeWorkspace.value = "extensions";
-  void extensionCatalog.load(activeExtensionSection.value);
-}
-
-function openExtensionDetails(extension: ExtensionCatalogPackage) {
-  selectedExtension.value = extension;
-  showExtensionDetails.value = true;
-}
-
-function openExtensionInstall(extension: ExtensionCatalogPackage) {
-  selectedExtension.value = extension;
-  showExtensionInstall.value = true;
 }
 
 function requestCloseSettings() {
@@ -225,66 +136,8 @@ async function saveSettings() {
   }
 }
 
-async function loadAgentPage() {
-  const endpointsRequest = invokeCommand<RelayEndpoint[]>("endpoints_list")
-    .then((value) => {
-      endpoints.value = value;
-    })
-    .catch(() => {
-      // The application-level management API status owns endpoint failures.
-    });
-  const bootstrapRequest = bootstrap.value
-    ? Promise.resolve()
-    : invokeCommand<BootstrapState>("bootstrap")
-        .then(setBootstrap)
-        .catch(() => {
-          // The application-level management API status owns bootstrap failures.
-        });
-  await Promise.all([endpointsRequest, bootstrapRequest]);
-}
-
 function refreshAgentClients() {
-  void agentWorkspace.refreshClientStatuses();
-}
-
-function refreshActiveClient() {
-  if (
-    activeWorkspace.value !== "extensions" &&
-    clientStatusesLoaded.value &&
-    activeClientDetected.value
-  ) {
-    void agentWorkspace.refreshClient(activeClient.value);
-  }
-}
-
-async function uninstallAgentItem(item: AgentItem) {
-  const kindLabel = {
-    plugin: "插件",
-    mcp: "MCP",
-    skill: "Skill",
-    hook: "Hook",
-  }[item.kind];
-  const managed = item.package !== null;
-  const confirmed = await confirmAction({
-    title: `卸载 ${item.name}`,
-    message: `卸载“${item.name}”？`,
-    description: agentUninstallDescription(item),
-    confirmText: "卸载",
-    danger: true,
-  });
-  if (!confirmed) return;
-  try {
-    await invokeLocalCommand("agents_remove", {
-      client: activeClient.value,
-      kind: item.kind,
-      name: item.name,
-      sourcePath: item.sourcePath,
-    });
-    await agentWorkspace.refreshClient(activeClient.value);
-    notifications.success(managed ? "扩展包已卸载" : `${kindLabel}已卸载`);
-  } catch {
-    // The local command composable exposes the stable error to this view.
-  }
+  void workspace.refreshClientStatuses();
 }
 
 onMounted(() => {
@@ -298,9 +151,6 @@ onMounted(() => {
           : "allow",
   });
   void loadAgentPage();
-  void Promise.all(
-    extensionCatalogKinds.map((kind) => extensionCatalog.load(kind)),
-  );
 });
 
 watch(showSettings, (visible) => {
@@ -315,39 +165,6 @@ watch(showSettings, (visible) => {
       pending.value ? "blocked" : settingsDirty.value ? "discard" : "allow",
   });
 });
-
-watch(
-  clientStatuses,
-  () => {
-    if (activeWorkspace.value !== "extensions" && !activeClientDetected.value) {
-      const fallback = agentClients.value[0]?.client ?? "chatgpt";
-      lastActiveClient.value = fallback;
-      activeWorkspace.value = fallback;
-    }
-  },
-  { immediate: true },
-);
-
-watch([clientStatusesLoaded, activeWorkspace], refreshActiveClient, {
-  immediate: true,
-});
-
-watch(activeExtensionSection, (kind) => {
-  if (activeWorkspace.value === "extensions")
-    void extensionCatalog.load(kind, true);
-});
-
-watch(
-  () => bootstrap.value?.relay_url,
-  () => {
-    extensionCatalog.invalidate();
-    void Promise.all(
-      extensionCatalogKinds.map((kind) => extensionCatalog.load(kind)),
-    );
-    if (activeWorkspace.value === "extensions")
-      void extensionCatalog.load(activeExtensionSection.value);
-  },
-);
 
 onBeforeUnmount(() => {
   agentRules.stop();
@@ -379,31 +196,31 @@ onBeforeUnmount(() => {
           :status-loading="clientStatusesLoading"
           :total-extension-updates="totalExtensionUpdates"
           @select-client="selectClient"
-          @select-extensions="selectExtensionCatalog"
+          @select-extensions="activateExtensions"
         />
-        <AgentWorkspaceContent
-          v-model:active-extension-section="activeExtensionSection"
+        <AgentClientContent
+          v-if="activeWorkspace !== 'extensions'"
           v-model:active-section="activeSection"
           v-model:rules="activeRules"
           :client-content-loading="isAgentContentLoading(activeClient)"
           :client-installed="activeClientDetected"
           :client-statuses-loaded="clientStatusesLoaded"
-          :extension-loading="
-            extensionCatalog.loading.value[activeExtensionSection]
-          "
-          :extension-packages="extensionPackages"
-          :extension-section-options="extensionSectionOptions"
-          :extension-updates="extensionUpdates"
-          :extension-updating="extensionActions.updating.value"
           :item-pending="pending"
           :section-items="sectionItems"
           :section-options="availableSectionOptions"
-          :workspace="activeWorkspace"
+          @open-settings="openSettings(activeClientDetected)"
+          @uninstall="itemActions.uninstall"
+        />
+        <ExtensionLibraryContent
+          v-else
+          v-model:active-section="extensionSection"
+          :loading="extensionLoading"
+          :packages="extensionPackages"
+          :updates="extensionUpdates"
+          :updating="extensionUpdating"
           @detail="openExtensionDetails"
           @install="openExtensionInstall"
-          @update-all="extensionActions.updateAll"
-          @open-settings="openSettings(activeClientDetected)"
-          @uninstall="uninstallAgentItem"
+          @update-all="updateAllExtensions"
         />
       </div>
     </PanelSection>
@@ -432,8 +249,8 @@ onBeforeUnmount(() => {
         .filter((client) => client.installed)
         .map((client) => client.client)
     "
-    @installed="extensionActions.installed"
-    @refreshed="extensionActions.refresh"
+    @installed="extensionInstalled"
+    @refreshed="refreshExtensions"
   />
 </template>
 

@@ -5,7 +5,7 @@ const source = (path: string) =>
   readFileSync(new URL(`../app/${path}`, import.meta.url), "utf8");
 
 test("Nuxt 管理页面只通过固定的 Tauri command 调用服务端", () => {
-  const commands = source("composables/useRelayCommand.ts");
+  const commands = source("composables/command/relay.ts");
 
   for (const command of [
     "bootstrap",

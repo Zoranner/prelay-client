@@ -1,11 +1,11 @@
 import { expect, test } from "bun:test";
-import type { CatalogLanguageModelResponse } from "../app/stores/relay";
+import type { CatalogLanguageModelResponse } from "../app/types/relay";
 import {
   normalizeReasoningEffort,
   reasoningEffortOptions,
-} from "../app/utils/modelReasoning";
-import { saveWithAgentValidation } from "../app/composables/useAgentSettings";
-import { setModelCatalog } from "../app/utils/modelCatalog";
+} from "../app/utils/model/reasoning";
+import { saveWithAgentValidation } from "../app/composables/agent/settings";
+import { setModelCatalog } from "../app/stores/modelCatalog";
 
 const model = (
   id: string,
