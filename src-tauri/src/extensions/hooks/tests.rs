@@ -4,9 +4,48 @@ use serde_json::{json, Value};
 use tempfile::tempdir;
 
 use crate::agents::AgentClient;
+use crate::extensions::ExtensionInstallAction;
 
 use super::test_support::*;
-use super::{install_hooks, uninstall_hooks};
+use super::{hook_installation_status, install_hooks, uninstall_hooks};
+
+#[test]
+fn reports_installed_hook_for_both_codex_clients() {
+    let directory = tempdir().unwrap();
+    let file = hook_file(json!({
+        "hooks": {
+            "SessionStart": [{
+                "hooks": [{"type": "command", "command": "prelay-session"}]
+            }]
+        }
+    }));
+
+    install_hooks(
+        directory.path(),
+        &[AgentClient::CodexCli, AgentClient::ChatGpt],
+        "superpowers",
+        "v1",
+        "commit",
+        &[file],
+        false,
+    )
+    .unwrap();
+
+    let status = hook_installation_status(
+        directory.path(),
+        &[AgentClient::CodexCli, AgentClient::ChatGpt],
+        "superpowers",
+        "v1",
+        "commit",
+    )
+    .unwrap();
+
+    assert_eq!(status.action, ExtensionInstallAction::Installed);
+    assert_eq!(
+        status.clients,
+        vec![AgentClient::CodexCli, AgentClient::ChatGpt]
+    );
+}
 
 #[test]
 fn merges_user_hooks_and_replaces_the_same_handler() {
@@ -45,7 +84,7 @@ fn merges_user_hooks_and_replaces_the_same_handler() {
 
     let review = install_hooks(
         directory.path(),
-        &[AgentClient::CodexCli, AgentClient::OpenCode],
+        &[AgentClient::CodexCli, AgentClient::ChatGpt],
         "superpowers",
         "v1",
         "commit",

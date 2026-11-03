@@ -10,12 +10,9 @@ use crate::{agents::agent_rule_targets, extensions::rules};
 
 mod codex;
 mod document;
-mod opencode;
 
 #[cfg(test)]
 mod catalog_tests;
-#[cfg(test)]
-mod opencode_tests;
 #[cfg(test)]
 mod rule_state_tests;
 #[cfg(test)]
@@ -31,7 +28,6 @@ pub enum AgentSettings {
     CodexCli(CodexSettings),
     #[serde(rename = "chatgpt")]
     ChatGpt(ChatGptSettings),
-    OpenCode(OpenCodeSettings),
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -53,41 +49,19 @@ pub enum CodexConnection {
 }
 
 #[derive(Debug, Clone, Deserialize)]
-#[serde(rename_all = "camelCase")]
-#[serde(rename_all_fields = "camelCase")]
-#[serde(tag = "kind")]
-pub enum OpenCodeConnection {
-    Prelay {
-        endpoint_id: String,
-        relay_url: String,
-        endpoint_token: String,
-        /// 接入点的模型清单；缺省表示未提供，保留配置里已有的模型条目。
-        #[serde(default)]
-        models: Option<Vec<CatalogLanguageModelResponse>>,
-    },
-}
-
-#[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase", tag = "client", content = "connection")]
 pub enum AgentConnection {
     CodexCli(CodexConnection),
     #[serde(rename = "chatgpt")]
     ChatGpt(CodexConnection),
-    OpenCode(OpenCodeConnection),
 }
 
 impl AgentConnection {
-    /// 这条接入配置引用的是哪个宿主的哪个接入点。
-    pub(crate) fn endpoint_link(&self) -> (crate::agents::links::AgentHost, &str) {
-        use crate::agents::links::AgentHost;
+    /// 这条接入配置引用的接入点。
+    pub(crate) fn endpoint_id(&self) -> &str {
         match self {
             Self::CodexCli(CodexConnection::Prelay { endpoint_id, .. })
-            | Self::ChatGpt(CodexConnection::Prelay { endpoint_id, .. }) => {
-                (AgentHost::Codex, endpoint_id)
-            }
-            Self::OpenCode(OpenCodeConnection::Prelay { endpoint_id, .. }) => {
-                (AgentHost::OpenCode, endpoint_id)
-            }
+            | Self::ChatGpt(CodexConnection::Prelay { endpoint_id, .. }) => endpoint_id,
         }
     }
 }
@@ -172,26 +146,12 @@ impl Default for CodexFeatures {
     }
 }
 
-#[derive(Debug, Clone, Default, Deserialize, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct OpenCodeSettings {
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub base_url: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub endpoint_token: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub model: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub rules: Option<String>,
-}
-
 pub fn read_user_settings(home: &Path, client: AgentClient) -> AgentSettings {
     match client {
         AgentClient::CodexCli => AgentSettings::CodexCli(codex::read_codex_settings(home)),
         AgentClient::ChatGpt => {
             AgentSettings::ChatGpt(ChatGptSettings(codex::read_codex_settings(home)))
         }
-        AgentClient::OpenCode => AgentSettings::OpenCode(opencode::read_opencode_settings(home)),
     }
 }
 
@@ -219,12 +179,6 @@ pub fn save_user_settings(
         (AgentSettings::ChatGpt(settings), Some(AgentConnection::ChatGpt(connection))) => {
             codex::save_codex_settings(home, &settings.0, Some(connection))
         }
-        (AgentSettings::OpenCode(settings), None) => {
-            opencode::save_opencode_settings(home, settings, None)
-        }
-        (AgentSettings::OpenCode(settings), Some(AgentConnection::OpenCode(connection))) => {
-            opencode::save_opencode_settings(home, settings, Some(connection))
-        }
         _ => Err("智能体设置与接入配置不匹配".to_string()),
     };
     let changed = changed?;
@@ -241,7 +195,6 @@ impl AgentSettings {
         match self {
             Self::CodexCli(_) => AgentClient::CodexCli,
             Self::ChatGpt(_) => AgentClient::ChatGpt,
-            Self::OpenCode(_) => AgentClient::OpenCode,
         }
     }
 }
@@ -250,6 +203,5 @@ fn settings_rules(settings: &AgentSettings) -> &str {
     match settings {
         AgentSettings::CodexCli(settings) => settings.rules.as_deref().unwrap_or_default(),
         AgentSettings::ChatGpt(settings) => settings.0.rules.as_deref().unwrap_or_default(),
-        AgentSettings::OpenCode(settings) => settings.rules.as_deref().unwrap_or_default(),
     }
 }

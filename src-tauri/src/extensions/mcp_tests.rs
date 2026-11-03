@@ -75,74 +75,6 @@ fn writes_codex_mcp_configuration_and_tracks_the_package_version() {
 }
 
 #[test]
-fn writes_opencode_stdio_mcp_configuration_without_replacing_other_state() {
-    let directory = tempdir().unwrap();
-    fs::create_dir_all(directory.path().join(".config").join("opencode")).unwrap();
-    fs::write(
-        directory
-            .path()
-            .join(".config")
-            .join("opencode")
-            .join("opencode.jsonc"),
-        r#"{ "theme": "system", "mcp": { "keep": { "type": "local", "command": ["keep"] } } }"#,
-    )
-    .unwrap();
-    let manifest = ExtensionMcpManifest {
-        name: "filesystem".to_string(),
-        transport: ExtensionMcpTransport::Stdio {
-            command: vec!["uvx".to_string(), "mcp-server-filesystem".to_string()],
-            cwd: None,
-            environment: [("GITHUB_TOKEN".to_string(), "GITHUB_TOKEN".to_string())].into(),
-            enabled: true,
-            timeout_ms: Some(30_000),
-        },
-    };
-
-    install_mcp(
-        directory.path(),
-        &[AgentClient::OpenCode],
-        "filesystem-mcp",
-        "v1.0.0",
-        "commit",
-        &manifest,
-        false,
-    )
-    .unwrap();
-
-    let config: serde_json::Value = json5::from_str(
-        &fs::read_to_string(
-            directory
-                .path()
-                .join(".config")
-                .join("opencode")
-                .join("opencode.jsonc"),
-        )
-        .unwrap(),
-    )
-    .unwrap();
-    assert_eq!(config["theme"], "system");
-    assert!(config["mcp"]["keep"].is_object());
-    assert_eq!(config["mcp"]["filesystem"]["type"], "local");
-    assert_eq!(
-        config["mcp"]["filesystem"]["command"],
-        serde_json::json!(["uvx", "mcp-server-filesystem"])
-    );
-    assert_eq!(
-        config["mcp"]["filesystem"]["environment"]["GITHUB_TOKEN"],
-        "{env:GITHUB_TOKEN}"
-    );
-    assert_eq!(config["mcp"]["filesystem"]["enabled"], true);
-    assert_eq!(config["mcp"]["filesystem"]["timeout"], 30_000);
-    assert!(directory
-        .path()
-        .join(".config")
-        .join("opencode")
-        .join(".prelay")
-        .join("mcp.json")
-        .is_file());
-}
-
-#[test]
 fn expands_user_directory_variables_in_command_arguments() {
     let directory = tempdir().unwrap();
     let manifest = ExtensionMcpManifest {
@@ -353,13 +285,6 @@ fn shares_codex_mcp_configuration_between_codex_cli_and_chatgpt() {
         .join(".prelay")
         .join("mcp.json")
         .is_file());
-    assert!(!directory
-        .path()
-        .join(".config")
-        .join("opencode")
-        .join("opencode.jsonc")
-        .exists());
-
     let status = mcp_installation_status(
         directory.path(),
         &[AgentClient::CodexCli, AgentClient::ChatGpt],

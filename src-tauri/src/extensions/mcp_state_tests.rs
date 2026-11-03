@@ -255,47 +255,6 @@ fn reports_update_when_legacy_mcp_state_has_no_manifest_snapshot() {
 }
 
 #[test]
-fn rejects_a_multi_client_install_before_writing_any_target_with_a_conflict() {
-    let directory = tempdir().unwrap();
-    fs::create_dir_all(directory.path().join(".config").join("opencode")).unwrap();
-    fs::write(
-        directory
-            .path()
-            .join(".config")
-            .join("opencode")
-            .join("opencode.jsonc"),
-        r#"{
-            "mcp": {
-                "filesystem": { "type": "local", "command": ["manual-command"] }
-            }
-        }"#,
-    )
-    .unwrap();
-    let manifest = ExtensionMcpManifest {
-        name: "filesystem".to_string(),
-        transport: ExtensionMcpTransport::Stdio {
-            command: vec!["uvx".to_string(), "mcp-server-filesystem".to_string()],
-            cwd: None,
-            environment: Default::default(),
-            enabled: true,
-            timeout_ms: None,
-        },
-    };
-
-    assert!(install_mcp(
-        directory.path(),
-        &[AgentClient::CodexCli, AgentClient::OpenCode],
-        "filesystem-mcp",
-        "v1.0.0",
-        "commit",
-        &manifest,
-        false,
-    )
-    .is_err());
-    assert!(!directory.path().join(".codex").join("config.toml").exists());
-}
-
-#[test]
 fn reports_chatgpt_only_installation_as_installed() {
     let directory = tempdir().unwrap();
     let manifest = ExtensionMcpManifest {

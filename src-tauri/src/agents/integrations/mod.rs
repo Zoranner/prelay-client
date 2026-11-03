@@ -1,6 +1,5 @@
 mod chatgpt;
 pub(crate) mod codex_cli;
-pub(crate) mod opencode;
 
 use std::path::{Path, PathBuf};
 
@@ -25,6 +24,5 @@ pub fn integration(client: AgentClient) -> &'static dyn AgentIntegration {
     match client {
         AgentClient::CodexCli => &codex_cli::CODEX_CLI,
         AgentClient::ChatGpt => &chatgpt::CHATGPT,
-        AgentClient::OpenCode => &opencode::OPENCODE,
     }
 }

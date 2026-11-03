@@ -239,7 +239,7 @@ mod tests {
     fn reports_partial_installation_when_a_detected_rule_target_has_no_state() {
         let directory = tempdir().unwrap();
         let codex = directory.path().join("codex").join("AGENTS.md");
-        let opencode = directory.path().join("opencode").join("AGENTS.md");
+        let chatgpt = directory.path().join("chatgpt").join("AGENTS.md");
 
         install_rule(
             &codex,
@@ -256,7 +256,7 @@ mod tests {
         let status = rule_installation_status(
             &[
                 (AgentClient::CodexCli, codex),
-                (AgentClient::OpenCode, opencode),
+                (AgentClient::ChatGpt, chatgpt),
             ],
             "development-rules",
             "v1.0.0",

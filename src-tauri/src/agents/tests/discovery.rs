@@ -8,8 +8,7 @@ use tempfile::tempdir;
 use super::super::command_client_version;
 use super::super::{
     agent_client_statuses_with, command_path_in, command_version_from_output,
-    scan_user_items_with_installation, AgentClient, AgentClientVersion, AgentItemKind,
-    AgentItemSource, AgentItemStatus,
+    scan_user_items_with_installation, AgentClient, AgentClientVersion,
 };
 #[cfg(windows)]
 use super::super::{chatgpt_offline_install_version, chatgpt_package_version, newest_version};
@@ -28,166 +27,28 @@ fn includes_every_registered_agent_client_when_installed() {
 
     assert_eq!(
         clients,
-        vec![
-            serde_json::json!("codexCli"),
-            serde_json::json!("chatgpt"),
-            serde_json::json!("openCode"),
-        ]
+        vec![serde_json::json!("codexCli"), serde_json::json!("chatgpt"),]
     );
 }
 
 #[test]
 fn reports_every_registered_client_with_its_installation_status() {
     let statuses = agent_client_statuses_with(
-        |client| client == AgentClient::OpenCode,
+        |client| client == AgentClient::ChatGpt,
         |clients| {
-            assert_eq!(clients, vec![AgentClient::OpenCode]);
+            assert_eq!(clients, vec![AgentClient::ChatGpt]);
             vec![AgentClientVersion {
-                client: AgentClient::OpenCode,
+                client: AgentClient::ChatGpt,
                 version: Some("1.2.3".to_string()),
             }]
         },
     );
 
-    assert_eq!(statuses.len(), 3);
+    assert_eq!(statuses.len(), 2);
     assert!(!statuses[0].installed);
-    assert!(!statuses[1].installed);
-    assert_eq!(statuses[2].client, AgentClient::OpenCode);
-    assert!(statuses[2].installed);
-    assert_eq!(statuses[2].version.as_deref(), Some("1.2.3"));
-}
-
-#[test]
-fn scans_only_opencode_jsonc() {
-    let directory = tempdir().unwrap();
-    write(
-        directory
-            .path()
-            .join(".config")
-            .join("opencode")
-            .join("config.json"),
-        r#"{ "mcp": { "ignore-config": {} } }"#,
-    );
-    write(
-        directory
-            .path()
-            .join(".config")
-            .join("opencode")
-            .join("opencode.json"),
-        r#"{ "plugin": ["ignore-opencode"] }"#,
-    );
-    write(
-        directory
-            .path()
-            .join(".config")
-            .join("opencode")
-            .join("opencode.jsonc"),
-        r#"// Global OpenCode configuration
-{
-  "mcp": {
-    "prelay-search": { "type": "local", "command": ["prelay-search"] },
-    "retired-search": { "type": "local", "enabled": false, "command": ["retired-search"] }
-  },
-}"#,
-    );
-    write(
-        directory
-            .path()
-            .join(".config")
-            .join("opencode")
-            .join("skills")
-            .join("legacy-skill")
-            .join("SKILL.md"),
-        "---\nname: legacy-skill\n---\n",
-    );
-    write(
-        directory
-            .path()
-            .join(".agents")
-            .join("skills")
-            .join("web-research")
-            .join("SKILL.md"),
-        "---\nname: web-research\n---\n",
-    );
-
-    let snapshot = scan_user_items_with_installation(directory.path(), |client| {
-        client == AgentClient::OpenCode
-    });
-    let opencode = snapshot.clients.first().unwrap();
-
-    assert!(opencode.items.iter().any(|item| {
-        item.kind == AgentItemKind::Mcp
-            && item.name == "prelay-search"
-            && item.status == AgentItemStatus::Enabled
-    }));
-    assert!(opencode.items.iter().any(|item| {
-        item.kind == AgentItemKind::Mcp
-            && item.name == "retired-search"
-            && item.status == AgentItemStatus::Disabled
-    }));
-    assert!(opencode
-        .items
-        .iter()
-        .all(|item| item.name != "ignore-config"));
-    assert!(opencode
-        .items
-        .iter()
-        .all(|item| item.name != "ignore-opencode"));
-    assert!(opencode.items.iter().any(|item| {
-        item.kind == AgentItemKind::Skill
-            && item.name == "web-research"
-            && item.status == AgentItemStatus::Enabled
-    }));
-    assert!(opencode
-        .items
-        .iter()
-        .all(|item| item.name != "legacy-skill"));
-}
-
-#[test]
-fn marks_extension_installed_opencode_mcp_as_team() {
-    let directory = tempdir().unwrap();
-    write(
-        directory
-            .path()
-            .join(".config")
-            .join("opencode")
-            .join("opencode.jsonc"),
-        r#"{ "mcp": { "filesystem": {}, "manual": {} } }"#,
-    );
-    write(
-        directory
-            .path()
-            .join(".config")
-            .join("opencode")
-            .join(".prelay")
-            .join("mcp.json"),
-        r#"{
-  "filesystem-mcp": {
-    "serverName": "filesystem",
-    "version": "v1.0.0",
-    "commitSha": "abc123"
-  }
-}"#,
-    );
-
-    let snapshot = scan_user_items_with_installation(directory.path(), |client| {
-        client == AgentClient::OpenCode
-    });
-    let items = &snapshot.clients[0].items;
-    let mcp = |name: &str| {
-        items
-            .iter()
-            .find(|item| item.kind == AgentItemKind::Mcp && item.name == name)
-            .unwrap()
-    };
-
-    let installed = mcp("filesystem");
-    assert_eq!(installed.source, AgentItemSource::Team);
-    assert_eq!(installed.version.as_deref(), Some("v1.0.0"));
-    assert_eq!(installed.package.as_deref(), Some("filesystem-mcp"));
-    assert_eq!(mcp("manual").source, AgentItemSource::Personal);
-    assert_eq!(mcp("manual").package, None);
+    assert_eq!(statuses[1].client, AgentClient::ChatGpt);
+    assert!(statuses[1].installed);
+    assert_eq!(statuses[1].version.as_deref(), Some("1.2.3"));
 }
 
 #[test]

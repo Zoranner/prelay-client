@@ -223,7 +223,7 @@ fn installs_skill_mcp_and_hook_together() {
 }
 
 #[test]
-fn chatgpt_installs_skill_and_mcp_but_skips_hook() {
+fn chatgpt_installs_skill_mcp_and_hook() {
     let directory = tempdir().unwrap();
     let review = install_prepared_bundle(
         directory.path(),
@@ -233,16 +233,16 @@ fn chatgpt_installs_skill_and_mcp_but_skips_hook() {
     )
     .unwrap();
 
-    assert!(review.is_empty());
-    assert!(!directory.path().join(".codex").join("hooks.json").exists());
-    assert!(!directory
+    assert_eq!(review.len(), 1);
+    assert!(directory.path().join(".codex").join("hooks.json").is_file());
+    assert!(directory
         .path()
         .join(".prelay")
         .join("packages")
         .join("superpowers")
         .join("commit")
         .join("hooks")
-        .exists());
+        .is_dir());
     assert!(directory
         .path()
         .join(".agents")
@@ -260,33 +260,38 @@ fn chatgpt_installs_skill_and_mcp_but_skips_hook() {
     let target = &record.0["superpowers"].targets["chatgpt"];
     assert_eq!(target.skills, vec!["using-superpowers"]);
     assert_eq!(target.mcps, vec!["superpowers"]);
-    assert!(target.hooks.is_empty());
+    assert_eq!(target.hooks, vec!["SessionStart"]);
 }
 
 #[test]
-fn opencode_installs_only_the_skill_part() {
+fn shares_codex_hook_configuration_between_codex_cli_and_chatgpt() {
     let directory = tempdir().unwrap();
     let review = install_prepared_bundle(
         directory.path(),
-        &bundle(HOOK_JSON),
-        &[AgentClient::OpenCode],
+        &bundle_with_all_artifacts(),
+        &[AgentClient::CodexCli, AgentClient::ChatGpt],
         false,
     )
     .unwrap();
 
-    assert!(review.is_empty());
-    assert!(!directory.path().join(".codex").join("hooks.json").exists());
-    assert!(directory
-        .path()
-        .join(".agents")
-        .join("skills")
-        .join("using-superpowers")
-        .join("SKILL.md")
-        .is_file());
+    assert_eq!(review.len(), 1);
+    let hooks: serde_json::Value = serde_json::from_slice(
+        &std::fs::read(directory.path().join(".codex").join("hooks.json")).unwrap(),
+    )
+    .unwrap();
+    let handlers = hooks["hooks"]["SessionStart"][0]["hooks"]
+        .as_array()
+        .unwrap();
+    assert_eq!(handlers.len(), 1);
+    assert_eq!(handlers[0]["command"], "prelay-session");
+
     let record = read_installed_extensions(directory.path()).unwrap();
-    let target = &record.0["superpowers"].targets["openCode"];
-    assert_eq!(target.skills, vec!["using-superpowers"]);
-    assert!(target.hooks.is_empty());
+    for client in ["codexCli", "chatgpt"] {
+        assert_eq!(
+            record.0["superpowers"].targets[client].hooks,
+            vec!["SessionStart"]
+        );
+    }
 }
 
 #[test]

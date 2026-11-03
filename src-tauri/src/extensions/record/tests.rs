@@ -22,7 +22,7 @@ fn upserts_a_package_record() {
             },
         ),
         (
-            "openCode".to_string(),
+            "chatgpt".to_string(),
             InstalledTargetRecord {
                 skills: vec!["using-superpowers".to_string()],
                 ..Default::default()
@@ -38,7 +38,7 @@ fn upserts_a_package_record() {
         record.targets["codexCli"].hooks,
         vec!["SessionStart:startup"]
     );
-    assert_eq!(record.targets["openCode"].skills, vec!["using-superpowers"]);
+    assert_eq!(record.targets["chatgpt"].skills, vec!["using-superpowers"]);
 }
 
 #[test]
@@ -49,12 +49,13 @@ fn aggregates_a_managed_package_into_one_plugin_item() {
             "codexCli".to_string(),
             InstalledTargetRecord {
                 skills: vec!["using-superpowers".to_string()],
+                mcps: vec!["superpowers".to_string()],
                 hooks: vec!["SessionStart".to_string()],
                 ..Default::default()
             },
         ),
         (
-            "openCode".to_string(),
+            "chatgpt".to_string(),
             InstalledTargetRecord {
                 skills: vec!["using-superpowers".to_string()],
                 ..Default::default()
@@ -68,13 +69,10 @@ fn aggregates_a_managed_package_into_one_plugin_item() {
     let items = plugin_items(directory.path(), AgentClient::CodexCli);
     assert_eq!(items.len(), 1);
     assert_eq!(items[0].kind, AgentItemKind::Plugin);
+    assert_eq!(items[0].members, vec!["Skill", "MCP", "Hook"]);
     assert_eq!(
-        items[0].members,
-        vec!["Skill · using-superpowers", "Hook · SessionStart"]
-    );
-    assert_eq!(
-        plugin_items(directory.path(), AgentClient::OpenCode)[0].members,
-        vec!["Skill · using-superpowers"]
+        plugin_items(directory.path(), AgentClient::ChatGpt)[0].members,
+        vec!["Skill"]
     );
 }
 

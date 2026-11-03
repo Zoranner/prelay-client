@@ -199,7 +199,7 @@ fn overwrite_transfers_managed_skill_directory_to_the_new_package() {
 fn reports_partial_installation_for_detected_clients_missing_a_skill_root() {
     let directory = tempdir().unwrap();
     let shared_root = directory.path().join("agents").join("skills");
-    let opencode_root = directory.path().join("opencode").join("skills");
+    let chatgpt_root = directory.path().join("chatgpt").join("skills");
     let files = [skill_file("skills/review/SKILL.md", "current")];
 
     install_skill_files(
@@ -214,9 +214,8 @@ fn reports_partial_installation_for_detected_clients_missing_a_skill_root() {
 
     let status = skill_installation_status(
         &[
-            (AgentClient::CodexCli, shared_root.clone()),
-            (AgentClient::ChatGpt, shared_root),
-            (AgentClient::OpenCode, opencode_root),
+            (AgentClient::CodexCli, shared_root),
+            (AgentClient::ChatGpt, chatgpt_root),
         ],
         "engineering",
         "v1.1.0",
@@ -225,10 +224,7 @@ fn reports_partial_installation_for_detected_clients_missing_a_skill_root() {
     .unwrap();
 
     assert_eq!(status.action, ExtensionInstallAction::Partial);
-    assert_eq!(
-        status.clients,
-        vec![AgentClient::CodexCli, AgentClient::ChatGpt]
-    );
+    assert_eq!(status.clients, vec![AgentClient::CodexCli]);
 }
 
 #[test]

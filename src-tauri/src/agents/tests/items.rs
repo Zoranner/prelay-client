@@ -1,15 +1,17 @@
-use std::fs;
+use std::{collections::BTreeMap, fs};
 
 use tempfile::tempdir;
 
+use crate::extensions::record::{upsert_extension_record, InstalledTargetRecord};
+
 use super::super::{
-    scan_user_items_with_installation, uninstall_user_item_with_installation, AgentClient,
-    AgentItemKind, AgentItemSource, AgentItemStatus,
+    scan_agent_items, scan_user_items_with_installation, uninstall_user_item_with_installation,
+    AgentClient, AgentItemKind, AgentItemSource,
 };
 use super::write;
 
 #[test]
-fn scans_user_level_codex_items_and_distinguishes_disabled_entries() {
+fn scans_user_level_codex_items_and_omits_disabled_entries() {
     let directory = tempdir().unwrap();
     write(
         directory.path().join(".codex").join("config.toml"),
@@ -57,20 +59,14 @@ command = "retired-search"
         .find(|client| client.client == AgentClient::CodexCli)
         .unwrap();
 
-    assert!(codex.items.iter().any(|item| {
-        item.kind == AgentItemKind::Mcp
-            && item.name == "research"
-            && item.status == AgentItemStatus::Enabled
-    }));
-    assert!(codex.items.iter().any(|item| {
-        item.kind == AgentItemKind::Mcp
-            && item.name == "retired"
-            && item.status == AgentItemStatus::Disabled
-    }));
+    assert!(codex
+        .items
+        .iter()
+        .any(|item| item.kind == AgentItemKind::Mcp && item.name == "research"));
+    assert!(codex.items.iter().all(|item| item.name != "retired"));
     assert!(codex.items.iter().any(|item| {
         item.kind == AgentItemKind::Skill
             && item.name == "web-research"
-            && item.status == AgentItemStatus::Enabled
             && item.source == AgentItemSource::Team
             && item.version.as_deref() == Some("v1.2.0")
     }));
@@ -124,7 +120,7 @@ fn records_invalid_client_configuration_as_one_error() {
         .unwrap();
 
     assert_eq!(codex.items.len(), 1);
-    assert_eq!(codex.items[0].status, AgentItemStatus::Error);
+    assert!(codex.items[0].error_message.is_some());
 }
 
 #[test]
@@ -346,6 +342,37 @@ fn groups_managed_skills_into_one_package_item() {
     assert!(skills
         .iter()
         .any(|item| item.name == "manual" && item.package.is_none()));
+}
+
+#[test]
+fn classifies_a_managed_skill_package_as_a_plugin() {
+    let directory = tempdir().unwrap();
+    write_installed_skill_package(directory.path(), "engineering", &["review-engineering"]);
+    upsert_extension_record(
+        directory.path(),
+        "engineering",
+        "v0.3.0",
+        "commit",
+        BTreeMap::from([(
+            "codexCli".to_string(),
+            InstalledTargetRecord {
+                skills: vec!["review-engineering".to_string()],
+                ..Default::default()
+            },
+        )]),
+    )
+    .unwrap();
+
+    let snapshot = scan_agent_items(directory.path(), AgentClient::CodexCli);
+
+    assert!(snapshot.items.iter().any(|item| {
+        item.kind == AgentItemKind::Plugin
+            && item.name == "engineering"
+            && item.members == vec!["Skill"]
+    }));
+    assert!(!snapshot.items.iter().any(|item| {
+        item.kind == AgentItemKind::Skill && item.package.as_deref() == Some("engineering")
+    }));
 }
 
 #[test]

@@ -127,6 +127,70 @@ fn uninstalling_one_client_keeps_a_shared_skill_for_the_other() {
 }
 
 #[test]
+fn uninstalling_one_client_keeps_a_shared_hook_for_the_other() {
+    let directory = tempdir().unwrap();
+    install_hooks(
+        directory.path(),
+        &[AgentClient::CodexCli, AgentClient::ChatGpt],
+        "superpowers",
+        "v1",
+        "commit",
+        &[hook_file()],
+        false,
+    )
+    .unwrap();
+    let shared = BTreeMap::from([
+        (
+            "codexCli".to_string(),
+            InstalledTargetRecord {
+                hooks: vec!["SessionStart".to_string()],
+                ..Default::default()
+            },
+        ),
+        (
+            "chatgpt".to_string(),
+            InstalledTargetRecord {
+                hooks: vec!["SessionStart".to_string()],
+                ..Default::default()
+            },
+        ),
+    ]);
+    upsert_extension_record(directory.path(), "superpowers", "v1", "commit", shared).unwrap();
+
+    uninstall_plugin_for_client(directory.path(), AgentClient::CodexCli, "superpowers").unwrap();
+
+    let hooks: serde_json::Value = serde_json::from_slice(
+        &fs::read(directory.path().join(".codex").join("hooks.json")).unwrap(),
+    )
+    .unwrap();
+    assert_eq!(
+        hooks["hooks"]["SessionStart"][0]["hooks"]
+            .as_array()
+            .unwrap()
+            .len(),
+        1
+    );
+    let record = read_installed_extensions(directory.path()).unwrap();
+    assert!(record.0["superpowers"].targets.contains_key("chatgpt"));
+    assert!(!record.0["superpowers"].targets.contains_key("codexCli"));
+
+    uninstall_plugin_for_client(directory.path(), AgentClient::ChatGpt, "superpowers").unwrap();
+
+    let hooks: serde_json::Value = serde_json::from_slice(
+        &fs::read(directory.path().join(".codex").join("hooks.json")).unwrap(),
+    )
+    .unwrap();
+    assert!(hooks["hooks"]["SessionStart"][0]["hooks"]
+        .as_array()
+        .unwrap()
+        .is_empty());
+    assert!(read_installed_extensions(directory.path())
+        .unwrap()
+        .0
+        .is_empty());
+}
+
+#[test]
 fn uninstalling_a_migrated_legacy_package_clears_shared_members() {
     let directory = tempdir().unwrap();
     let skill_root = directory.path().join(".agents").join("skills");

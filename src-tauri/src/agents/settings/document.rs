@@ -15,12 +15,6 @@ pub(super) fn read_json(path: &Path) -> Option<serde_json::Value> {
         .and_then(|contents| serde_json::from_str(&contents).ok())
 }
 
-pub(super) fn read_jsonc(path: &Path) -> Option<serde_json::Value> {
-    fs::read_to_string(path)
-        .ok()
-        .and_then(|contents| json5::from_str(&contents).ok())
-}
-
 pub(super) fn read_optional_text(path: &Path) -> Option<String> {
     fs::read_to_string(path).ok()
 }
@@ -43,19 +37,6 @@ pub(super) fn read_json_document(
         Ok(contents) if contents.trim().is_empty() => Ok(serde_json::json!({})),
         Ok(contents) => serde_json::from_str(&contents)
             .map_err(|error| format!("{description} is not valid JSON: {error}")),
-        Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(serde_json::json!({})),
-        Err(error) => Err(format!("{description} cannot be read: {error}")),
-    }
-}
-
-pub(super) fn read_jsonc_document(
-    path: &Path,
-    description: &str,
-) -> Result<serde_json::Value, String> {
-    match fs::read_to_string(path) {
-        Ok(contents) if contents.trim().is_empty() => Ok(serde_json::json!({})),
-        Ok(contents) => json5::from_str(&contents)
-            .map_err(|error| format!("{description} is not valid JSONC: {error}")),
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(serde_json::json!({})),
         Err(error) => Err(format!("{description} cannot be read: {error}")),
     }

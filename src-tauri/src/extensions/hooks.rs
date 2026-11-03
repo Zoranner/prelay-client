@@ -7,7 +7,7 @@ use std::{
 use prelay_protocol::ExtensionFile;
 
 use crate::{
-    agents::{AgentClient, AgentItem, AgentItemKind, AgentItemSource, AgentItemStatus},
+    agents::{AgentClient, AgentItem, AgentItemKind, AgentItemSource},
     relay::client::ClientError,
 };
 
@@ -40,7 +40,7 @@ pub(super) fn install_hooks(
     files: &[ExtensionFile],
     _overwrite: bool,
 ) -> Result<Vec<HookReviewItem>, ClientError> {
-    if !clients.contains(&AgentClient::CodexCli) {
+    if !clients.iter().any(|client| client.is_codex_host()) {
         return Ok(Vec::new());
     }
     if files.is_empty() {
@@ -122,19 +122,6 @@ pub(crate) fn validate_hook_files(files: &[ExtensionFile]) -> Result<(), ClientE
     collect_incoming_hooks(files, None).map(|_| ())
 }
 
-pub(super) fn preview_hooks(
-    home: &Path,
-    package: &str,
-    commit_sha: &str,
-    files: &[ExtensionFile],
-) -> Result<Vec<HookReviewItem>, ClientError> {
-    let root = hook_package_root(home, package, commit_sha)?;
-    Ok(collect_incoming_hooks(files, Some(&root))?
-        .into_iter()
-        .map(|entry| entry.review)
-        .collect())
-}
-
 pub(crate) fn preflight_hooks(
     home: &Path,
     clients: &[AgentClient],
@@ -142,7 +129,7 @@ pub(crate) fn preflight_hooks(
     commit_sha: &str,
     files: &[ExtensionFile],
 ) -> Result<(), ClientError> {
-    if !clients.contains(&AgentClient::CodexCli) {
+    if !clients.iter().any(|client| client.is_codex_host()) {
         return Ok(());
     }
     let root = hook_package_root(home, package, commit_sha)?;
@@ -157,7 +144,12 @@ pub(crate) fn hook_installation_status(
     version: &str,
     commit_sha: &str,
 ) -> Result<HookInstallationStatus, ClientError> {
-    if !clients.contains(&AgentClient::CodexCli) {
+    let codex_hosts = clients
+        .iter()
+        .copied()
+        .filter(|client| client.is_codex_host())
+        .collect::<Vec<_>>();
+    if codex_hosts.is_empty() {
         return Ok(HookInstallationStatus {
             action: ExtensionInstallAction::Install,
             clients: Vec::new(),
@@ -187,7 +179,7 @@ pub(crate) fn hook_installation_status(
         } else {
             ExtensionInstallAction::Installed
         },
-        clients: vec![AgentClient::CodexCli],
+        clients: codex_hosts,
     })
 }
 
@@ -256,7 +248,6 @@ pub(crate) fn managed_hook_items(home: &Path) -> Vec<AgentItem> {
                 .collect(),
             source: AgentItemSource::Team,
             source_path: source_path.clone(),
-            status: AgentItemStatus::Enabled,
             error_message: None,
         })
         .collect()

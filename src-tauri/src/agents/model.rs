@@ -6,7 +6,12 @@ pub enum AgentClient {
     CodexCli,
     #[serde(rename = "chatgpt")]
     ChatGpt,
-    OpenCode,
+}
+
+impl AgentClient {
+    pub(crate) fn is_codex_host(self) -> bool {
+        matches!(self, Self::CodexCli | Self::ChatGpt)
+    }
 }
 
 #[derive(Debug, Clone, Copy, Deserialize, PartialEq, Eq, Serialize)]
@@ -18,19 +23,12 @@ pub enum AgentItemKind {
     Plugin,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub enum AgentItemStatus {
-    Enabled,
-    Disabled,
-    Error,
-}
-
 #[derive(Debug, Clone, Copy, Deserialize, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub enum AgentItemSource {
     Personal,
     Team,
+    System,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -43,7 +41,6 @@ pub struct AgentItem {
     pub members: Vec<String>,
     pub source: AgentItemSource,
     pub source_path: String,
-    pub status: AgentItemStatus,
     pub error_message: Option<String>,
 }
 
@@ -76,8 +73,5 @@ pub struct AgentClientStatus {
     pub version: Option<String>,
 }
 
-pub const REGISTERED_AGENT_CLIENTS: [AgentClient; 3] = [
-    AgentClient::CodexCli,
-    AgentClient::ChatGpt,
-    AgentClient::OpenCode,
-];
+pub const REGISTERED_AGENT_CLIENTS: [AgentClient; 2] =
+    [AgentClient::CodexCli, AgentClient::ChatGpt];

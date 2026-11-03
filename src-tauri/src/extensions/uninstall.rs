@@ -14,11 +14,7 @@ use super::{
     skills,
 };
 
-const ALL_CLIENTS: [AgentClient; 3] = [
-    AgentClient::CodexCli,
-    AgentClient::ChatGpt,
-    AgentClient::OpenCode,
-];
+const ALL_CLIENTS: [AgentClient; 2] = [AgentClient::CodexCli, AgentClient::ChatGpt];
 
 pub(crate) fn uninstall_plugin_for_client(
     home: &Path,
@@ -50,7 +46,10 @@ pub(crate) fn uninstall_plugin_for_client(
     if !target.mcps.is_empty() && !shared_by_other_client(home, client, package, "mcp")? {
         mcp::uninstall_mcp_package(home, client, package)?;
     }
-    if client == AgentClient::CodexCli && !target.hooks.is_empty() {
+    if client.is_codex_host()
+        && !target.hooks.is_empty()
+        && !shared_by_other_client(home, client, package, "hook")?
+    {
         hooks::uninstall_hooks_if_present(home, package)?;
     }
     remove_extension_target(home, client, package)
@@ -76,7 +75,7 @@ fn uninstall_legacy(
     if !target.mcps.is_empty() {
         mcp::uninstall_mcp_package(home, client, package)?;
     }
-    if client == AgentClient::CodexCli && !target.hooks.is_empty() {
+    if client.is_codex_host() && !target.hooks.is_empty() {
         hooks::uninstall_hooks_if_present(home, package)?;
     }
     let Some(record) = installed.0.get_mut(package) else {
@@ -104,7 +103,8 @@ fn shared_by_other_client(
         };
         let shared = match artifact {
             "skill" => !target.skills.is_empty() && skill_targets_overlap(home, client, other),
-            "mcp" => !target.mcps.is_empty() && mcp_host_matches(client, other),
+            "mcp" => !target.mcps.is_empty() && codex_host_matches(client, other),
+            "hook" => !target.hooks.is_empty() && codex_host_matches(client, other),
             _ => false,
         };
         if shared {
@@ -120,7 +120,7 @@ fn skill_targets_overlap(home: &Path, left: AgentClient, right: AgentClient) -> 
     left.iter().any(|path| right.contains(path))
 }
 
-fn mcp_host_matches(left: AgentClient, right: AgentClient) -> bool {
+fn codex_host_matches(left: AgentClient, right: AgentClient) -> bool {
     matches!(
         (left, right),
         (AgentClient::CodexCli, AgentClient::ChatGpt)

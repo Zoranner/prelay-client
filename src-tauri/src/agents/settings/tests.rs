@@ -7,7 +7,7 @@ use crate::agents::AgentClient;
 use super::test_helpers::catalog_model;
 use super::{
     read_user_settings, save_user_settings, AgentConnection, AgentSettings, ChatGptSettings,
-    CodexConnection, CodexSettings, OpenCodeConnection,
+    CodexConnection, CodexSettings,
 };
 
 #[test]
@@ -248,23 +248,6 @@ fn deserializes_the_settings_save_payload_sent_by_the_desktop_console() {
     assert!(matches!(
         connection,
         AgentConnection::ChatGpt(CodexConnection::Prelay { .. })
-    ));
-
-    let simple_connection = serde_json::json!({
-        "kind": "prelay",
-        "endpointId": "endpoint-1",
-        "endpointToken": "endpoint-token",
-        "relayUrl": "https://relay.example.test",
-    });
-    let (settings, connection) = console_payload(
-        "openCode",
-        serde_json::json!({ "endpoint": "endpoint-1", "model": "deepseek-coder", "rules": "" }),
-        simple_connection.clone(),
-    );
-    assert!(matches!(settings, AgentSettings::OpenCode(_)));
-    assert!(matches!(
-        connection,
-        AgentConnection::OpenCode(OpenCodeConnection::Prelay { .. })
     ));
 }
 

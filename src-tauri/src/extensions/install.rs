@@ -1,7 +1,4 @@
-use std::{
-    collections::{BTreeMap, BTreeSet},
-    path::Path,
-};
+use std::{collections::BTreeMap, path::Path};
 
 use prelay_protocol::{ExtensionFile, ExtensionInstallBundle, ExtensionKind, HOOKS_MANIFEST_PATH};
 
@@ -12,7 +9,6 @@ use super::{
     rules, skills,
 };
 
-use super::model::HookInstallPreview;
 use crate::{
     agents::{agent_rule_targets, agent_skill_target_roots, AgentClient},
     identity::registration::authenticated_api,
@@ -21,6 +17,35 @@ use crate::{
 };
 
 const RULES_PATH: &str = "AGENTS.md";
+
+pub async fn install_extension(
+    home: &Path,
+    state: &NativeState,
+    request: &ExtensionInstallRequest,
+) -> Result<ExtensionInstallResult, ClientError> {
+    let client = authenticated_api(state).await?;
+    let bundle: ExtensionInstallBundle = client
+        .get(&format!(
+            "/api/extensions/{}/versions/{}/install",
+            request.package.name, request.package.version
+        ))
+        .await?;
+    validate_package_bundle(&request.package, &bundle)?;
+    let review = install_prepared_bundle(home, &bundle, &request.clients, request.overwrite)?;
+    Ok(ExtensionInstallResult {
+        message: if bundle.skipped.is_empty() {
+            format!("已安装{}。", bundle.name)
+        } else {
+            format!(
+                "已安装{}，跳过 {} 个未匹配文件。",
+                bundle.name,
+                bundle.skipped.len()
+            )
+        },
+        skipped: bundle.skipped,
+        review,
+    })
+}
 
 pub async fn read_mcp_install_manifest(
     state: &NativeState,
@@ -59,83 +84,6 @@ pub async fn read_mcp_install_manifest(
                 .first()
                 .ok_or_else(|| ClientError::new("invalid_response", "MCP 制品为空。"))?,
         )?,
-    })
-}
-
-pub async fn read_hook_install_preview(
-    home: &Path,
-    state: &NativeState,
-    package: &ExtensionPackage,
-) -> Result<HookInstallPreview, ClientError> {
-    if !package
-        .artifacts
-        .iter()
-        .any(|artifact| artifact.kind == ExtensionKind::Hook)
-    {
-        return Err(ClientError::new(
-            "invalid_request",
-            "只有包含 Hook 制品的扩展可以读取安装预览。",
-        ));
-    }
-    let client = authenticated_api(state).await?;
-    let bundle: ExtensionInstallBundle = client
-        .get(&format!(
-            "/api/extensions/{}/versions/{}/install",
-            package.name, package.version
-        ))
-        .await?;
-    validate_package_bundle(package, &bundle)?;
-    let artifact = bundle
-        .artifacts
-        .iter()
-        .find(|artifact| artifact.kind == ExtensionKind::Hook)
-        .ok_or_else(|| ClientError::new("invalid_response", "安装包缺少 Hook 制品。"))?;
-    let files = artifact
-        .files
-        .iter()
-        .map(|file| file.path.clone())
-        .collect();
-    let review = hooks::preview_hooks(
-        home,
-        &bundle.name,
-        &bundle.version.commit_sha,
-        &artifact.files,
-    )?;
-    Ok(HookInstallPreview {
-        name: bundle.name,
-        version: bundle.version.tag,
-        commit_sha: bundle.version.commit_sha,
-        files,
-        review,
-    })
-}
-
-pub async fn install_extension(
-    home: &Path,
-    state: &NativeState,
-    request: &ExtensionInstallRequest,
-) -> Result<ExtensionInstallResult, ClientError> {
-    let client = authenticated_api(state).await?;
-    let bundle: ExtensionInstallBundle = client
-        .get(&format!(
-            "/api/extensions/{}/versions/{}/install",
-            request.package.name, request.package.version
-        ))
-        .await?;
-    validate_package_bundle(&request.package, &bundle)?;
-    let review = install_prepared_bundle(home, &bundle, &request.clients, request.overwrite)?;
-    Ok(ExtensionInstallResult {
-        message: if bundle.skipped.is_empty() {
-            format!("已安装{}。", bundle.name)
-        } else {
-            format!(
-                "已安装{}，跳过 {} 个未匹配文件。",
-                bundle.name,
-                bundle.skipped.len()
-            )
-        },
-        skipped: bundle.skipped,
-        review,
     })
 }
 
@@ -255,8 +203,14 @@ pub(crate) fn install_prepared_bundle(
                     &artifact.files,
                     overwrite,
                 )?;
-                if let Some(target) = targets.get_mut("codexCli") {
-                    target.hooks = hook_labels(&hook_review);
+                for client in clients
+                    .iter()
+                    .copied()
+                    .filter(|client| client.is_codex_host())
+                {
+                    if let Some(target) = targets.get_mut(client_key(client)) {
+                        target.hooks = hook_labels(&hook_review);
+                    }
                 }
                 review.extend(hook_review);
             }
@@ -399,7 +353,17 @@ fn safe_hook_path(path: &str) -> bool {
 #[path = "install_tests.rs"]
 mod tests;
 
-fn skill_roots(files: &[ExtensionFile]) -> Vec<String> {
+fn hook_labels(review: &[super::model::HookReviewItem]) -> Vec<String> {
+    review
+        .iter()
+        .map(|item| match &item.matcher {
+            Some(matcher) => format!("{}:{}", item.event, matcher),
+            None => item.event.clone(),
+        })
+        .collect()
+}
+
+pub(crate) fn skill_roots(files: &[ExtensionFile]) -> Vec<String> {
     files
         .iter()
         .filter_map(|file| {
@@ -410,17 +374,7 @@ fn skill_roots(files: &[ExtensionFile]) -> Vec<String> {
                 .filter(|root| !root.is_empty())
                 .map(str::to_string)
         })
-        .collect::<BTreeSet<_>>()
+        .collect::<std::collections::BTreeSet<_>>()
         .into_iter()
-        .collect()
-}
-
-fn hook_labels(review: &[super::model::HookReviewItem]) -> Vec<String> {
-    review
-        .iter()
-        .map(|item| match &item.matcher {
-            Some(matcher) => format!("{}:{}", item.event, matcher),
-            None => item.event.clone(),
-        })
         .collect()
 }

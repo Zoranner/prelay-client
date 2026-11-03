@@ -293,7 +293,7 @@ fn effective_artifact_kinds(package: &ExtensionPackage) -> Vec<prelay_protocol::
 
 fn artifact_supports_client(kind: prelay_protocol::ExtensionKind, client: AgentClient) -> bool {
     match kind {
-        prelay_protocol::ExtensionKind::Hook => client == AgentClient::CodexCli,
+        prelay_protocol::ExtensionKind::Hook => client.is_codex_host(),
         prelay_protocol::ExtensionKind::Rule
         | prelay_protocol::ExtensionKind::Skill
         | prelay_protocol::ExtensionKind::Mcp => true,

@@ -1,7 +1,7 @@
 use std::path::{Path, PathBuf};
 
 use crate::{
-    agents::links::{AgentEndpointLinks, AgentHost},
+    agents::links::AgentEndpointLinks,
     agents::settings::{read_user_settings, save_user_settings, AgentConnection, AgentSettings},
     agents::{
         agent_client_statuses, scan_agent_items, uninstall_user_item, AgentClient,
@@ -60,7 +60,7 @@ pub fn agent_settings_save(
         })?;
     let changed = save_user_settings(&home, &settings, connection.as_ref())
         .map_err(|error| ClientError::new("local_agent_settings_error", error))?;
-    record_endpoint_link(&state, settings.client(), connection.as_ref())
+    record_endpoint_link(&state, connection.as_ref())
         .map_err(|error| ClientError::new("local_agent_settings_error", error))?;
     Ok(changed)
 }
@@ -68,16 +68,11 @@ pub fn agent_settings_save(
 /// 记录（或解除）智能体当前引用的接入点，供接入点改动后自动对账使用。
 fn record_endpoint_link(
     state: &NativeState,
-    client: AgentClient,
     connection: Option<&AgentConnection>,
 ) -> Result<(), String> {
-    let host = AgentHost::from_client(client);
     match connection {
-        Some(connection) => {
-            let (_, endpoint_id) = connection.endpoint_link();
-            state.agent_endpoint_links.record(host, endpoint_id)
-        }
-        None => state.agent_endpoint_links.clear(host),
+        Some(connection) => state.agent_endpoint_links.record(connection.endpoint_id()),
+        None => state.agent_endpoint_links.clear(),
     }
 }
 
@@ -108,7 +103,7 @@ mod tests {
     fn scans_agents_without_relay_state_or_credentials() {
         let directory = tempdir().unwrap();
 
-        let snapshot = agent_items_from_home(directory.path(), AgentClient::OpenCode);
+        let snapshot = agent_items_from_home(directory.path(), AgentClient::ChatGpt);
 
         assert!(snapshot.items.is_empty());
     }
@@ -125,15 +120,13 @@ mod tests {
             models: Vec::new(),
         });
 
-        record_endpoint_link(&state, AgentClient::CodexCli, Some(&connection)).unwrap();
-        record_endpoint_link(&state, AgentClient::OpenCode, None).unwrap();
+        record_endpoint_link(&state, Some(&connection)).unwrap();
 
         let links = state.agent_endpoint_links.load();
         assert_eq!(links.codex.as_deref(), Some("endpoint-codex"));
-        assert_eq!(links.opencode, None);
 
         // 解除接入后记录随之清空，不再按旧引用对账。
-        record_endpoint_link(&state, AgentClient::CodexCli, None).unwrap();
+        record_endpoint_link(&state, None).unwrap();
         assert_eq!(state.agent_endpoint_links.load().codex, None);
     }
 }

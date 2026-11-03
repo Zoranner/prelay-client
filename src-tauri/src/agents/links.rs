@@ -7,25 +7,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::extensions::atomic_write;
 
-use super::AgentClient;
-
-/// 宿主维度：Codex CLI 与 ChatGPT 共用一份配置，接入点引用按宿主记，不按客户端记。
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub(crate) enum AgentHost {
-    Codex,
-    OpenCode,
-}
-
-impl AgentHost {
-    pub(crate) fn from_client(client: AgentClient) -> Self {
-        match client {
-            AgentClient::CodexCli | AgentClient::ChatGpt => Self::Codex,
-            AgentClient::OpenCode => Self::OpenCode,
-        }
-    }
-}
-
-/// 每个宿主当前引用的接入点。
+/// Codex 宿主当前引用的接入点。
 ///
 /// 只用来判断“谁在用这个接入点”，接入点本身仍以管理服务为唯一来源；
 /// 记录缺失时退化成不自动同步，不影响其它功能。
@@ -33,17 +15,6 @@ impl AgentHost {
 #[serde(rename_all = "camelCase")]
 pub struct AgentEndpointLinks {
     pub codex: Option<String>,
-    pub opencode: Option<String>,
-}
-
-impl AgentEndpointLinks {
-    fn set(&mut self, host: AgentHost, endpoint_id: &str) {
-        let slot = match host {
-            AgentHost::Codex => &mut self.codex,
-            AgentHost::OpenCode => &mut self.opencode,
-        };
-        *slot = Some(endpoint_id.to_string());
-    }
 }
 
 #[derive(Clone, Debug)]
@@ -66,23 +37,19 @@ impl AgentEndpointLinksStore {
             .unwrap_or_default()
     }
 
-    pub(crate) fn record(&self, host: AgentHost, endpoint_id: &str) -> Result<(), String> {
+    pub(crate) fn record(&self, endpoint_id: &str) -> Result<(), String> {
         let mut links = self.load();
-        links.set(host, endpoint_id);
+        links.codex = Some(endpoint_id.to_string());
         self.write(&links)
     }
 
     /// 解除接入后把记录清掉，避免下次对账继续按旧引用比对。
-    pub(crate) fn clear(&self, host: AgentHost) -> Result<(), String> {
+    pub(crate) fn clear(&self) -> Result<(), String> {
         let mut links = self.load();
-        let slot = match host {
-            AgentHost::Codex => &mut links.codex,
-            AgentHost::OpenCode => &mut links.opencode,
-        };
-        if slot.is_none() {
+        if links.codex.is_none() {
             return Ok(());
         }
-        *slot = None;
+        links.codex = None;
         self.write(&links)
     }
 
@@ -108,20 +75,19 @@ mod tests {
     use super::*;
 
     #[test]
-    fn records_and_reads_endpoint_links_per_host() {
+    fn records_and_reads_endpoint_link() {
         let directory = tempdir().unwrap();
         let store = AgentEndpointLinksStore::at(directory.path().join("agent-endpoints.json"));
 
         assert_eq!(store.load().codex, None);
 
-        store.record(AgentHost::Codex, "endpoint-codex").unwrap();
-        store
-            .record(AgentHost::OpenCode, "endpoint-opencode")
-            .unwrap();
+        store.record("endpoint-codex").unwrap();
 
         let links = store.load();
         assert_eq!(links.codex.as_deref(), Some("endpoint-codex"));
-        assert_eq!(links.opencode.as_deref(), Some("endpoint-opencode"));
+
+        store.clear().unwrap();
+        assert_eq!(store.load().codex, None);
     }
 
     #[test]
@@ -133,6 +99,5 @@ mod tests {
         let links = AgentEndpointLinksStore::at(&path).load();
 
         assert_eq!(links.codex, None);
-        assert_eq!(links.opencode, None);
     }
 }

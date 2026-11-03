@@ -18,10 +18,9 @@ use crate::extensions::{
 
 use super::{
     discovery::agent_client_is_installed,
-    integrations,
     integrations::integration,
     model::{
-        AgentClient, AgentClientItems, AgentItem, AgentItemKind, AgentItemSource, AgentItemStatus,
+        AgentClient, AgentClientItems, AgentItem, AgentItemKind, AgentItemSource,
         AgentItemsSnapshot, REGISTERED_AGENT_CLIENTS,
     },
 };
@@ -34,7 +33,7 @@ pub fn scan_agent_items(home: &Path, client: AgentClient) -> AgentClientItems {
     AgentClientItems {
         client,
         version: None,
-        items: integration(client).scan(home),
+        items: scan_client_items(home, client),
     }
 }
 
@@ -88,10 +87,6 @@ pub(crate) fn user_skill_roots(home: &Path) -> [PathBuf; 2] {
     ]
 }
 
-pub(crate) fn opencode_configuration_path(home: &Path) -> PathBuf {
-    integrations::opencode::configuration_path(home)
-}
-
 pub(crate) fn scan_user_items_with_installation(
     home: &Path,
     is_installed: impl Fn(AgentClient) -> bool,
@@ -99,25 +94,29 @@ pub(crate) fn scan_user_items_with_installation(
     let mut snapshot = AgentItemsSnapshot::default();
     for client in REGISTERED_AGENT_CLIENTS {
         if is_installed(client) {
-            let managed = managed_package_names(home, client).unwrap_or_default();
-            let mut items = integration(client)
-                .scan(home)
-                .into_iter()
-                .filter(|item| {
-                    item.package
-                        .as_deref()
-                        .is_none_or(|package| !managed.contains(package))
-                })
-                .collect::<Vec<_>>();
-            items.extend(plugin_items(home, client));
             snapshot.clients.push(AgentClientItems {
                 client,
                 version: None,
-                items,
+                items: scan_client_items(home, client),
             });
         }
     }
     snapshot
+}
+
+fn scan_client_items(home: &Path, client: AgentClient) -> Vec<AgentItem> {
+    let managed = managed_package_names(home, client).unwrap_or_default();
+    let mut items = integration(client)
+        .scan(home)
+        .into_iter()
+        .filter(|item| {
+            item.package
+                .as_deref()
+                .is_none_or(|package| !managed.contains(package))
+        })
+        .collect::<Vec<_>>();
+    items.extend(plugin_items(home, client));
+    items
 }
 
 pub fn uninstall_user_item(
@@ -156,6 +155,10 @@ pub(crate) fn uninstall_user_item_with_installation(
         })
         .ok_or_else(|| "未找到要卸载的本地条目。".to_string())?;
 
+    if item.source == AgentItemSource::System {
+        return Err("内置技能不可卸载。".to_string());
+    }
+
     // 只有技能包会用包名去卸载整包；MCP 条目即便来自扩展库也仍是删一条宿主配置。
     if let (AgentItemKind::Skill, Some(package)) = (kind, item.package.as_deref()) {
         return uninstall_skill_package(Path::new(&item.source_path), package)
@@ -193,8 +196,20 @@ pub(crate) fn scan_codex(home: &Path) -> Vec<AgentItem> {
     for root in user_skill_roots(home) {
         items.extend(scan_skills(root));
     }
+    mark_codex_system_skills(&mut items, home);
     items.extend(managed_hook_items(home));
     deduplicate(items)
+}
+
+fn mark_codex_system_skills(items: &mut [AgentItem], home: &Path) {
+    let system_root = home.join(".codex").join("skills").join(".system");
+    for item in items {
+        if item.kind == AgentItemKind::Skill
+            && Path::new(&item.source_path).starts_with(&system_root)
+        {
+            item.source = AgentItemSource::System;
+        }
+    }
 }
 
 fn read_toml(path: &Path) -> Result<Option<toml::Value>, ()> {
@@ -220,9 +235,16 @@ fn toml_items(
     };
     entries
         .iter()
-        .map(|(name, entry)| {
+        .filter_map(|(name, entry)| {
+            if entry
+                .get("enabled")
+                .and_then(toml::Value::as_bool)
+                .is_some_and(|enabled| !enabled)
+            {
+                return None;
+            }
             let managed_entry = managed.get(name);
-            AgentItem {
+            Some(AgentItem {
                 kind,
                 name: name.to_owned(),
                 version: managed_entry.map(|managed| managed.version.clone()),
@@ -234,17 +256,8 @@ fn toml_items(
                     AgentItemSource::Personal
                 },
                 source_path: path.display().to_string(),
-                status: if entry
-                    .get("enabled")
-                    .and_then(toml::Value::as_bool)
-                    .is_some_and(|enabled| !enabled)
-                {
-                    AgentItemStatus::Disabled
-                } else {
-                    AgentItemStatus::Enabled
-                },
                 error_message: None,
-            }
+            })
         })
         .collect()
 }
@@ -290,12 +303,6 @@ pub(crate) fn write_text(path: &Path, contents: &[u8]) -> Result<(), String> {
         .map_err(|error| format!("无法保存配置文件：{error}"))
 }
 
-pub(crate) fn write_json(path: &Path, document: &serde_json::Value) -> Result<(), String> {
-    let contents = serde_json::to_vec_pretty(document)
-        .map_err(|error| format!("无法序列化 JSON 配置：{error}"))?;
-    write_text(path, &contents)
-}
-
 pub(crate) fn scan_skills(root: PathBuf) -> Vec<AgentItem> {
     let managed = managed_skill_roots(&root);
     let mut items = Vec::new();
@@ -312,7 +319,6 @@ pub(crate) fn scan_skills(root: PathBuf) -> Vec<AgentItem> {
                 members,
                 source: AgentItemSource::Team,
                 source_path: root.display().to_string(),
-                status: AgentItemStatus::Enabled,
                 error_message: None,
             }),
     );
@@ -350,7 +356,6 @@ fn visit_skill_directory(
                         members: Vec::new(),
                         source: AgentItemSource::Personal,
                         source_path: path.display().to_string(),
-                        status: AgentItemStatus::Enabled,
                         error_message: None,
                     }),
                 }
@@ -379,7 +384,6 @@ pub(crate) fn error_item(kind: AgentItemKind, path: &Path) -> AgentItem {
         members: Vec::new(),
         source: AgentItemSource::Personal,
         source_path: path.display().to_string(),
-        status: AgentItemStatus::Error,
         error_message: Some("无法读取扩展配置。".to_string()),
     }
 }

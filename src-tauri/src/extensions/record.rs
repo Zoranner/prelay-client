@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use crate::{
-    agents::{AgentClient, AgentItem, AgentItemKind, AgentItemSource, AgentItemStatus},
+    agents::{AgentClient, AgentItem, AgentItemKind, AgentItemSource},
     relay::client::ClientError,
 };
 
@@ -89,7 +89,6 @@ pub(crate) fn client_key(client: AgentClient) -> &'static str {
     match client {
         AgentClient::CodexCli => "codexCli",
         AgentClient::ChatGpt => "chatgpt",
-        AgentClient::OpenCode => "openCode",
     }
 }
 
@@ -132,7 +131,6 @@ pub(crate) fn plugin_items(home: &Path, client: AgentClient) -> Vec<AgentItem> {
                 members,
                 source: AgentItemSource::Team,
                 source_path: source_path.clone(),
-                status: AgentItemStatus::Enabled,
                 error_message: None,
             })
         })
@@ -185,13 +183,16 @@ pub(crate) fn target_has_members(target: &InstalledTargetRecord) -> bool {
 }
 
 fn target_members(target: &InstalledTargetRecord) -> Vec<String> {
-    let mut members = target
-        .skills
-        .iter()
-        .map(|skill| format!("Skill · {skill}"))
-        .collect::<Vec<_>>();
-    members.extend(target.mcps.iter().map(|server| format!("MCP · {server}")));
-    members.extend(target.hooks.iter().map(|hook| format!("Hook · {hook}")));
+    let mut members = Vec::new();
+    if !target.skills.is_empty() {
+        members.push("Skill".to_string());
+    }
+    if !target.mcps.is_empty() {
+        members.push("MCP".to_string());
+    }
+    if !target.hooks.is_empty() {
+        members.push("Hook".to_string());
+    }
     members
 }
 
@@ -203,27 +204,9 @@ fn legacy_records(home: &Path) -> InstalledExtensions {
         &["codexCli", "chatgpt"],
         &mut installed,
     );
-    merge_legacy_mcp(
-        &home
-            .join(".config")
-            .join("opencode")
-            .join(".prelay")
-            .join("mcp.json"),
-        &["openCode"],
-        &mut installed,
-    );
     merge_legacy_rule(
         &home.join(".codex").join(".prelay").join("rule.json"),
         &["codexCli", "chatgpt"],
-        &mut installed,
-    );
-    merge_legacy_rule(
-        &home
-            .join(".config")
-            .join("opencode")
-            .join(".prelay")
-            .join("rule.json"),
-        &["openCode"],
         &mut installed,
     );
     installed
@@ -254,7 +237,7 @@ fn merge_legacy_skills(home: &Path, installed: &mut InstalledExtensions) {
                     .collect::<Vec<_>>()
             })
             .unwrap_or_default();
-        for client in ["codexCli", "chatgpt", "openCode"] {
+        for client in ["codexCli", "chatgpt"] {
             let target = ensure_legacy_record(installed, package, &version, &commit_sha, client);
             target.skills = skills.clone();
         }

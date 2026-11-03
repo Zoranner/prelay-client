@@ -279,7 +279,7 @@ fn copies_binary_support_files_byte_for_byte() {
 }
 
 #[test]
-fn skips_hook_installation_for_non_codex_clients() {
+fn skips_hook_installation_without_a_codex_host() {
     let directory = tempdir().unwrap();
     let file = hook_file(json!({
         "hooks": {
@@ -291,7 +291,7 @@ fn skips_hook_installation_for_non_codex_clients() {
 
     let review = install_hooks(
         directory.path(),
-        &[AgentClient::ChatGpt, AgentClient::OpenCode],
+        &[],
         "superpowers",
         "v1",
         "commit",
