@@ -12,6 +12,7 @@ use super::super::{
 };
 #[cfg(windows)]
 use super::super::{chatgpt_offline_install_version, chatgpt_package_version, newest_version};
+#[cfg(windows)]
 use super::write;
 
 #[test]
