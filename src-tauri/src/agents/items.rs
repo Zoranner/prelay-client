@@ -311,15 +311,18 @@ pub(crate) fn scan_skills(root: PathBuf) -> Vec<AgentItem> {
     items.extend(
         packages
             .into_iter()
-            .map(|(package, (version, members))| AgentItem {
-                kind: AgentItemKind::Skill,
-                name: package.clone(),
-                version,
-                package: Some(package),
-                members,
-                source: AgentItemSource::Team,
-                source_path: root.display().to_string(),
-                error_message: None,
+            .map(|(package, (version, mut members))| {
+                members.sort();
+                AgentItem {
+                    kind: AgentItemKind::Skill,
+                    name: package.clone(),
+                    version,
+                    package: Some(package),
+                    members,
+                    source: AgentItemSource::Team,
+                    source_path: root.display().to_string(),
+                    error_message: None,
+                }
             }),
     );
     items
