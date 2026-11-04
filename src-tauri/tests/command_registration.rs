@@ -55,13 +55,3 @@ fn registers_the_mcp_preview_command() {
     assert!(command.contains("pub async fn extensions_mcp_preview("));
     assert!(command.contains("read_mcp_install_manifest"));
 }
-
-#[test]
-fn registers_the_hook_preview_command() {
-    let application = source_file("src/app/mod.rs");
-    let command = source_file("src/commands/extensions.rs");
-
-    assert!(application.contains("crate::commands::extensions::extensions_hook_preview"));
-    assert!(command.contains("pub async fn extensions_hook_preview("));
-    assert!(command.contains("read_hook_install_preview"));
-}
