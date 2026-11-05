@@ -30,8 +30,8 @@ test("智能体页面只编排路由级状态，展示和设置由领域组件�
   expect(sidebar).toContain("AgentClientIcon");
   expect(sidebar).not.toContain("agent-client-icon--monochrome");
   expect(clientContent).toContain("@update:model-value");
-  expect(clientContent).toContain('activeSection.value === "plugin"');
-  expect(clientContent).toContain("show-version");
+  expect(clientContent).toContain("activeSection === 'plugin'");
+  expect(clientContent).toContain("AgentHookList");
   expect(clientContent).not.toContain("showItemStatus");
   expect(extensionContent).toContain("@update:model-value");
   expect(extensionContent).toContain("<ExtensionCatalogTable");

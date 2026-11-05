@@ -2,7 +2,10 @@ import { expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
 
 const source = (path: string) =>
-  readFileSync(new URL(`../app/${path}`, import.meta.url), "utf8");
+  readFileSync(new URL(`../app/${path}`, import.meta.url), "utf8").replace(
+    /\r\n/g,
+    "\n",
+  );
 
 test("扩展表格显示名称、版本和可复制的仓库地址", () => {
   const catalogTable = source("components/extensions/library/CatalogTable.vue");
@@ -135,7 +138,7 @@ test("扩展库沿用智能体工作区的分类表格与单层操作表面", ()
   expect(updates).toContain('"extensions_update_all"');
   expect(page).toContain(':updating="extensionUpdating"');
   expect(source("composables/agent/itemActions.ts")).toContain(
-    "title: `卸载 ${item.name}`",
+    "agentUninstallTitle(item)",
   );
   expect(page).not.toContain("showExtensionCatalog");
   expect(page).not.toContain("<small>agents</small>");
@@ -260,11 +263,20 @@ test("扩展库省略就绪状态时仍显示工具栏和目录", () => {
 test("扩展库只负责安装，Skill 按包展示且整包卸载挂在智能体条目上", () => {
   const catalogTable = source("components/extensions/library/CatalogTable.vue");
   const workspace = source("components/extensions/library/Content.vue");
-  const itemList = source("components/agents/workspace/ItemList.vue");
+  const pluginList = source("components/agents/workspace/items/PluginList.vue");
+  const hookList = source("components/agents/workspace/items/HookList.vue");
   const uninstall = source("utils/agent/uninstall.ts");
   const localCommand = source("composables/command/local.ts");
   const nativeItems = readFileSync(
     new URL("../src-tauri/src/agents/items.rs", import.meta.url),
+    "utf8",
+  );
+  const nativeSkillScan = readFileSync(
+    new URL("../src-tauri/src/agents/items/skill_scan.rs", import.meta.url),
+    "utf8",
+  );
+  const nativeHooks = readFileSync(
+    new URL("../src-tauri/src/extensions/hooks.rs", import.meta.url),
     "utf8",
   );
 
@@ -278,14 +290,16 @@ test("扩展库只负责安装，Skill 按包展示且整包卸载挂在智能�
   expect(source("composables/agent/itemActions.ts")).toContain(
     "agentUninstallDescription(item)",
   );
-  expect(itemList).toContain('title: "包含内容"');
-  expect(itemList).toContain("row.members");
-  expect(itemList).toContain(
-    'import { Button, Table, Tag, TagGroup, useNotification } from "@stellar/ui";',
-  );
-  expect(itemList).toContain('<TagGroup :items="row.members" />');
-  expect(nativeItems).toContain("fn managed_skill_owner");
-  expect(nativeItems).toContain("uninstall_skill_package");
+  expect(pluginList).toContain("item.artifacts");
+  expect(pluginList).toContain("agent-artifact-lines");
+  expect(hookList).toContain("const groups = computed");
+  expect(hookList).toContain("hookMatcher(item) || '未限定'");
+  expect(hookList).toContain("item.command");
+  expect(nativeSkillScan).toContain("fn managed_skill_owner");
+  expect(nativeItems).toContain("uninstall_plugin_for_client");
+  expect(nativeHooks).not.toContain("command_file_name");
+  expect(nativeHooks).toContain("name: hook.event");
+  expect(nativeHooks).toContain("command: Some(hook.command)");
 });
 
 test("扩展更新检查跟随进程，前端只订阅结果并在侧栏提示", () => {

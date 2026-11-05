@@ -28,6 +28,8 @@ const errorMessages: Record<string, string> = {
   local_agents_error: "读取本机智能体状态失败。",
   local_agent_settings_error: "读写本机智能体配置失败。",
   local_extensions_error: "本机扩展操作失败。",
+  local_extensions_conflict: "本机扩展状态存在归属冲突，请先处理重复声明。",
+  local_extensions_readonly: "本机扩展状态版本过高，客户端已进入只读模式。",
   invalid_response: "服务端返回的内容无法识别。",
   invalid_request: "本地请求构造失败。",
   missing_device_credential: "本机没有可用的设备凭据，需要重新注册。",

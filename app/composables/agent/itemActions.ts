@@ -1,6 +1,10 @@
 import { useConfirm, useNotification } from "@stellar/ui";
 
 import type { AgentClient, AgentItem } from "~/types/relay";
+import {
+  agentUninstallMessage,
+  agentUninstallTitle,
+} from "~/utils/agent/itemDisplay";
 import { agentUninstallDescription } from "~/utils/agent/uninstall";
 
 type AgentItemRemoval = {
@@ -8,6 +12,7 @@ type AgentItemRemoval = {
   kind: AgentItem["kind"];
   name: string;
   sourcePath: string;
+  hookHash: string | null;
 };
 
 export function useAgentItemActions(options: {
@@ -27,8 +32,8 @@ export function useAgentItemActions(options: {
   async function uninstall(item: AgentItem) {
     const managed = item.package !== null;
     const confirmed = await confirm({
-      title: `卸载 ${item.name}`,
-      message: `卸载“${item.name}”？`,
+      title: agentUninstallTitle(item),
+      message: agentUninstallMessage(item),
       description: agentUninstallDescription(item),
       confirmText: "卸载",
       danger: true,
@@ -39,8 +44,13 @@ export function useAgentItemActions(options: {
       kind: item.kind,
       name: item.name,
       sourcePath: item.sourcePath,
+      hookHash: item.hookHash,
     });
-    await options.refreshClient(options.client.value);
+    await Promise.all(
+      (["codexCli", "chatgpt"] as const).map((client) =>
+        options.refreshClient(client),
+      ),
+    );
     notifications.success(
       managed ? "扩展包已卸载" : `${kindLabels[item.kind]}已卸载`,
     );

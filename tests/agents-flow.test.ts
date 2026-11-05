@@ -51,7 +51,10 @@ test("智能体工作区按客户端状态、内容与设置职责分层", () =>
   expect(content).toContain('text="正在读取智能体设置..."');
   expect(content).toContain("未检测到本机安装");
   expect(content).toContain("AgentRulesEditor");
-  expect(content).toContain("AgentItemList");
+  expect(content).toContain("AgentPluginList");
+  expect(content).toContain("AgentMcpList");
+  expect(content).toContain("AgentSkillList");
+  expect(content).toContain("AgentHookList");
   expect(extensionContent).toContain("ExtensionCatalogTable");
   expect(content).toContain('icon="ph:sliders-horizontal"');
   expect(content).toContain('aria-label="配置"');
@@ -104,13 +107,61 @@ test("智能体本地操作不复用管理服务命令状态", () => {
 });
 
 test("内置技能禁用删除操作", () => {
-  const itemList = source("components/agents/workspace/ItemList.vue");
+  const display = source("utils/agent/itemDisplay.ts");
 
-  expect(itemList).toContain("function isBuiltInSource");
-  expect(itemList).toContain(
-    ':disabled="pending || isBuiltInSource(row.source)"',
+  expect(display).toContain('item.source === "system"');
+  expect(display).toContain(
+    "item.package === null && Boolean(item.errorMessage)",
   );
-  expect(itemList).toContain("内置技能不可卸载");
+  expect(display).toContain("内置技能不可卸载");
+});
+
+test("安装异常用标题后的状态图标和 tooltip 说明原因", () => {
+  const error = source("components/agents/workspace/items/ItemError.vue");
+  const sourceTag = source("components/agents/workspace/items/ItemSource.vue");
+
+  expect(error).toContain("<Tooltip");
+  expect(error).toContain(':content="message"');
+  expect(error).toContain('icon="ph:warning-circle"');
+  expect(error).toContain('role="img"');
+  expect(error).toContain('tabindex="0"');
+  expect(error).toContain(':aria-label="message"');
+  expect(error).toContain("width: 14px");
+  expect(error).toContain("height: 14px");
+  expect(error).toContain("align-items: center");
+  expect(error).not.toContain("<small");
+  expect(sourceTag).toContain("agent-item-source-empty");
+  expect(source("utils/agent/itemDisplay.ts")).toContain("状态错误不可卸载");
+});
+
+test("智能体条目按类型拆分展示，Hook 使用事件和匹配条件", () => {
+  const content = source("components/agents/workspace/Content.vue");
+  const plugin = source("components/agents/workspace/items/PluginList.vue");
+  const mcp = source("components/agents/workspace/items/McpList.vue");
+  const skill = source("components/agents/workspace/items/SkillList.vue");
+  const hook = source("components/agents/workspace/items/HookList.vue");
+
+  expect(content).toContain("activeSection === 'plugin'");
+  expect(content).toContain("activeSection === 'mcp'");
+  expect(content).toContain("activeSection === 'skill'");
+  expect(content).toContain("AgentHookList");
+  expect(plugin).not.toContain("<Table");
+  expect(plugin).toContain("AgentItemRow");
+  expect(mcp).not.toContain("<Table");
+  expect(skill).not.toContain("<Table");
+  expect(hook).not.toContain("<Table");
+  expect(mcp).toContain("AgentItemRow");
+  expect(skill).toContain("AgentItemRow");
+  expect(hook).toContain("AgentItemRow");
+  expect(plugin).toContain("<EmptyState");
+  expect(mcp).toContain("<EmptyState");
+  expect(skill).toContain("<EmptyState");
+  expect(hook).toContain("<EmptyState");
+  expect(hook).toContain("const groups = computed");
+  expect(hook).toContain("group.event");
+  expect(hook).toContain("hookMatcher(item) || '未限定'");
+  expect(hook).toContain("item.command");
+  expect(hook).not.toContain("hookHash");
 });
 
 test("智能体模型选项使用目录显示名且连接携带目录对象", () => {

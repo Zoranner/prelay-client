@@ -4,8 +4,11 @@ defineOptions({ name: "AgentWorkspaceContent" });
 import { Button, Icon, Loading, RadioGroup } from "@stellar/ui";
 import type { AgentItem } from "~/types/relay";
 import type { AgentSection, AgentSectionOption } from "~/utils/agent/client";
-import AgentItemList from "~/components/agents/workspace/ItemList.vue";
+import AgentHookList from "~/components/agents/workspace/items/HookList.vue";
+import AgentMcpList from "~/components/agents/workspace/items/McpList.vue";
+import AgentPluginList from "~/components/agents/workspace/items/PluginList.vue";
 import AgentRulesEditor from "~/components/agents/workspace/RulesEditor.vue";
+import AgentSkillList from "~/components/agents/workspace/items/SkillList.vue";
 import WorkspaceLayout from "~/components/shell/layout/WorkspaceLayout.vue";
 
 const activeSection = defineModel<AgentSection>("activeSection", {
@@ -25,7 +28,6 @@ const emit = defineEmits<{
   uninstall: [item: AgentItem];
 }>();
 
-const showVersion = computed(() => activeSection.value === "plugin");
 const ready = computed(
   () =>
     props.clientStatusesLoaded &&
@@ -75,11 +77,28 @@ function updateActiveSection(value: string | number | boolean | null) {
       </div>
     </template>
     <AgentRulesEditor v-if="activeSection === 'rules'" v-model="rules" />
-    <AgentItemList
+    <AgentPluginList
+      v-else-if="activeSection === 'plugin'"
+      :items="sectionItems"
+      :pending="itemPending"
+      @uninstall="emit('uninstall', $event)"
+    />
+    <AgentMcpList
+      v-else-if="activeSection === 'mcp'"
+      :items="sectionItems"
+      :pending="itemPending"
+      @uninstall="emit('uninstall', $event)"
+    />
+    <AgentSkillList
+      v-else-if="activeSection === 'skill'"
+      :items="sectionItems"
+      :pending="itemPending"
+      @uninstall="emit('uninstall', $event)"
+    />
+    <AgentHookList
       v-else
       :items="sectionItems"
       :pending="itemPending"
-      :show-version="showVersion"
       @uninstall="emit('uninstall', $event)"
     />
   </WorkspaceLayout>
