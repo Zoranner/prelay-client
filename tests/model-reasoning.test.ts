@@ -30,6 +30,7 @@ function model(
     default_verbosity: null,
     apply_patch_tool_type: null,
     web_search_tool_type: null,
+    supports_search_tool: null,
     truncation_policy: null,
     reasoning_summary_format: null,
     default_reasoning_summary: null,

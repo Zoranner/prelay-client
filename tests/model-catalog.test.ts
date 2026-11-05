@@ -41,6 +41,7 @@ test("模型目录暴露显式加载状态并保留完整索引", () => {
     default_verbosity: null,
     apply_patch_tool_type: null,
     web_search_tool_type: null,
+    supports_search_tool: null,
     truncation_policy: null,
     reasoning_summary_format: null,
     default_reasoning_summary: null,

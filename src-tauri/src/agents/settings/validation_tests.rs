@@ -291,6 +291,7 @@ fn catalog_model(id: &str, reasoning_efforts: Vec<&str>) -> CatalogLanguageModel
         default_verbosity: None,
         apply_patch_tool_type: None,
         web_search_tool_type: None,
+        supports_search_tool: None,
         truncation_policy: None,
         reasoning_summary_format: None,
         default_reasoning_summary: None,

@@ -51,6 +51,7 @@ export interface CatalogLanguageModelResponse {
   default_verbosity: string | null;
   apply_patch_tool_type: string | null;
   web_search_tool_type: string | null;
+  supports_search_tool: boolean | null;
   truncation_policy: CatalogTruncationPolicyResponse | null;
   reasoning_summary_format: string | null;
   default_reasoning_summary: string | null;

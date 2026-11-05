@@ -63,6 +63,8 @@ fn saves_every_prelay_model_alias_to_the_codex_catalog() {
     assert!(catalog["models"][0].get("reasoning_efforts").is_none());
     assert!(catalog["models"][0].get("apply_patch_tool_type").is_none());
     assert!(catalog["models"][0].get("prefer_websockets").is_none());
+    assert_eq!(catalog["models"][0]["web_search_tool_type"], "text");
+    assert_eq!(catalog["models"][0]["supports_search_tool"], false);
 
     let saved = fs::read_to_string(codex_root.join("config.toml")).unwrap();
     let config: toml::Value = toml::from_str(&saved).unwrap();
@@ -76,6 +78,40 @@ fn saves_every_prelay_model_alias_to_the_codex_catalog() {
                 .as_str()
         )
     );
+}
+
+#[test]
+fn copies_supports_search_tool_instead_of_inferring_it_from_web_search() {
+    let directory = tempdir().unwrap();
+    let codex_root = directory.path().join(".codex");
+    fs::create_dir_all(&codex_root).unwrap();
+    fs::write(codex_root.join("config.toml"), "").unwrap();
+
+    let mut hosted = catalog_model("hosted-search", "Hosted Search");
+    hosted.supports_search_tool = Some(true);
+    let connection = CodexConnection::Prelay {
+        endpoint_id: "endpoint-id".to_string(),
+        endpoint_name: "Endpoint 1".to_string(),
+        relay_url: "https://relay.example.test".to_string(),
+        endpoint_token: "endpoint-token".to_string(),
+        models: vec![catalog_model("plain-search", "Plain Search"), hosted],
+    };
+
+    save_user_settings(
+        directory.path(),
+        &AgentSettings::CodexCli(CodexSettings {
+            model: Some("plain-search".to_string()),
+            ..Default::default()
+        }),
+        Some(&AgentConnection::CodexCli(connection)),
+    )
+    .unwrap();
+
+    let catalog: serde_json::Value =
+        serde_json::from_str(&fs::read_to_string(codex_root.join("models.json")).unwrap()).unwrap();
+    assert_eq!(catalog["models"][0]["web_search_tool_type"], "text");
+    assert_eq!(catalog["models"][0]["supports_search_tool"], false);
+    assert_eq!(catalog["models"][1]["supports_search_tool"], true);
 }
 
 #[test]
@@ -207,6 +243,7 @@ fn catalog_model(id: &str, display_name: &str) -> CatalogLanguageModelResponse {
         default_verbosity: Some("low".to_string()),
         apply_patch_tool_type: None,
         web_search_tool_type: Some("text".to_string()),
+        supports_search_tool: None,
         truncation_policy: None,
         reasoning_summary_format: Some("experimental".to_string()),
         default_reasoning_summary: Some("none".to_string()),

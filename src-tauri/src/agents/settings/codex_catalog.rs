@@ -162,13 +162,10 @@ pub(super) fn codex_model_profile(model: &CatalogLanguageModelResponse) -> Resul
         "minimal_client_version",
         model.minimal_client_version.as_ref(),
     )?;
-    if model
-        .web_search_tool_type
-        .as_deref()
-        .is_some_and(|value| !value.trim().is_empty())
-    {
-        profile.insert("supports_search_tool".to_string(), Value::Bool(true));
-    }
+    profile.insert(
+        "supports_search_tool".to_string(),
+        Value::Bool(model.supports_search_tool.unwrap_or(false)),
+    );
     Ok(Value::Object(profile))
 }
 
