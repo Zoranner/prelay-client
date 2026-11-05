@@ -3,6 +3,7 @@ use std::fs;
 use tempfile::tempdir;
 
 use super::{save_user_settings, AgentSettings, CodexSettings};
+use crate::extensions::host_state::{ExtensionHost, HostState};
 
 #[test]
 fn saving_changed_rules_clears_the_managed_rule_state() {
@@ -32,4 +33,6 @@ fn saving_changed_rules_clears_the_managed_rule_state() {
     .unwrap();
 
     assert!(!codex_root.join(".prelay").join("rule.json").exists());
+    let state = HostState::load(directory.path(), ExtensionHost::Codex).unwrap();
+    assert!(state.rules.targets.is_empty());
 }

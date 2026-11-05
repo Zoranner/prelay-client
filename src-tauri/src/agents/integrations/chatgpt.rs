@@ -37,7 +37,7 @@ impl AgentIntegration for ChatGptIntegration {
         match kind {
             AgentItemKind::Mcp => remove_codex_config_item(home, "mcp_servers", name),
             AgentItemKind::Skill => remove_skill_directory(source_path),
-            AgentItemKind::Hook => Err("Hook 仅支持通过扩展包卸载。".to_string()),
+            AgentItemKind::Hook => Err("未找到要卸载的 Hook 配置，请刷新后重试。".to_string()),
             AgentItemKind::Plugin => Err("插件需要通过扩展包记录卸载。".to_string()),
         }
     }

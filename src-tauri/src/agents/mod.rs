@@ -15,13 +15,15 @@ pub use items::{
 };
 pub use links::{AgentEndpointLinks, AgentEndpointLinksStore};
 pub use model::{
-    AgentClient, AgentClientItems, AgentClientStatus, AgentClientVersion, AgentItem, AgentItemKind,
-    AgentItemSource, AgentItemsSnapshot, REGISTERED_AGENT_CLIENTS,
+    AgentArtifactGroup, AgentClient, AgentClientItems, AgentClientStatus, AgentClientVersion,
+    AgentItem, AgentItemKind, AgentItemSource, AgentItemsSnapshot, REGISTERED_AGENT_CLIENTS,
 };
 
 pub(crate) use discovery::{chatgpt_desktop_version, command_client_version, command_path};
 pub(crate) use integrations::codex_cli::{
-    mcp_server_exists as codex_mcp_server_exists, mcp_server_matches as codex_mcp_server_matches,
+    mcp_manifest_fingerprint as codex_mcp_manifest_fingerprint,
+    mcp_server_exists as codex_mcp_server_exists,
+    mcp_server_fingerprint as codex_mcp_server_fingerprint,
     remove_mcp_server as remove_codex_mcp_server, upsert_mcp_server as upsert_codex_mcp_server,
 };
 pub(crate) use items::{remove_codex_config_item, remove_skill_directory, scan_codex};
@@ -36,4 +38,4 @@ pub(crate) use discovery::{
     agent_client_statuses_with, command_path_in, command_version_from_output,
 };
 #[cfg(test)]
-pub(crate) use items::{scan_user_items_with_installation, uninstall_user_item_with_installation};
+pub(crate) use items::scan_user_items_with_installation;

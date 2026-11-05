@@ -1,132 +1,157 @@
 use std::path::Path;
 
-use crate::{
-    agents::{agent_skill_target_roots, AgentClient},
-    relay::client::ClientError,
-};
+use crate::{agents::AgentClient, relay::client::ClientError};
 
 use super::{
-    hooks, mcp,
-    record::{
-        client_key, installed_target, read_installed_extensions, remove_extension_target,
-        target_has_members, write_installed_extensions, InstalledTargetRecord,
-    },
-    skills,
+    host_state::{self, ExtensionHost, HostState, PluginArtifact, PluginState},
+    mcp, skills,
 };
-
-const ALL_CLIENTS: [AgentClient; 2] = [AgentClient::CodexCli, AgentClient::ChatGpt];
 
 pub(crate) fn uninstall_plugin_for_client(
     home: &Path,
     client: AgentClient,
     package: &str,
 ) -> Result<(), ClientError> {
-    let installed = read_installed_extensions(home)?;
-    let Some(record) = installed.0.get(package).cloned() else {
+    let host = ExtensionHost::from_client(client);
+    let _lock = host_state::lock(home, host)?;
+    host_state::ensure_migrated_locked(home)?;
+    let state = HostState::load_locked(home, host)?;
+    state.ensure_writable()?;
+    let Some(record) = state.plugin(package).cloned() else {
         return Err(ClientError::new(
             "local_extensions_error",
             format!("本机没有扩展包 {package} 的安装记录。"),
         ));
     };
-    let Some(target) = record.targets.get(client_key(client)).cloned() else {
-        return Err(ClientError::new(
-            "local_extensions_error",
-            format!("本机没有扩展包 {package} 在当前客户端上的安装记录。"),
-        ));
-    };
-    if record.legacy {
-        return uninstall_legacy(home, client, package, installed, target);
-    }
+    preflight(home, &record)?;
 
-    if !target.skills.is_empty() && !shared_by_other_client(home, client, package, "skill")? {
-        if let Some(root) = agent_skill_target_roots(&[client], home).into_iter().next() {
-            skills::uninstall_skill_package_if_present(&root, package)?;
-        }
-    }
-    if !target.mcps.is_empty() && !shared_by_other_client(home, client, package, "mcp")? {
-        mcp::uninstall_mcp_package(home, client, package)?;
-    }
-    if client.is_codex_host()
-        && !target.hooks.is_empty()
-        && !shared_by_other_client(home, client, package, "hook")?
-    {
-        hooks::uninstall_hooks_if_present(home, package)?;
-    }
-    remove_extension_target(home, client, package)
-}
+    let mut removing = record.clone();
+    removing.state = PluginState::Removing;
+    host_state::write_plugin(home, host, &removing)?;
 
-fn uninstall_legacy(
-    home: &Path,
-    client: AgentClient,
-    package: &str,
-    mut installed: super::record::InstalledExtensions,
-    target: InstalledTargetRecord,
-) -> Result<(), ClientError> {
-    if !target.skills.is_empty() {
-        if let Some(root) = agent_skill_target_roots(&[client], home).into_iter().next() {
-            skills::uninstall_skill_package_if_present(&root, package)?;
+    for artifact in &record.artifacts {
+        if shared_with_active_plugin(&state, package, artifact) {
+            continue;
         }
-        if let Some(record) = installed.0.get_mut(package) {
-            for target in record.targets.values_mut() {
-                target.skills.clear();
+        match artifact {
+            PluginArtifact::Skill { target, names } => {
+                skills::remove_skill_roots(Path::new(target), names)?;
+            }
+            PluginArtifact::Mcp { server_name, .. } => {
+                mcp::remove_mcp(home, server_name)?;
+            }
+            PluginArtifact::Hook { handler_hash, .. } => {
+                super::hooks::remove_hook_handler(home, handler_hash)?;
             }
         }
     }
-    if !target.mcps.is_empty() {
-        mcp::uninstall_mcp_package(home, client, package)?;
-    }
-    if client.is_codex_host() && !target.hooks.is_empty() {
-        hooks::uninstall_hooks_if_present(home, package)?;
-    }
-    let Some(record) = installed.0.get_mut(package) else {
-        return Ok(());
-    };
-    record.targets.remove(client_key(client));
-    record
-        .targets
-        .retain(|_, target| target_has_members(target));
-    if record.targets.is_empty() {
-        installed.0.remove(package);
-    }
-    write_installed_extensions(home, &installed)
+    host_state::remove_plugin(home, host, package)?;
+    cleanup_package_root(home, &record.name, &record.commit_sha)?;
+    Ok(())
 }
 
-fn shared_by_other_client(
-    home: &Path,
-    client: AgentClient,
-    package: &str,
-    artifact: &str,
-) -> Result<bool, ClientError> {
-    for other in ALL_CLIENTS.into_iter().filter(|other| *other != client) {
-        let Some(target) = installed_target(home, other, package)? else {
-            continue;
-        };
-        let shared = match artifact {
-            "skill" => !target.skills.is_empty() && skill_targets_overlap(home, client, other),
-            "mcp" => !target.mcps.is_empty() && codex_host_matches(client, other),
-            "hook" => !target.hooks.is_empty() && codex_host_matches(client, other),
-            _ => false,
-        };
-        if shared {
-            return Ok(true);
+fn preflight(home: &Path, record: &super::host_state::PluginRecord) -> Result<(), ClientError> {
+    for artifact in &record.artifacts {
+        if let PluginArtifact::Mcp {
+            server_name,
+            manifest_hash,
+            ..
+        } = artifact
+        {
+            if mcp::health(home, server_name, manifest_hash)?
+                == super::host_state::ArtifactHealth::Modified
+            {
+                return Err(ClientError::new(
+                    "local_extensions_conflict",
+                    format!("MCP 服务 {server_name} 已被修改，未卸载扩展包。"),
+                ));
+            }
         }
     }
-    Ok(false)
+    Ok(())
 }
 
-fn skill_targets_overlap(home: &Path, left: AgentClient, right: AgentClient) -> bool {
-    let left = agent_skill_target_roots(&[left], home);
-    let right = agent_skill_target_roots(&[right], home);
-    left.iter().any(|path| right.contains(path))
+fn shared_with_active_plugin(state: &HostState, package: &str, artifact: &PluginArtifact) -> bool {
+    state.active_plugins().any(|plugin| {
+        plugin.name != package
+            && plugin
+                .artifacts
+                .iter()
+                .any(|candidate| artifacts_overlap(candidate, artifact))
+    })
 }
 
-fn codex_host_matches(left: AgentClient, right: AgentClient) -> bool {
-    matches!(
-        (left, right),
-        (AgentClient::CodexCli, AgentClient::ChatGpt)
-            | (AgentClient::ChatGpt, AgentClient::CodexCli)
-    )
+fn artifacts_overlap(left: &PluginArtifact, right: &PluginArtifact) -> bool {
+    match (left, right) {
+        (
+            PluginArtifact::Skill {
+                target: left_target,
+                names: left_names,
+            },
+            PluginArtifact::Skill {
+                target: right_target,
+                names: right_names,
+            },
+        ) => {
+            left_target == right_target && left_names.iter().any(|name| right_names.contains(name))
+        }
+        (
+            PluginArtifact::Mcp {
+                target: left_target,
+                server_name: left_server,
+                ..
+            },
+            PluginArtifact::Mcp {
+                target: right_target,
+                server_name: right_server,
+                ..
+            },
+        ) => left_target == right_target && left_server == right_server,
+        (
+            PluginArtifact::Hook {
+                target: left_target,
+                event: left_event,
+                matcher: left_matcher,
+                handler_hash: left_hash,
+            },
+            PluginArtifact::Hook {
+                target: right_target,
+                event: right_event,
+                matcher: right_matcher,
+                handler_hash: right_hash,
+            },
+        ) => {
+            left_target == right_target
+                && left_event == right_event
+                && left_matcher == right_matcher
+                && left_hash == right_hash
+        }
+        _ => false,
+    }
 }
 
-#[cfg(test)]
-mod tests;
+pub(crate) fn cleanup_package_root(
+    home: &Path,
+    name: &str,
+    commit_sha: &str,
+) -> Result<(), ClientError> {
+    for host in ExtensionHost::ALL {
+        let Ok(state) = HostState::load_locked(home, host) else {
+            return Ok(());
+        };
+        if !state.errors.is_empty() {
+            return Ok(());
+        }
+        if state.plugins.iter().any(|plugin| {
+            plugin.name == name
+                && plugin.commit_sha == commit_sha
+                && plugin
+                    .artifacts
+                    .iter()
+                    .any(|artifact| matches!(artifact, PluginArtifact::Hook { .. }))
+        }) {
+            return Ok(());
+        }
+    }
+    super::hooks::remove_package_root(home, name, commit_sha)
+}

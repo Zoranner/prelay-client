@@ -1,5 +1,5 @@
 use std::{
-    collections::{BTreeMap, BTreeSet},
+    collections::BTreeSet,
     fs,
     io::Write,
     path::{Path, PathBuf},
@@ -9,10 +9,9 @@ use atomic_write_file::AtomicWriteFile;
 use toml_edit::DocumentMut;
 
 use crate::extensions::{
-    hooks::{managed_hook_items, uninstall_hooks},
-    mcp::{managed_mcp_servers, ManagedMcpServer},
-    record::{managed_package_names, plugin_items},
-    skills::{managed_skill_roots, uninstall_skill_package, ManagedSkillRoot},
+    hooks::{remove_hook_handler, unmanaged_hook_items},
+    host_state::{ExtensionHost, HostState, PluginState, StateError},
+    mcp::managed_mcp_servers,
     uninstall::uninstall_plugin_for_client,
 };
 
@@ -24,6 +23,10 @@ use super::{
         AgentItemsSnapshot, REGISTERED_AGENT_CLIENTS,
     },
 };
+
+mod details;
+mod skill_scan;
+use details::{plugin_artifact_groups, read_toml, toml_items};
 
 pub fn scan_user_items(home: &Path) -> AgentItemsSnapshot {
     scan_user_items_with_installation(home, agent_client_is_installed)
@@ -105,7 +108,17 @@ pub(crate) fn scan_user_items_with_installation(
 }
 
 fn scan_client_items(home: &Path, client: AgentClient) -> Vec<AgentItem> {
-    let managed = managed_package_names(home, client).unwrap_or_default();
+    let state = match HostState::load(home, ExtensionHost::from_client(client)) {
+        Ok(state) => state,
+        Err(error) => {
+            return vec![error_item(
+                AgentItemKind::Plugin,
+                &home.join(".prelay").join("hosts"),
+                &error.message,
+            )];
+        }
+    };
+    let managed = state.plugin_names();
     let mut items = integration(client)
         .scan(home)
         .into_iter()
@@ -115,7 +128,8 @@ fn scan_client_items(home: &Path, client: AgentClient) -> Vec<AgentItem> {
                 .is_none_or(|package| !managed.contains(package))
         })
         .collect::<Vec<_>>();
-    items.extend(plugin_items(home, client));
+    items.extend(plugin_items(&state, home));
+    items.extend(state.errors.iter().map(state_error_item));
     items
 }
 
@@ -125,6 +139,7 @@ pub fn uninstall_user_item(
     kind: AgentItemKind,
     name: &str,
     source_path: &str,
+    hook_hash: Option<&str>,
 ) -> Result<(), String> {
     uninstall_user_item_with_installation(
         home,
@@ -132,6 +147,7 @@ pub fn uninstall_user_item(
         kind,
         name,
         source_path,
+        hook_hash,
         agent_client_is_installed,
     )
 }
@@ -142,6 +158,7 @@ pub(crate) fn uninstall_user_item_with_installation(
     kind: AgentItemKind,
     name: &str,
     source_path: &str,
+    hook_hash: Option<&str>,
     is_installed: impl Fn(AgentClient) -> bool,
 ) -> Result<(), String> {
     let item = scan_user_items_with_installation(home, is_installed)
@@ -150,7 +167,12 @@ pub(crate) fn uninstall_user_item_with_installation(
         .find(|items| items.client == client)
         .and_then(|items| {
             items.items.into_iter().find(|item| {
-                item.kind == kind && item.name == name && item.source_path == source_path
+                item.kind == kind
+                    && item.name == name
+                    && item.source_path == source_path
+                    && (kind != AgentItemKind::Hook
+                        || hook_hash.is_none()
+                        || item.hook_hash.as_deref() == hook_hash)
             })
         })
         .ok_or_else(|| "未找到要卸载的本地条目。".to_string())?;
@@ -158,17 +180,13 @@ pub(crate) fn uninstall_user_item_with_installation(
     if item.source == AgentItemSource::System {
         return Err("内置技能不可卸载。".to_string());
     }
-
-    // 只有技能包会用包名去卸载整包；MCP 条目即便来自扩展库也仍是删一条宿主配置。
-    if let (AgentItemKind::Skill, Some(package)) = (kind, item.package.as_deref()) {
-        return uninstall_skill_package(Path::new(&item.source_path), package)
-            .map_err(|error| error.message);
-    }
-    if let (AgentItemKind::Hook, Some(package)) = (kind, item.package.as_deref()) {
-        return uninstall_hooks(home, package).map_err(|error| error.message);
-    }
-    if let (AgentItemKind::Plugin, Some(package)) = (kind, item.package.as_deref()) {
+    if let Some(package) = item.package.as_deref() {
         return uninstall_plugin_for_client(home, client, package).map_err(|error| error.message);
+    }
+    if kind == AgentItemKind::Hook {
+        if let Some(hash) = item.hook_hash.as_deref() {
+            return remove_hook_handler(home, hash).map_err(|error| error.message);
+        }
     }
     integration(client).uninstall(home, kind, name, &item.source_path)
 }
@@ -176,8 +194,17 @@ pub(crate) fn uninstall_user_item_with_installation(
 pub(crate) fn scan_codex(home: &Path) -> Vec<AgentItem> {
     let codex_root = home.join(".codex");
     let config_path = codex_root.join("config.toml");
-    // 宿主配置里的 MCP 服务名不区分来源，扩展库装的要在 `.prelay/mcp.json` 里认领。
-    let managed_mcp = managed_mcp_servers(home, AgentClient::CodexCli);
+    let state = match HostState::load(home, ExtensionHost::Codex) {
+        Ok(state) => state,
+        Err(error) => {
+            return vec![error_item(
+                AgentItemKind::Plugin,
+                &codex_root,
+                &error.message,
+            )]
+        }
+    };
+    let managed_mcp = managed_mcp_servers(&state);
     let mut items = if codex_root.exists() {
         match read_toml(&config_path) {
             Ok(Some(value)) => toml_items(
@@ -188,17 +215,90 @@ pub(crate) fn scan_codex(home: &Path) -> Vec<AgentItem> {
                 &managed_mcp,
             ),
             Ok(None) => Vec::new(),
-            Err(()) => vec![error_item(AgentItemKind::Mcp, &config_path)],
+            Err(()) => vec![error_item(
+                AgentItemKind::Mcp,
+                &config_path,
+                "无法读取扩展配置。",
+            )],
         }
     } else {
         Vec::new()
     };
     for root in user_skill_roots(home) {
-        items.extend(scan_skills(root));
+        items.extend(skill_scan::scan_skills(root, &state));
     }
     mark_codex_system_skills(&mut items, home);
-    items.extend(managed_hook_items(home));
+    match unmanaged_hook_items(home, &state) {
+        Ok(hooks) => items.extend(hooks),
+        Err(error) => items.push(error_item(
+            AgentItemKind::Hook,
+            &codex_root.join("hooks.json"),
+            &error.message,
+        )),
+    }
     deduplicate(items)
+}
+
+fn plugin_items(state: &HostState, home: &Path) -> Vec<AgentItem> {
+    let source_path = |name: &str| {
+        ExtensionHost::Codex
+            .plugin_path(home, name)
+            .display()
+            .to_string()
+    };
+    state
+        .plugins
+        .iter()
+        .filter_map(|plugin| {
+            let members = plugin.members();
+            if members.is_empty() {
+                return None;
+            }
+            Some(AgentItem {
+                kind: AgentItemKind::Plugin,
+                name: plugin.name.clone(),
+                version: Some(plugin.version.clone()),
+                package: Some(plugin.name.clone()),
+                hook_hash: None,
+                matcher: None,
+                command: None,
+                transport: None,
+                target: None,
+                description: None,
+                file_count: None,
+                members,
+                artifacts: plugin_artifact_groups(plugin),
+                source: AgentItemSource::Team,
+                source_path: source_path(&plugin.name),
+                error_message: if state.is_conflicted(&plugin.name) {
+                    Some("扩展制品归属冲突，未参与管理。".to_string())
+                } else {
+                    (plugin.state != PluginState::Installed).then(|| "扩展安装未完成。".to_string())
+                },
+            })
+        })
+        .collect()
+}
+
+fn state_error_item(error: &StateError) -> AgentItem {
+    AgentItem {
+        kind: AgentItemKind::Plugin,
+        name: "扩展状态读取失败".to_string(),
+        version: None,
+        package: None,
+        hook_hash: None,
+        matcher: None,
+        command: None,
+        transport: None,
+        target: None,
+        description: None,
+        file_count: None,
+        members: Vec::new(),
+        artifacts: Vec::new(),
+        source: AgentItemSource::Personal,
+        source_path: error.path.clone(),
+        error_message: Some(error.message.clone()),
+    }
 }
 
 fn mark_codex_system_skills(items: &mut [AgentItem], home: &Path) {
@@ -210,56 +310,6 @@ fn mark_codex_system_skills(items: &mut [AgentItem], home: &Path) {
             item.source = AgentItemSource::System;
         }
     }
-}
-
-fn read_toml(path: &Path) -> Result<Option<toml::Value>, ()> {
-    if !path.exists() {
-        return Ok(None);
-    }
-    fs::read_to_string(path)
-        .ok()
-        .and_then(|contents| toml::from_str::<toml::Value>(&contents).ok())
-        .ok_or(())
-        .map(Some)
-}
-
-fn toml_items(
-    value: &toml::Value,
-    section: &str,
-    kind: AgentItemKind,
-    path: &Path,
-    managed: &BTreeMap<String, ManagedMcpServer>,
-) -> Vec<AgentItem> {
-    let Some(entries) = value.get(section).and_then(toml::Value::as_table) else {
-        return Vec::new();
-    };
-    entries
-        .iter()
-        .filter_map(|(name, entry)| {
-            if entry
-                .get("enabled")
-                .and_then(toml::Value::as_bool)
-                .is_some_and(|enabled| !enabled)
-            {
-                return None;
-            }
-            let managed_entry = managed.get(name);
-            Some(AgentItem {
-                kind,
-                name: name.to_owned(),
-                version: managed_entry.map(|managed| managed.version.clone()),
-                package: managed_entry.map(|managed| managed.package.clone()),
-                members: Vec::new(),
-                source: if managed_entry.is_some() {
-                    AgentItemSource::Team
-                } else {
-                    AgentItemSource::Personal
-                },
-                source_path: path.display().to_string(),
-                error_message: None,
-            })
-        })
-        .collect()
 }
 
 pub(crate) fn remove_codex_config_item(
@@ -303,91 +353,24 @@ pub(crate) fn write_text(path: &Path, contents: &[u8]) -> Result<(), String> {
         .map_err(|error| format!("无法保存配置文件：{error}"))
 }
 
-pub(crate) fn scan_skills(root: PathBuf) -> Vec<AgentItem> {
-    let managed = managed_skill_roots(&root);
-    let mut items = Vec::new();
-    let mut packages = BTreeMap::new();
-    visit_skill_directory(&root, &root, &managed, &mut packages, &mut items);
-    items.extend(
-        packages
-            .into_iter()
-            .map(|(package, (version, mut members))| {
-                members.sort();
-                AgentItem {
-                    kind: AgentItemKind::Skill,
-                    name: package.clone(),
-                    version,
-                    package: Some(package),
-                    members,
-                    source: AgentItemSource::Team,
-                    source_path: root.display().to_string(),
-                    error_message: None,
-                }
-            }),
-    );
-    items
-}
-
-fn visit_skill_directory(
-    base: &Path,
-    path: &Path,
-    managed: &BTreeMap<String, ManagedSkillRoot>,
-    packages: &mut BTreeMap<String, (Option<String>, Vec<String>)>,
-    items: &mut Vec<AgentItem>,
-) {
-    let Ok(entries) = fs::read_dir(path) else {
-        return;
-    };
-    for entry in entries.flatten() {
-        let path = entry.path();
-        if path.is_dir() {
-            let skill_file = path.join("SKILL.md");
-            if skill_file.is_file() {
-                let name = entry.file_name().to_string_lossy().to_string();
-                match managed_skill_owner(base, &path, managed) {
-                    Some(owner) => {
-                        let entry = packages
-                            .entry(owner.package.clone())
-                            .or_insert_with(|| (owner.version.clone(), Vec::new()));
-                        entry.1.push(name);
-                    }
-                    None => items.push(AgentItem {
-                        kind: AgentItemKind::Skill,
-                        name,
-                        version: None,
-                        package: None,
-                        members: Vec::new(),
-                        source: AgentItemSource::Personal,
-                        source_path: path.display().to_string(),
-                        error_message: None,
-                    }),
-                }
-            }
-            visit_skill_directory(base, &path, managed, packages, items);
-        }
-    }
-}
-
-fn managed_skill_owner<'a>(
-    base: &Path,
-    path: &Path,
-    managed: &'a BTreeMap<String, ManagedSkillRoot>,
-) -> Option<&'a ManagedSkillRoot> {
-    let relative = path.strip_prefix(base).ok()?;
-    let root = relative.components().next()?;
-    managed.get(root.as_os_str().to_string_lossy().as_ref())
-}
-
-pub(crate) fn error_item(kind: AgentItemKind, path: &Path) -> AgentItem {
+pub(crate) fn error_item(kind: AgentItemKind, path: &Path, message: &str) -> AgentItem {
     AgentItem {
         kind,
         name: "配置读取失败".to_string(),
         version: None,
         package: None,
+        hook_hash: None,
+        matcher: None,
+        command: None,
+        transport: None,
+        target: None,
+        description: None,
+        file_count: None,
         members: Vec::new(),
+        artifacts: Vec::new(),
         source: AgentItemSource::Personal,
         source_path: path.display().to_string(),
-        error_message: Some("无法读取扩展配置。".to_string()),
+        error_message: Some(message.to_string()),
     }
 }
 
@@ -397,15 +380,20 @@ pub(crate) fn deduplicate(mut items: Vec<AgentItem>) -> Vec<AgentItem> {
             left.kind as u8,
             left.name.as_str(),
             left.source_path.as_str(),
+            left.hook_hash.as_deref(),
         )
             .cmp(&(
                 right.kind as u8,
                 right.name.as_str(),
                 right.source_path.as_str(),
+                right.hook_hash.as_deref(),
             ))
     });
     items.dedup_by(|left, right| {
-        left.kind == right.kind && left.name == right.name && left.source_path == right.source_path
+        left.kind == right.kind
+            && left.name == right.name
+            && left.source_path == right.source_path
+            && left.hook_hash == right.hook_hash
     });
     items
 }

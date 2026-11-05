@@ -1,4 +1,4 @@
-use std::{collections::BTreeSet, path::Path};
+use std::path::Path;
 
 use prelay_protocol::{ExtensionFile, HOOKS_MANIFEST_PATH, HOOK_ROOT_PLACEHOLDER};
 use serde_json::{Map, Value};
@@ -29,6 +29,13 @@ pub(super) struct IncomingHook {
     pub handler: Value,
     pub hash: String,
     pub review: HookReviewItem,
+}
+
+pub(super) struct DocumentHook {
+    pub(super) event: String,
+    pub(super) matcher: Option<String>,
+    pub(super) hash: String,
+    pub(super) command: String,
 }
 
 pub(super) fn collect_incoming_hooks(
@@ -257,12 +264,12 @@ pub(super) fn add_handler(
     groups.push(Value::Object(group));
 }
 
-pub(super) fn document_hashes(document: &Value) -> BTreeSet<String> {
-    let mut hashes = BTreeSet::new();
-    let Some(hooks) = document.get("hooks").and_then(Value::as_object) else {
-        return hashes;
+pub(super) fn document_hooks(document: &Value) -> Vec<DocumentHook> {
+    let mut hooks = Vec::new();
+    let Some(entries) = document.get("hooks").and_then(Value::as_object) else {
+        return hooks;
     };
-    for (event, groups) in hooks {
+    for (event, groups) in entries {
         let Some(groups) = groups.as_array() else {
             continue;
         };
@@ -278,13 +285,26 @@ pub(super) fn document_hashes(document: &Value) -> BTreeSet<String> {
                 continue;
             };
             for handler in handlers {
-                if let Ok(hash) = handler_hash(event, matcher.as_deref(), handler) {
-                    hashes.insert(hash);
-                }
+                let Ok(review) = review_item(event, matcher.as_deref(), handler) else {
+                    continue;
+                };
+                let Ok(hash) = hash_review(&review) else {
+                    continue;
+                };
+                let command = review
+                    .command_windows
+                    .clone()
+                    .unwrap_or_else(|| review.command.clone());
+                hooks.push(DocumentHook {
+                    event: event.clone(),
+                    matcher: matcher.clone(),
+                    hash,
+                    command,
+                });
             }
         }
     }
-    hashes
+    hooks
 }
 
 fn review_item(
@@ -341,7 +361,10 @@ fn handler_hash(
     matcher: Option<&str>,
     handler: &Value,
 ) -> Result<String, ClientError> {
-    let review = review_item(event, matcher, handler)?;
+    hash_review(&review_item(event, matcher, handler)?)
+}
+
+fn hash_review(review: &HookReviewItem) -> Result<String, ClientError> {
     let identity = serde_json::json!({
         "event": review.event,
         "matcher": review.matcher,

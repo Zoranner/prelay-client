@@ -42,7 +42,7 @@ impl AgentIntegration for CodexCliIntegration {
         match kind {
             AgentItemKind::Mcp => remove_codex_config_item(home, "mcp_servers", name),
             AgentItemKind::Skill => remove_skill_directory(source_path),
-            AgentItemKind::Hook => Err("Hook 仅支持通过扩展包卸载。".to_string()),
+            AgentItemKind::Hook => Err("未找到要卸载的 Hook 配置，请刷新后重试。".to_string()),
             AgentItemKind::Plugin => Err("插件需要通过扩展包记录卸载。".to_string()),
         }
     }
@@ -63,28 +63,28 @@ pub(crate) fn mcp_server_exists(home: &Path, name: &str) -> Result<bool, String>
         .is_some_and(|servers| servers.contains_key(name)))
 }
 
-pub(crate) fn mcp_server_matches(
-    home: &Path,
-    manifest: &ExtensionMcpManifest,
-) -> Result<bool, String> {
+pub(crate) fn mcp_manifest_fingerprint(manifest: &ExtensionMcpManifest) -> Result<String, String> {
+    fingerprint_table(&mcp_server_table(manifest)?)
+}
+
+pub(crate) fn mcp_server_fingerprint(home: &Path, name: &str) -> Result<Option<String>, String> {
     let config_path = mcp_configuration_path(home);
     let contents = match fs::read_to_string(&config_path) {
         Ok(contents) => contents,
-        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(false),
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(None),
         Err(error) => return Err(format!("无法读取 Codex 配置：{error}")),
     };
     let document = contents
         .parse::<DocumentMut>()
         .map_err(|error| format!("Codex 配置不是有效的 TOML：{error}"))?;
-    let Some(actual) = document["mcp_servers"]
+    let Some(table) = document["mcp_servers"]
         .as_table()
-        .and_then(|servers| servers.get(&manifest.name))
+        .and_then(|servers| servers.get(name))
         .and_then(Item::as_table)
     else {
-        return Ok(false);
+        return Ok(None);
     };
-    let expected = mcp_server_table(manifest)?;
-    Ok(table_value(actual)? == table_value(&expected)?)
+    fingerprint_table(table).map(Some)
 }
 
 pub(crate) fn upsert_mcp_server(
@@ -171,6 +171,13 @@ fn mcp_server_table(manifest: &ExtensionMcpManifest) -> Result<Table, String> {
 
 fn table_value(table: &Table) -> Result<toml::Value, String> {
     toml::from_str(&table.to_string()).map_err(|error| format!("无法比较 Codex MCP 配置：{error}"))
+}
+
+fn fingerprint_table(table: &Table) -> Result<String, String> {
+    let value = table_value(table)?;
+    let json = serde_json::to_value(value)
+        .map_err(|error| format!("无法序列化 Codex MCP 配置：{error}"))?;
+    Ok(crate::extensions::host_state::hash_json(&json))
 }
 
 fn set_string_array(table: &mut Table, key: &str, values: &[String]) {
