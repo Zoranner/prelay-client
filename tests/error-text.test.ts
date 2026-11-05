@@ -43,6 +43,8 @@ test("客户端本地错误码使用中文文案", () => {
     "local_agents_error",
     "local_agent_settings_error",
     "local_extensions_error",
+    "local_extensions_conflict",
+    "local_extensions_readonly",
     "invalid_response",
     "invalid_request",
     "missing_device_credential",

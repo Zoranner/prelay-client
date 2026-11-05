@@ -280,12 +280,25 @@ export type AgentClient = "codexCli" | "chatgpt";
 export type AgentItemKind = "plugin" | "mcp" | "skill" | "hook";
 export type AgentItemSource = "personal" | "team" | "system";
 
+export interface AgentArtifactGroup {
+  kind: AgentItemKind;
+  items: string[];
+}
+
 export interface AgentItem {
   kind: AgentItemKind;
   name: string;
   version: string | null;
   package: string | null;
+  hookHash: string | null;
+  matcher: string | null;
+  command: string | null;
+  transport: string | null;
+  target: string | null;
+  description: string | null;
+  fileCount: number | null;
   members: string[];
+  artifacts: AgentArtifactGroup[];
   source: AgentItemSource;
   sourcePath: string;
   errorMessage: string | null;

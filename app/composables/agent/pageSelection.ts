@@ -12,6 +12,7 @@ import {
   type AgentSectionOption,
   type AgentWorkspace,
 } from "~/utils/agent/client";
+import { hasUnresolvedError } from "~/utils/agent/itemDisplay";
 
 type AgentPageWorkspace = {
   clientStatuses: Ref<AgentClientStatus[]>;
@@ -72,7 +73,9 @@ export function useAgentPageSelection(workspace: AgentPageWorkspace) {
   );
   const sectionItems = computed(() =>
     activeKind.value
-      ? activeItems.value.filter((item) => item.kind === activeKind.value)
+      ? activeItems.value.filter(
+          (item) => item.kind === activeKind.value && !hasUnresolvedError(item),
+        )
       : [],
   );
 

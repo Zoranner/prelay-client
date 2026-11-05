@@ -295,7 +295,10 @@ test("客户端仅使用组件库已定义的主题令牌", () => {
     "utf8",
   );
   const agents = readFileSync(
-    new URL("../app/components/agents/workspace/ItemList.vue", import.meta.url),
+    new URL(
+      "../app/components/agents/workspace/items/ItemError.vue",
+      import.meta.url,
+    ),
     "utf8",
   );
   const statusbar = readFileSync(
