@@ -1,0 +1,1273 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Prelay · 智能体扩展列表原型 · 方案 A</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        --bg: #0f1012;
+        --panel: #17191d;
+        --panel-2: #1d2025;
+        --surface: #252932;
+        --border: #343a45;
+        --divider: #2a2f38;
+        --text: #f1f4f8;
+        --text-2: #c4cad4;
+        --muted: #8b93a1;
+        --primary: #38bdf8;
+        --primary-soft: rgba(56, 189, 248, 0.12);
+        --team: #60a5fa;
+        --team-soft: rgba(96, 165, 250, 0.12);
+        --system: #c4b5fd;
+        --system-soft: rgba(196, 181, 253, 0.12);
+        --personal: #98a2b3;
+        --personal-soft: rgba(152, 162, 179, 0.1);
+        --danger: #f87171;
+        --danger-soft: rgba(248, 113, 113, 0.12);
+        --warning: #fbbf24;
+        --radius: 8px;
+        --mono: "Cascadia Code", "SFMono-Regular", Consolas, monospace;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        min-width: 720px;
+        margin: 0;
+        background:
+          radial-gradient(circle at 18% -10%, rgba(56, 189, 248, 0.08), transparent 34rem),
+          var(--bg);
+        color: var(--text);
+        font-family:
+          Inter, "Segoe UI", "Microsoft YaHei", "PingFang SC", sans-serif;
+      }
+
+      button {
+        font: inherit;
+      }
+
+      button:focus-visible {
+        outline: 2px solid var(--primary);
+        outline-offset: 2px;
+      }
+
+      .svg-sprite {
+        position: absolute;
+        width: 0;
+        height: 0;
+        overflow: hidden;
+      }
+
+      .icon {
+        display: block;
+        width: 18px;
+        height: 18px;
+        fill: none;
+        stroke: currentColor;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+        stroke-width: 1.8;
+      }
+
+      .topbar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 14px 28px;
+        border-bottom: 1px solid var(--divider);
+        background: rgba(15, 16, 18, 0.86);
+        backdrop-filter: blur(14px);
+      }
+
+      .brand {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        font-size: 14px;
+        font-weight: 650;
+        letter-spacing: 0.02em;
+      }
+
+      .brand-mark {
+        display: grid;
+        width: 26px;
+        height: 26px;
+        place-items: center;
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        background: var(--surface);
+        color: var(--primary);
+      }
+
+      .prototype-tag {
+        padding: 3px 7px;
+        border: 1px solid var(--border);
+        border-radius: 999px;
+        color: var(--muted);
+        font-size: 11px;
+        font-weight: 500;
+      }
+
+      .top-meta {
+        color: var(--muted);
+        font-size: 12px;
+      }
+
+      .page {
+        max-width: 1120px;
+        margin: 0 auto;
+        padding: 28px 28px 56px;
+      }
+
+      .page-title {
+        margin: 0 0 18px;
+        font-size: 24px;
+      }
+
+      .workbench {
+        overflow: hidden;
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        background: var(--panel);
+        box-shadow: 0 18px 50px rgba(0, 0, 0, 0.24);
+      }
+
+      .workbench-bar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 18px;
+        padding: 14px 16px;
+        border-bottom: 1px solid var(--divider);
+        background: var(--panel-2);
+      }
+
+      .context-label {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        color: var(--muted);
+        font-size: 12px;
+      }
+
+      .client-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 7px;
+        padding: 5px 9px;
+        border: 1px solid var(--border);
+        border-radius: 999px;
+        background: var(--surface);
+        color: var(--text-2);
+        font-size: 12px;
+      }
+
+      .client-pill::before {
+        width: 7px;
+        height: 7px;
+        border-radius: 999px;
+        background: var(--primary);
+        content: "";
+      }
+
+      .type-tabs {
+        display: flex;
+        gap: 4px;
+      }
+
+      .type-tab {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 7px 11px;
+        border: 1px solid transparent;
+        border-radius: 6px;
+        background: transparent;
+        color: var(--muted);
+        font-size: 12px;
+        cursor: pointer;
+      }
+
+      .type-tab:hover {
+        background: var(--surface);
+        color: var(--text-2);
+      }
+
+      .type-tab.is-active {
+        border-color: var(--border);
+        background: var(--surface);
+        color: var(--text);
+      }
+
+      .type-tab .count {
+        color: var(--muted);
+        font-family: var(--mono);
+        font-size: 10px;
+      }
+
+      .content {
+        min-height: 440px;
+        padding: 20px;
+      }
+
+      .list-section-head {
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        gap: 16px;
+        margin-bottom: 8px;
+        color: var(--muted);
+        font-size: 11px;
+      }
+
+      .list-section-head strong {
+        color: var(--text-2);
+        font-size: 12px;
+        font-weight: 600;
+      }
+
+      .item-list {
+        overflow: hidden;
+        border: 1px solid var(--divider);
+        border-radius: var(--radius);
+        background: rgba(255, 255, 255, 0.012);
+      }
+
+      .item-row {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        align-items: start;
+        column-gap: 8px;
+        row-gap: 8px;
+        padding: 12px 12px 12px 14px;
+        border-bottom: 1px solid var(--divider);
+      }
+
+      .item-row:last-child {
+        border-bottom: 0;
+      }
+
+      .item-top {
+        display: grid;
+        min-width: 0;
+        grid-template-columns: 42px minmax(0, 1fr);
+        align-items: start;
+        gap: 11px;
+      }
+
+      .type-icon {
+        display: grid;
+        width: 42px;
+        height: 42px;
+        min-height: 42px;
+        flex: 0 0 auto;
+        place-items: center;
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        background: var(--surface);
+        color: var(--text-2);
+      }
+
+      .type-icon--plugin {
+        color: var(--primary);
+      }
+
+      .type-icon--hook {
+        color: var(--warning);
+      }
+
+      .item-summary {
+        display: grid;
+        min-width: 0;
+        min-height: 42px;
+        align-content: center;
+        gap: 5px;
+        padding: 0;
+        border: 0;
+        background: transparent;
+        color: inherit;
+        text-align: left;
+      }
+
+      .item-identity {
+        display: flex;
+        min-width: 0;
+        align-items: center;
+        gap: 7px;
+        line-height: 1.2;
+      }
+
+      .item-primary {
+        flex: 0 1 auto;
+        min-width: 0;
+        overflow: hidden;
+        color: var(--text);
+        font-size: 13px;
+        font-weight: 600;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .item-path {
+        display: inline-flex;
+        flex: 0 0 auto;
+        align-items: center;
+        justify-content: center;
+        color: var(--muted);
+        line-height: 0;
+        cursor: help;
+      }
+
+      .item-meta {
+        display: flex;
+        min-width: 0;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 6px;
+        color: var(--muted);
+        font-size: 11px;
+      }
+
+      .meta-separator {
+        color: var(--muted);
+      }
+
+      .badge {
+        display: inline-flex;
+        align-items: center;
+        width: fit-content;
+        padding: 2px 7px;
+        border: 1px solid transparent;
+        border-radius: 999px;
+        font-size: 10px;
+        font-weight: 550;
+        line-height: 1.5;
+        white-space: nowrap;
+      }
+
+      .badge--personal {
+        border-color: rgba(152, 162, 179, 0.24);
+        background: var(--personal-soft);
+        color: var(--personal);
+      }
+
+      .badge--team {
+        border-color: rgba(96, 165, 250, 0.28);
+        background: var(--team-soft);
+        color: var(--team);
+      }
+
+      .badge--system {
+        border-color: rgba(196, 181, 253, 0.28);
+        background: var(--system-soft);
+        color: var(--system);
+      }
+
+      .badge--handler {
+        border-color: var(--border);
+        background: var(--surface);
+        color: var(--text-2);
+        font-family: var(--mono);
+      }
+
+      .badge--transport {
+        border-color: var(--border);
+        background: var(--surface);
+        color: var(--text-2);
+      }
+
+      .meta-fact {
+        display: inline-flex;
+        min-width: 0;
+        align-items: center;
+        gap: 4px;
+      }
+
+      .meta-fact .icon {
+        width: 12px;
+        height: 12px;
+      }
+
+      .version-pill {
+        display: inline-flex;
+        padding: 1px 6px;
+        border-radius: 4px;
+        background: var(--surface);
+        color: var(--text-2);
+        font-family: var(--mono);
+        font-size: 10px;
+        line-height: 1.6;
+      }
+
+      .error-mark {
+        display: inline-flex;
+        width: 15px;
+        height: 15px;
+        align-items: center;
+        justify-content: center;
+        color: var(--danger);
+        line-height: 0;
+        vertical-align: middle;
+      }
+
+      .error-mark .icon {
+        width: 14px;
+        height: 14px;
+      }
+
+      .icon-btn {
+        display: grid;
+        width: 28px;
+        height: 28px;
+        flex: 0 0 auto;
+        place-items: center;
+        border: 1px solid transparent;
+        border-radius: 6px;
+        background: transparent;
+        color: var(--muted);
+        cursor: pointer;
+      }
+
+      .icon-btn:hover {
+        border-color: var(--border);
+        background: var(--surface);
+        color: var(--text);
+      }
+
+      .icon-btn:disabled {
+        background: transparent;
+        color: var(--muted);
+        cursor: not-allowed;
+        opacity: 0.45;
+      }
+
+      .icon-btn:disabled:hover {
+        border-color: transparent;
+        background: transparent;
+        color: var(--muted);
+      }
+
+      .icon-btn--danger:hover {
+        border-color: rgba(248, 113, 113, 0.3);
+        background: var(--danger-soft);
+        color: var(--danger);
+      }
+
+      .icon-btn .icon {
+        width: 15px;
+        height: 15px;
+      }
+
+      .item-actions {
+        display: flex;
+        align-items: flex-start;
+        gap: 2px;
+        opacity: 0;
+        transition: opacity 120ms ease;
+      }
+
+      .item-row:hover .item-actions,
+      .item-row:focus-within .item-actions {
+        opacity: 1;
+      }
+
+      @media (hover: none) {
+        .item-actions {
+          opacity: 1;
+        }
+      }
+
+      .item-detail {
+        display: grid;
+        min-width: 0;
+        gap: 8px;
+        grid-column: 1;
+        padding-left: 53px;
+      }
+
+      .item-detail-line {
+        display: block;
+        color: var(--muted);
+        font-size: 11px;
+        line-height: 1.55;
+      }
+
+      .item-detail-line--mono {
+        overflow-wrap: anywhere;
+        font-family: var(--mono);
+        font-size: 10px;
+      }
+
+      .item-detail-line--ellipsis {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .artifact-lines {
+        display: grid;
+        gap: 8px;
+        padding: 10px 12px;
+        border: 1px solid var(--divider);
+        border-radius: 6px;
+        background: rgba(255, 255, 255, 0.014);
+      }
+
+      .artifact-line {
+        display: grid;
+        grid-template-columns: 72px minmax(0, 1fr);
+        align-items: start;
+        gap: 10px;
+      }
+
+      .artifact-kind {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        padding-top: 2px;
+        color: var(--muted);
+        font-size: 10px;
+      }
+
+      .artifact-kind .icon {
+        width: 13px;
+        height: 13px;
+      }
+
+      .chips {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 5px;
+      }
+
+      .chip {
+        display: inline-flex;
+        max-width: 100%;
+        padding: 2px 7px;
+        border: 1px solid var(--border);
+        border-radius: 4px;
+        background: var(--surface);
+        color: var(--text-2);
+        font-family: var(--mono);
+        font-size: 10px;
+        line-height: 1.7;
+        overflow-wrap: anywhere;
+      }
+
+      .hook-group {
+        overflow: hidden;
+        border: 1px solid var(--divider);
+        border-radius: var(--radius);
+        background: rgba(255, 255, 255, 0.012);
+      }
+
+      .hook-group + .hook-group {
+        margin-top: 8px;
+      }
+
+      .hook-group__head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        padding: 10px 14px;
+        border-bottom: 1px solid var(--divider);
+        background: rgba(255, 255, 255, 0.02);
+      }
+
+      .hook-event {
+        display: flex;
+        min-width: 0;
+        align-items: center;
+        gap: 8px;
+      }
+
+      .hook-event code {
+        overflow: hidden;
+        color: var(--text-2);
+        font-family: var(--mono);
+        font-size: 11px;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .event-count {
+        color: var(--muted);
+        font-size: 10px;
+      }
+
+      .hook-group .item-row {
+        padding-left: 14px;
+        border-bottom: 1px solid var(--divider);
+      }
+
+      .hook-group .item-row:last-of-type {
+        border-bottom: 0;
+      }
+
+      .toast {
+        position: fixed;
+        right: 24px;
+        bottom: 24px;
+        z-index: 20;
+        max-width: 320px;
+        padding: 10px 13px;
+        border: 1px solid var(--border);
+        border-radius: 7px;
+        background: #20252d;
+        color: var(--text-2);
+        box-shadow: 0 12px 30px rgba(0, 0, 0, 0.35);
+        font-size: 11px;
+        opacity: 0;
+        pointer-events: none;
+        transform: translateY(6px);
+        transition:
+          opacity 150ms ease,
+          transform 150ms ease;
+      }
+
+      .toast.is-visible {
+        opacity: 1;
+        transform: translateY(0);
+      }
+
+      @media (max-width: 920px) {
+      }
+
+      @media (max-width: 780px) {
+        .workbench-bar {
+          align-items: flex-start;
+          flex-direction: column;
+        }
+
+        .type-tabs {
+          overflow-x: auto;
+          max-width: 100%;
+          padding-bottom: 2px;
+        }
+
+        .artifact-line {
+          grid-template-columns: 1fr;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <svg class="svg-sprite" aria-hidden="true">
+      <symbol id="i-plugin" viewBox="0 0 24 24">
+        <path d="M8 4h4v3a2 2 0 1 0 4 0V4h4v4h-3a2 2 0 1 0 0 4h3v8h-8v-3a2 2 0 1 0-4 0v3H4v-8h3a2 2 0 1 0 0-4H4V4h4Z" />
+      </symbol>
+      <symbol id="i-skill" viewBox="0 0 24 24">
+        <path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H20v16H6.5A2.5 2.5 0 0 0 4 21.5V5.5Z" />
+        <path d="M4 17.5A2.5 2.5 0 0 1 6.5 15H20M8 7h8M8 10h6" />
+      </symbol>
+      <symbol id="i-mcp" viewBox="0 0 24 24">
+        <rect x="3" y="4" width="18" height="16" rx="2" />
+        <path d="m7 9 3 3-3 3M13 15h4" />
+      </symbol>
+      <symbol id="i-hook" viewBox="0 0 24 24">
+        <path d="M8 15a4 4 0 1 1 4-4v3a4 4 0 1 0 4 4" />
+        <path d="M12 4v3M4 12h3M17 12h3" />
+      </symbol>
+      <symbol id="i-chevron" viewBox="0 0 24 24">
+        <path d="m9 6 6 6-6 6" />
+      </symbol>
+      <symbol id="i-copy" viewBox="0 0 24 24">
+        <rect x="9" y="9" width="10" height="10" rx="2" />
+        <path d="M5 15V5a2 2 0 0 1 2-2h8" />
+      </symbol>
+      <symbol id="i-folder" viewBox="0 0 24 24">
+        <path d="M3 6h6l2 2h10v10H3V6Z" />
+      </symbol>
+      <symbol id="i-trash" viewBox="0 0 24 24">
+        <path d="M4 7h16M10 11v6M14 11v6M6 7l1 14h10l1-14M9 7V4h6v3" />
+      </symbol>
+      <symbol id="i-warning" viewBox="0 0 24 24">
+        <circle cx="12" cy="12" r="9" />
+        <path d="M12 8v5M12 16h.01" />
+      </symbol>
+    </svg>
+
+    <header class="topbar">
+      <div class="brand">
+        <span class="brand-mark"><svg class="icon"><use href="#i-plugin"></use></svg></span>
+        Prelay
+        <span class="prototype-tag">方案 A</span>
+      </div>
+    </header>
+
+    <main class="page">
+      <h1 class="page-title">智能体扩展</h1>
+
+      <section class="workbench">
+        <div class="workbench-bar">
+          <div class="context-label">
+            <span class="client-pill">ChatGPT · Codex 宿主</span>
+          </div>
+          <div class="type-tabs" id="type-tabs" role="tablist" aria-label="选择条目类型"></div>
+        </div>
+        <div class="content" id="content"></div>
+      </section>
+    </main>
+
+    <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+    <script>
+      const types = {
+        plugin: { label: "插件" },
+        mcp: { label: "MCP" },
+        skill: { label: "Skill" },
+        hook: { label: "Hook" },
+      };
+
+      const data = {
+        plugin: [
+          {
+            name: "superpowers",
+            version: "6.3.0-prelay.2",
+            source: "team",
+            location: "C:\\Users\\yangxinran\\.prelay\\hosts\\codex\\plugins\\superpowers.json",
+            artifacts: [
+              {
+                kind: "skill",
+                label: "Skill",
+                items: [
+                  "brainstorming",
+                  "systematic-debugging",
+                  "verification-before-completion",
+                  "using-git-worktrees",
+                ],
+              },
+              { kind: "mcp", label: "MCP", items: ["refinery"] },
+              { kind: "hook", label: "Hook", items: ["PreToolUse ×2", "SessionStart"] },
+            ],
+            error: null,
+          },
+          {
+            name: "refinery-mcp",
+            version: "0.8.0",
+            source: "team",
+            location: "C:\\Users\\yangxinran\\.prelay\\hosts\\codex\\plugins\\refinery-mcp.json",
+            artifacts: [{ kind: "mcp", label: "MCP", items: ["refinery"] }],
+            error: "插件状态为 installing，安装未完成。",
+          },
+          {
+            name: "schema-tools",
+            version: "2.1.0",
+            source: "team",
+            location: "C:\\Users\\yangxinran\\.prelay\\hosts\\codex\\plugins\\schema-tools.json",
+            artifacts: [
+              { kind: "skill", label: "Skill", items: ["json-canvas", "obsidian-bases"] },
+              { kind: "mcp", label: "MCP", items: ["schema-registry"] },
+              { kind: "hook", label: "Hook", items: ["PostToolUse"] },
+            ],
+            error: null,
+          },
+          {
+            name: "empty-bundle",
+            version: null,
+            source: "personal",
+            location: "C:\\Users\\yangxinran\\.prelay\\hosts\\codex\\plugins\\empty-bundle.json",
+            artifacts: [],
+            error: null,
+          },
+          {
+            name: "acme-enterprise-workflow-automation-suite",
+            version: "2026.11.5",
+            source: "team",
+            location:
+              "C:\\Users\\yangxinran\\.prelay\\hosts\\codex\\plugins\\acme-enterprise-workflow-automation-suite.json",
+            artifacts: [
+              {
+                kind: "skill",
+                label: "Skill",
+                items: [
+                  "release-orchestrator",
+                  "compliance-evidence-collector",
+                  "change-window-validator",
+                ],
+              },
+              {
+                kind: "mcp",
+                label: "MCP",
+                items: ["artifact-registry", "release-approval-gateway"],
+              },
+              { kind: "hook", label: "Hook", items: ["PreToolUse ×3", "PostToolUse"] },
+            ],
+            error: null,
+          },
+          {
+            name: "legacy-conflict-plugin",
+            version: "0.1.0",
+            source: "personal",
+            location: "C:\\Users\\yangxinran\\.prelay\\hosts\\codex\\plugins\\legacy-conflict-plugin.json",
+            artifacts: [
+              { kind: "skill", label: "Skill", items: ["legacy-review"] },
+              { kind: "mcp", label: "MCP", items: ["legacy-docs"] },
+              { kind: "hook", label: "Hook", items: ["SessionStart"] },
+            ],
+            error: "与另一个插件声明了相同的 Hook 处理程序，归属已暂停。",
+          },
+        ],
+        mcp: [
+          {
+            name: "context7",
+            source: "personal",
+            transport: "stdio",
+            target: "npx -y @upstash/context7-mcp",
+            location: "C:\\Users\\yangxinran\\.codex\\config.toml",
+            error: null,
+          },
+          {
+            name: "filesystem",
+            source: "personal",
+            transport: "stdio",
+            target:
+              'npx -y @modelcontextprotocol/server-filesystem "E:\\Repositories\\projects\\Zoranner" "E:\\Repositories\\personal" "C:\\Users\\yangxinran\\Documents"',
+            location: "C:\\Users\\yangxinran\\.codex\\config.toml",
+            error: null,
+          },
+          {
+            name: "remote-docs",
+            source: "personal",
+            transport: "http",
+            target: "https://mcp.example.com/mcp",
+            location: "C:\\Users\\yangxinran\\.codex\\config.toml",
+            error: null,
+          },
+          {
+            name: "enterprise-knowledge-base-search-and-indexing-service",
+            source: "personal",
+            transport: "http",
+            target:
+              "https://gateway.example.com/mcp/v1/knowledge?workspace=prelay&index=release-notes&locale=zh-CN",
+            location: "C:\\Users\\yangxinran\\.codex\\config.toml",
+            error: null,
+          },
+          {
+            name: "broken-server",
+            source: null,
+            transport: "stdio",
+            target: "node missing-server.js",
+            location: "C:\\Users\\yangxinran\\.codex\\config.toml",
+            error: "配置读取失败：mcp_servers.broken-server 缺少 command。",
+          },
+          {
+            name: "mcp-without-target",
+            source: "personal",
+            transport: "stdio",
+            target: null,
+            location: "C:\\Users\\yangxinran\\.codex\\config.toml",
+            error: null,
+          },
+        ],
+        skill: [
+          {
+            name: "pdf-tools",
+            source: "personal",
+            description:
+              "读取、拆分、填写 PDF 文档和表单，处理扫描件 OCR、旋转页面、批量合并与加密文档。",
+            files: 14,
+            location: "C:\\Users\\yangxinran\\.codex\\skills\\pdf-tools",
+            error: null,
+          },
+          {
+            name: "data-analysis",
+            source: "personal",
+            description:
+              "从 CSV、Excel 和数据库导出文件整理指标，完成清洗、分组、趋势对比并生成图表。",
+            files: 8,
+            location: "C:\\Users\\yangxinran\\.codex\\skills\\data-analysis",
+            error: null,
+          },
+          {
+            name: "systematic-debugging",
+            source: "system",
+            description:
+              "系统化定位缺陷、测试失败与异常行为的根因，先取证、再提出并验证修复。",
+            files: 6,
+            location: "C:\\Users\\yangxinran\\.codex\\skills\\.system\\systematic-debugging",
+            error: null,
+          },
+          {
+            name: "internal-release-checklist-automation-skill",
+            source: "personal",
+            description:
+              "按项目、版本和发布窗口生成内部发布检查清单，核对构建产物、签名、安装包、变更记录与回滚材料，并把结果归档到团队知识库。",
+            files: 0,
+            location:
+              "C:\\Users\\yangxinran\\.codex\\skills\\internal-release-checklist-automation-skill",
+            error: null,
+          },
+          {
+            name: "broken-skill",
+            source: null,
+            description: null,
+            files: null,
+            location: "C:\\Users\\yangxinran\\.codex\\skills\\broken-skill\\SKILL.md",
+            error: "SKILL.md 的 frontmatter 无法解析：description 字段格式错误。",
+          },
+          {
+            name: "release-notes",
+            source: "personal",
+            description: null,
+            files: 128,
+            location: "C:\\Users\\yangxinran\\.codex\\skills\\release-notes",
+            error: null,
+          },
+        ],
+        hook: [
+          {
+            event: "PreToolUse",
+            matcher: "Bash",
+            handler: "command",
+            command:
+              'powershell -NoProfile -ExecutionPolicy Bypass -File "C:\\Users\\yangxinran\\.agents\\hooks\\guard-shell.ps1" -Mode Strict -Log "C:\\Users\\yangxinran\\.prelay\\logs\\hook-guard.log"',
+            source: "personal",
+            location: "C:\\Users\\yangxinran\\.codex\\hooks.json",
+            error: null,
+          },
+          {
+            event: "PreToolUse",
+            matcher: "^Bash$",
+            handler: "command",
+            command:
+              "pwsh -NoProfile -Command \"& 'C:\\Users\\yangxinran\\.agents\\hooks\\audit-command.ps1' -Project 'prelay'\"",
+            source: "personal",
+            location: "C:\\Users\\yangxinran\\.codex\\hooks.json",
+            error: null,
+          },
+          {
+            event: "PreToolUse",
+            matcher: null,
+            handler: "command",
+            command:
+              "powershell -NoProfile -File C:\\Users\\yangxinran\\.codex\\hooks\\record-tool-call.ps1",
+            source: "personal",
+            location: "C:\\Users\\yangxinran\\.codex\\hooks.json",
+            error: null,
+          },
+          {
+            event: "SessionStart",
+            matcher: "startup|resume|clear|compact|fork",
+            handler: "command",
+            command:
+              'powershell -NoProfile -File "C:\\Users\\yangxinran\\.agents\\hooks\\load-context.ps1" -IncludeProject -IncludeMemory',
+            source: "personal",
+            location: "C:\\Users\\yangxinran\\.codex\\hooks.json",
+            error: null,
+          },
+          {
+            event: "UserPromptSubmit",
+            matcher: null,
+            handler: "command",
+            command:
+              'powershell -NoProfile -File "C:\\Users\\yangxinran\\.agents\\hooks\\capture-prompt.ps1" -MaxLength 12000 -IncludeProjectName',
+            source: "personal",
+            location: "C:\\Users\\yangxinran\\.codex\\hooks.json",
+            error: null,
+          },
+          {
+            event: "SessionStart",
+            matcher: null,
+            handler: "command",
+            command:
+              "node C:\\Users\\yangxinran\\.agents\\hooks\\session-start.mjs --timeout 5000",
+            source: "personal",
+            location: "C:\\Users\\yangxinran\\.codex\\hooks.json",
+            error: null,
+          },
+          {
+            event: "Stop",
+            matcher: "*",
+            handler: "command",
+            command:
+              'powershell -NoProfile -Command "& \\"C:\\Users\\yangxinran\\.agents\\hooks\\notify-stop.ps1\\" -Channel desktop"',
+            source: "personal",
+            location: "C:\\Users\\yangxinran\\.codex\\hooks.json",
+            error: null,
+          },
+          {
+            event: null,
+            matcher: null,
+            handler: null,
+            command: null,
+            source: null,
+            location: "C:\\Users\\yangxinran\\.codex\\hooks.json",
+            error: "Hook 配置解析失败：第 24 行处理程序缺少 command 字段。",
+          },
+        ],
+      };
+
+      const state = {
+        type: "plugin",
+      };
+
+      const sourceLabel = { personal: "个人", team: "团队", system: "内置" };
+
+      function esc(value) {
+        return String(value)
+          .replaceAll("&", "&amp;")
+          .replaceAll("<", "&lt;")
+          .replaceAll(">", "&gt;")
+          .replaceAll('"', "&quot;");
+      }
+
+      function icon(name) {
+        return `<svg class="icon" aria-hidden="true"><use href="#i-${name}"></use></svg>`;
+      }
+
+      function sourceBadge(source) {
+        return `<span class="badge badge--${source}">${sourceLabel[source]}</span>`;
+      }
+
+      function errorMark(message) {
+        return message
+          ? `<span class="error-mark" title="${esc(message)}" aria-label="${esc(message)}">${icon("warning")}</span>`
+          : "";
+      }
+
+      function copyButton(value, label = "复制路径") {
+        return `<button class="icon-btn" type="button" data-copy="${esc(value)}" aria-label="${label}" title="${label}">${icon("copy")}</button>`;
+      }
+
+      function removeButton(label) {
+        return `<button class="icon-btn icon-btn--danger" type="button" data-remove="${esc(label)}" aria-label="${label}" title="${label}">${icon("trash")}</button>`;
+      }
+
+      function pathLine(path, label = "") {
+        return `<span class="path-line">${label ? `<span>${label}</span>` : ""}<code class="path-text" title="${esc(path)}">${esc(path)}</code>${copyButton(path)}</span>`;
+      }
+
+      function transportLabel(transport) {
+        return transport === "http" ? "HTTP · 远程" : "stdio · 本地进程";
+      }
+
+      function artifactSummary(plugin) {
+        return plugin.artifacts
+          .map((artifact) => `${artifact.label} ${artifact.items.length}`)
+          .join(" · ");
+      }
+
+      function groupedHooks() {
+        const groups = [];
+        for (const hook of data.hook) {
+          let group = groups.find((candidate) => candidate.event === hook.event);
+          if (!group) {
+            group = { event: hook.event, hooks: [] };
+            groups.push(group);
+          }
+          group.hooks.push(hook);
+        }
+        return groups;
+      }
+
+      function renderTypeTabs() {
+        document.querySelector("#type-tabs").innerHTML = Object.entries(types)
+          .map(
+            ([type, definition]) => `
+              <button class="type-tab ${state.type === type ? "is-active" : ""}" type="button" role="tab" aria-selected="${state.type === type}" data-type="${type}">
+                ${icon(type)}
+                ${definition.label}
+                <span class="count">${data[type].length}</span>
+              </button>
+            `,
+          )
+          .join("");
+      }
+
+      function itemMeta(source, facts) {
+        return `<span class="item-meta">${sourceBadge(source)}${facts
+          .map((fact) => `<span class="meta-separator">·</span><span class="meta-fact">${fact}</span>`)
+          .join("")}</span>`;
+      }
+
+      function itemRow({
+        type,
+        primary,
+        path,
+        error,
+        source,
+        facts,
+        detail = "",
+        removeLabel,
+      }) {
+        return `
+          <article class="item-row">
+            <div class="item-top">
+              <span class="type-icon type-icon--${type}">${icon(type)}</span>
+              <div class="item-summary">
+                <span class="item-identity">
+                  <span class="item-primary" title="${esc(primary)}">${esc(primary)}</span>
+                  ${errorMark(error)}
+                  <span class="item-path" title="${esc(path)}" role="img" aria-label="${esc(path)}">${icon("folder")}</span>
+                </span>
+                ${itemMeta(source, facts)}
+              </div>
+            </div>
+            <div class="item-actions">${removeButton(removeLabel)}</div>
+            ${detail ? `<div class="item-detail">${detail}</div>` : ""}
+          </article>
+        `;
+      }
+
+      function pluginDetail(plugin) {
+        return `<div class="artifact-lines">
+          ${plugin.artifacts
+            .map(
+              (artifact) => `<div class="artifact-line">
+                <span class="artifact-kind">${icon(artifact.kind)} ${artifact.label}</span>
+                <span class="chips">${artifact.items.map((item) => `<span class="chip">${esc(item)}</span>`).join("")}</span>
+              </div>`,
+            )
+            .join("")}
+        </div>`;
+      }
+
+      function renderPlugin() {
+        return `<div class="list-section-head"><strong>插件</strong><span>${data.plugin.length} 项</span></div>
+          <div class="item-list">
+            ${data.plugin
+              .map((plugin) =>
+                itemRow({
+                  type: "plugin",
+                  primary: plugin.name,
+                  path: plugin.location,
+                  error: plugin.error,
+                  source: plugin.source,
+                  facts: [
+                    `<span class="version-pill">${esc(plugin.version)}</span>`,
+                    artifactSummary(plugin),
+                  ],
+                  detail: pluginDetail(plugin),
+                  removeLabel: `卸载 ${plugin.name}`,
+                }),
+              )
+              .join("")}
+          </div>`;
+      }
+
+      function renderMcp() {
+        return `<div class="list-section-head"><strong>MCP</strong><span>${data.mcp.length} 项</span></div>
+          <div class="item-list">
+            ${data.mcp
+              .map((server) =>
+                itemRow({
+                  type: "mcp",
+                  primary: server.name,
+                  path: server.location,
+                  error: server.error,
+                  source: server.source,
+                  facts: [`<span class="badge badge--transport">${transportLabel(server.transport)}</span>`],
+                  detail: `<span class="item-detail-line item-detail-line--mono">${esc(server.target)}</span>`,
+                  removeLabel: `删除 ${server.name}`,
+                }),
+              )
+              .join("")}
+          </div>`;
+      }
+
+      function renderSkill() {
+        return `<div class="list-section-head"><strong>Skill</strong><span>${data.skill.length} 项</span></div>
+          <div class="item-list">
+            ${data.skill
+              .map((skill) =>
+                itemRow({
+                  type: "skill",
+                  primary: skill.name,
+                  path: skill.location,
+                  error: skill.error,
+                  source: skill.source,
+                  facts: [`<span>${skill.files} 个文件</span>`],
+                  detail: `<span class="item-detail-line item-detail-line--ellipsis" title="${esc(skill.description)}">${esc(skill.description)}</span>`,
+                  removeLabel: `删除 ${skill.name}`,
+                }),
+              )
+              .join("")}
+          </div>`;
+      }
+
+      function renderHook() {
+        return `<div class="list-section-head"><strong>Hook</strong><span>${data.hook.length} 个处理程序</span></div>
+          ${groupedHooks()
+            .map(
+              (group) => `
+                <section class="hook-group">
+                  <header class="hook-group__head">
+                    <span class="hook-event"><code>${esc(group.event)}</code></span>
+                    <span class="event-count">${group.hooks.length} 个处理程序</span>
+                  </header>
+                  ${group.hooks
+                    .map((hook) =>
+                      itemRow({
+                        type: "hook",
+                        primary: hook.matcher ?? "未限定",
+                        path: hook.location,
+                        error: hook.error,
+                        source: hook.source,
+                        facts: [`<span class="badge badge--handler">${esc(hook.handler)}</span>`],
+                        detail: `<span class="item-detail-line item-detail-line--mono">${esc(hook.command)}</span>`,
+                        removeLabel: `移除 ${group.event} 处理程序`,
+                      }),
+                    )
+                    .join("")}
+                </section>
+              `,
+            )
+            .join("")}`;
+      }
+
+      function render() {
+        renderTypeTabs();
+        const content = document.querySelector("#content");
+        content.innerHTML =
+          state.type === "plugin"
+            ? renderPlugin()
+            : state.type === "mcp"
+              ? renderMcp()
+              : state.type === "skill"
+                ? renderSkill()
+                : renderHook();
+      }
+
+      function showToast(message) {
+        const toast = document.querySelector("#toast");
+        toast.textContent = message;
+        toast.classList.add("is-visible");
+        clearTimeout(showToast.timer);
+        showToast.timer = setTimeout(() => toast.classList.remove("is-visible"), 1800);
+      }
+
+      document.addEventListener("click", async (event) => {
+        const type = event.target.closest("[data-type]");
+        if (type) {
+          state.type = type.dataset.type;
+          render();
+          return;
+        }
+
+        const copy = event.target.closest("[data-copy]");
+        if (copy) {
+          try {
+            await navigator.clipboard.writeText(copy.dataset.copy);
+            showToast("路径已复制");
+          } catch {
+            showToast("原型环境无法访问剪贴板");
+          }
+          return;
+        }
+
+        const remove = event.target.closest("[data-remove]");
+        if (remove) {
+          showToast(`原型演示：${remove.dataset.remove}（不会执行真实删除）`);
+        }
+      });
+
+      render();
+    </script>
+  </body>
+</html>
