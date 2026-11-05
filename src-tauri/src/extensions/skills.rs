@@ -1,26 +1,23 @@
 use std::{
     collections::{BTreeMap, BTreeSet},
     fs,
-    path::{Path, PathBuf},
+    path::Path,
 };
 
 use prelay_protocol::ExtensionFile;
 
-use crate::{agents::AgentClient, relay::client::ClientError};
+use crate::relay::client::ClientError;
 
 use super::{
     atomic_write, decode_extension_file,
-    skill_state::{
-        read_installed_skill_packages, write_installed_skill_packages, InstalledSkillPackage,
-        InstalledSkillPackages,
-    },
-    storage_error, ExtensionInstallAction, SKILLS_PREFIX,
+    host_state::{normalize_path, ArtifactHealth, HostState, PluginArtifact},
+    storage_error, SKILLS_PREFIX,
 };
 
-#[derive(Debug, Clone)]
+#[derive(Clone, Debug)]
 pub(crate) struct ManagedSkillRoot {
     pub package: String,
-    pub version: Option<String>,
+    pub version: String,
 }
 
 struct SkillInstallContents<'a> {
@@ -29,14 +26,25 @@ struct SkillInstallContents<'a> {
     removed_roots: BTreeSet<String>,
 }
 
+pub(crate) fn preflight_skill_files(
+    target_root: &Path,
+    package: &str,
+    files: &[ExtensionFile],
+    overwrite: bool,
+    state: &HostState,
+) -> Result<Vec<String>, ClientError> {
+    let contents = skill_install_contents(files)?;
+    ensure_available(target_root, package, &contents.roots, overwrite, state)?;
+    Ok(contents.roots.into_iter().collect())
+}
+
 pub(super) fn install_skill_files(
     target_root: &Path,
     package: &str,
-    version: &str,
-    commit_sha: &str,
     files: &[ExtensionFile],
     overwrite: bool,
-) -> Result<(), ClientError> {
+    state: &HostState,
+) -> Result<Vec<String>, ClientError> {
     if package.is_empty() {
         return Err(ClientError::new(
             "invalid_response",
@@ -44,68 +52,141 @@ pub(super) fn install_skill_files(
         ));
     }
     let contents = skill_install_contents(files)?;
-    if !contents.roots.is_disjoint(&contents.removed_roots) {
-        return Err(ClientError::new(
-            "invalid_response",
-            "skill install bundle cannot replace and delete the same skill",
-        ));
-    }
-    let mut installed = read_installed_skill_packages(target_root)?;
-
-    if !overwrite {
-        ensure_skill_roots_available(target_root, package, &contents.roots, &installed)?;
-    }
-    if overwrite {
-        installed.release_roots_from_other_packages(package, &contents.roots);
-    }
-
+    ensure_available(target_root, package, &contents.roots, overwrite, state)?;
     for root in &contents.roots {
         let path = target_root.join(root);
         if path.exists() {
             fs::remove_dir_all(&path).map_err(storage_error)?;
         }
     }
-
-    for (source, content) in contents.files {
+    for (source, content) in &contents.files {
         let relative = source
             .path
             .strip_prefix(SKILLS_PREFIX)
             .expect("validated skill path");
-        atomic_write(&target_root.join(relative), &content)?;
+        atomic_write(&target_root.join(relative), content)?;
     }
-    for root in contents.removed_roots {
+    for root in &contents.removed_roots {
         let path = target_root.join(root);
         if path.exists() {
             fs::remove_dir_all(&path).map_err(storage_error)?;
         }
     }
-    installed.packages.insert(
-        package.to_string(),
-        InstalledSkillPackage {
-            version: Some(version.to_string()),
-            commit_sha: Some(commit_sha.to_string()),
-            skills: contents.roots,
-        },
-    );
-    write_installed_skill_packages(target_root, &installed)
+    Ok(contents.roots.into_iter().collect())
 }
 
-pub(crate) fn preflight_skill_files(
+pub(crate) fn remove_skill_roots(target_root: &Path, names: &[String]) -> Result<(), ClientError> {
+    for name in names {
+        let Some(root) = safe_skill_root(name) else {
+            return Err(ClientError::new(
+                "local_extensions_error",
+                "已安装 Skill 状态包含无效目录。",
+            ));
+        };
+        let path = target_root.join(root);
+        if path.exists() {
+            fs::remove_dir_all(&path).map_err(storage_error)?;
+        }
+    }
+    Ok(())
+}
+
+pub(crate) fn health(target_root: &Path, names: &[String]) -> ArtifactHealth {
+    if names.is_empty() {
+        return ArtifactHealth::Missing;
+    }
+    if names
+        .iter()
+        .all(|name| safe_skill_root(name).is_some_and(|root| target_root.join(root).is_dir()))
+    {
+        ArtifactHealth::Managed
+    } else {
+        ArtifactHealth::Missing
+    }
+}
+
+pub(crate) fn managed_skill_roots(
+    state: &HostState,
+    target_root: &Path,
+) -> BTreeMap<String, ManagedSkillRoot> {
+    let target = normalize_path(target_root);
+    let mut roots = BTreeMap::new();
+    for plugin in state.active_plugins() {
+        for artifact in &plugin.artifacts {
+            let PluginArtifact::Skill {
+                target: artifact_target,
+                names,
+            } = artifact
+            else {
+                continue;
+            };
+            if artifact_target != &target {
+                continue;
+            }
+            for name in names {
+                roots.insert(
+                    name.clone(),
+                    ManagedSkillRoot {
+                        package: plugin.name.clone(),
+                        version: plugin.version.clone(),
+                    },
+                );
+            }
+        }
+    }
+    roots
+}
+
+fn ensure_available(
     target_root: &Path,
     package: &str,
-    files: &[ExtensionFile],
+    roots: &BTreeSet<String>,
     overwrite: bool,
+    state: &HostState,
 ) -> Result<(), ClientError> {
-    let contents = skill_install_contents(files)?;
-    if !contents.roots.is_disjoint(&contents.removed_roots) {
-        return Err(ClientError::new(
-            "invalid_response",
-            "skill install bundle cannot replace and delete the same skill",
-        ));
+    let target = normalize_path(target_root);
+    for plugin in state.active_plugins() {
+        if plugin.name == package {
+            continue;
+        }
+        for artifact in &plugin.artifacts {
+            if let PluginArtifact::Skill {
+                target: artifact_target,
+                names,
+            } = artifact
+            {
+                if artifact_target == &target && names.iter().any(|name| roots.contains(name)) {
+                    return Err(ClientError::new(
+                        "extension_target_exists",
+                        "技能目录已由另一个扩展包管理。",
+                    ));
+                }
+            }
+        }
     }
-    if !overwrite {
-        let installed = read_installed_skill_packages(target_root)?;
-        ensure_skill_roots_available(target_root, package, &contents.roots, &installed)?;
+    if overwrite {
+        return Ok(());
+    }
+    let owned = state
+        .plugin(package)
+        .into_iter()
+        .flat_map(|plugin| plugin.artifacts.iter())
+        .filter_map(|artifact| match artifact {
+            PluginArtifact::Skill {
+                target: artifact_target,
+                names,
+            } if artifact_target == &target => Some(names.iter().cloned()),
+            _ => None,
+        })
+        .flatten()
+        .collect::<BTreeSet<_>>();
+    for root in roots {
+        if target_root.join(root).exists() && !owned.contains(root) {
+            return Err(ClientError::new(
+                "extension_target_exists",
+                "技能目录已存在，确认后可覆盖安装。",
+            ));
+        }
     }
     Ok(())
 }
@@ -148,183 +229,6 @@ fn skill_install_contents(
     Ok(contents)
 }
 
-pub(crate) fn retain_listed_skill_packages(
-    target_roots: &[PathBuf],
-    listed_packages: &BTreeSet<String>,
-) -> Result<(), ClientError> {
-    for target_root in target_roots {
-        let mut installed = read_installed_skill_packages(target_root)?;
-        let initial_len = installed.packages.len();
-        installed
-            .packages
-            .retain(|package, _| listed_packages.contains(package));
-        if installed.packages.len() != initial_len {
-            write_installed_skill_packages(target_root, &installed)?;
-        }
-    }
-    Ok(())
-}
-
-pub(crate) struct SkillInstallationStatus {
-    pub action: ExtensionInstallAction,
-    pub clients: Vec<AgentClient>,
-}
-
-pub(crate) fn skill_installation_status(
-    targets: &[(AgentClient, PathBuf)],
-    package: &str,
-    version: &str,
-    commit_sha: &str,
-) -> Result<SkillInstallationStatus, ClientError> {
-    let mut states = BTreeMap::new();
-    for (_, root) in targets {
-        if !states.contains_key(root) {
-            states.insert(root.clone(), read_installed_skill_packages(root)?);
-        }
-    }
-    let mut clients = Vec::new();
-    let mut missing = false;
-    let mut incomplete = false;
-    let mut outdated = false;
-    let mut abandoned_roots = BTreeSet::new();
-    for (client, root) in targets {
-        let packages = states.get(root).expect("skill state was loaded");
-        let Some(current) = packages.packages.get(package) else {
-            missing = true;
-            continue;
-        };
-        let present = current
-            .skills
-            .iter()
-            .filter(|skill| skill_root_exists(root, skill))
-            .count();
-        if present == 0 {
-            missing = true;
-            abandoned_roots.insert(root.clone());
-            continue;
-        }
-        clients.push(*client);
-        if present < current.skills.len() {
-            incomplete = true;
-        }
-        if current.version.as_deref() != Some(version)
-            || current.commit_sha.as_deref() != Some(commit_sha)
-        {
-            outdated = true;
-        }
-    }
-    for root in abandoned_roots {
-        let Some(packages) = states.get_mut(&root) else {
-            continue;
-        };
-        if packages.packages.remove(package).is_some() {
-            write_installed_skill_packages(&root, packages)?;
-        }
-    }
-    let action = if outdated {
-        ExtensionInstallAction::Update
-    } else if incomplete || (!clients.is_empty() && missing) {
-        ExtensionInstallAction::Partial
-    } else if clients.is_empty() {
-        ExtensionInstallAction::Install
-    } else {
-        ExtensionInstallAction::Installed
-    };
-    Ok(SkillInstallationStatus { action, clients })
-}
-
-pub(crate) fn uninstall_skill_package(
-    target_root: &Path,
-    package: &str,
-) -> Result<(), ClientError> {
-    let mut installed = read_installed_skill_packages(target_root)?;
-    let Some(entry) = installed.packages.remove(package) else {
-        return Err(ClientError::new(
-            "local_extensions_error",
-            format!("本机没有扩展包 {package} 的 Skill 安装记录。"),
-        ));
-    };
-    for skill in entry.skills {
-        let root = safe_skill_root(&skill).ok_or_else(|| {
-            ClientError::new("local_extensions_error", "已安装 Skill 状态包含无效目录。")
-        })?;
-        let path = target_root.join(root);
-        if path.exists() {
-            fs::remove_dir_all(&path).map_err(storage_error)?;
-        }
-    }
-    write_installed_skill_packages(target_root, &installed)
-}
-
-pub(crate) fn uninstall_skill_package_if_present(
-    target_root: &Path,
-    package: &str,
-) -> Result<(), ClientError> {
-    let installed = read_installed_skill_packages(target_root)?;
-    if installed.packages.contains_key(package) {
-        uninstall_skill_package(target_root, package)?;
-    }
-    Ok(())
-}
-
-pub(crate) fn managed_skill_roots(target_root: &Path) -> BTreeMap<String, ManagedSkillRoot> {
-    let Ok(installed) = read_installed_skill_packages(target_root) else {
-        return BTreeMap::new();
-    };
-    let mut roots = BTreeMap::new();
-    for (package, entry) in installed.packages {
-        for skill in entry.skills {
-            roots.insert(
-                skill,
-                ManagedSkillRoot {
-                    package: package.clone(),
-                    version: entry.version.clone(),
-                },
-            );
-        }
-    }
-    roots
-}
-
-fn skill_root_exists(target_root: &Path, root: &str) -> bool {
-    safe_skill_root(root).is_some_and(|root| target_root.join(root).is_dir())
-}
-
 fn safe_skill_root(root: &str) -> Option<&str> {
     (!root.is_empty() && !matches!(root, "." | "..") && !root.contains(['/', '\\'])).then_some(root)
 }
-
-fn ensure_skill_roots_available(
-    target_root: &Path,
-    package: &str,
-    roots: &BTreeSet<String>,
-    installed: &InstalledSkillPackages,
-) -> Result<(), ClientError> {
-    for (name, entry) in &installed.packages {
-        if name != package && !entry.skills.is_disjoint(roots) {
-            return Err(ClientError::new(
-                "extension_target_exists",
-                "技能目录已由另一个扩展包管理。",
-            ));
-        }
-    }
-
-    for root in roots {
-        if target_root.join(root).exists()
-            && installed
-                .packages
-                .get(package)
-                .is_none_or(|installed| !installed.skills.contains(root))
-        {
-            return Err(ClientError::new(
-                "extension_target_exists",
-                "技能目录已存在，确认后可覆盖安装。",
-            ));
-        }
-    }
-    Ok(())
-}
-
-#[cfg(test)]
-#[path = "skills_tests.rs"]
-mod tests;

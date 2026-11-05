@@ -1,13 +1,12 @@
 pub(crate) mod catalog;
 pub(crate) mod checks;
 pub(crate) mod hooks;
+pub(crate) mod host_state;
 pub(crate) mod install;
 pub(crate) mod mcp;
 pub(crate) mod mcp_manifest;
 pub(crate) mod model;
-pub(crate) mod record;
 pub(crate) mod rules;
-pub(crate) mod skill_state;
 pub(crate) mod skills;
 pub(crate) mod support;
 pub(crate) mod uninstall;
@@ -24,5 +23,4 @@ pub(crate) use model::SKILLS_PREFIX;
 pub(crate) use support::{atomic_write, decode_extension_file, storage_error};
 
 #[cfg(test)]
-#[path = "mod_tests.rs"]
-mod tests;
+mod install_state_tests;

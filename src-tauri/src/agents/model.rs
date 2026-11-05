@@ -8,12 +8,6 @@ pub enum AgentClient {
     ChatGpt,
 }
 
-impl AgentClient {
-    pub(crate) fn is_codex_host(self) -> bool {
-        matches!(self, Self::CodexCli | Self::ChatGpt)
-    }
-}
-
 #[derive(Debug, Clone, Copy, Deserialize, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub enum AgentItemKind {
@@ -38,10 +32,25 @@ pub struct AgentItem {
     pub name: String,
     pub version: Option<String>,
     pub package: Option<String>,
+    pub hook_hash: Option<String>,
+    pub matcher: Option<String>,
+    pub command: Option<String>,
+    pub transport: Option<String>,
+    pub target: Option<String>,
+    pub description: Option<String>,
+    pub file_count: Option<u32>,
     pub members: Vec<String>,
+    pub artifacts: Vec<AgentArtifactGroup>,
     pub source: AgentItemSource,
     pub source_path: String,
     pub error_message: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AgentArtifactGroup {
+    pub kind: AgentItemKind,
+    pub items: Vec<String>,
 }
 
 #[derive(Debug, Clone, Serialize)]

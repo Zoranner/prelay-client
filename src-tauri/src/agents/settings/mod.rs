@@ -6,7 +6,13 @@ mod codex_catalog;
 use serde::{Deserialize, Serialize};
 
 use super::AgentClient;
-use crate::{agents::agent_rule_targets, extensions::rules};
+use crate::{
+    agents::agent_rule_targets,
+    extensions::{
+        host_state::{self, ExtensionHost, HostState},
+        rules,
+    },
+};
 
 mod codex;
 mod document;
@@ -161,6 +167,9 @@ pub fn save_user_settings(
     connection: Option<&AgentConnection>,
 ) -> Result<bool, String> {
     let client = settings.client();
+    let host = ExtensionHost::from_client(client);
+    let _lock = host_state::lock(home, host).map_err(|error| error.message)?;
+    host_state::ensure_migrated_locked(home).map_err(|error| error.message)?;
     let targets = agent_rule_targets(&[client], home);
     let rules = settings_rules(settings);
     let rules_changed = targets
@@ -183,11 +192,23 @@ pub fn save_user_settings(
     };
     let changed = changed?;
     if rules_changed {
-        for target in targets {
-            rules::clear_rule_package_state(&target)?;
-        }
+        clear_rule_states(home, client, &targets)?;
     }
     Ok(changed || rules_changed)
+}
+
+fn clear_rule_states(
+    home: &Path,
+    client: AgentClient,
+    targets: &[std::path::PathBuf],
+) -> Result<(), String> {
+    let host = ExtensionHost::from_client(client);
+    let mut state = HostState::load_locked(home, host).map_err(|error| error.message)?;
+    state.ensure_writable().map_err(|error| error.message)?;
+    for target in targets {
+        rules::forget(&mut state.rules, target);
+    }
+    host_state::write_rules(home, host, &state.rules).map_err(|error| error.message)
 }
 
 impl AgentSettings {

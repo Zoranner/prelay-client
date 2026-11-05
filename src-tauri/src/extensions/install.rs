@@ -1,11 +1,16 @@
 use std::{collections::BTreeMap, path::Path};
 
-use prelay_protocol::{ExtensionFile, ExtensionInstallBundle, ExtensionKind, HOOKS_MANIFEST_PATH};
+use prelay_protocol::{ExtensionInstallBundle, ExtensionKind};
 
 use super::{
-    hooks, mcp, mcp_manifest,
-    model::{ExtensionInstallRequest, ExtensionInstallResult, ExtensionPackage, McpInstallPreview},
-    record::{client_key, upsert_extension_record, InstalledTargetRecord},
+    host_state::{
+        self, normalize_path, ExtensionHost, HostState, PluginArtifact, PluginRecord, PluginState,
+    },
+    mcp, mcp_manifest,
+    model::{
+        ExtensionInstallRequest, ExtensionInstallResult, ExtensionPackage, HookReviewItem,
+        McpInstallPreview,
+    },
     rules, skills,
 };
 
@@ -16,7 +21,9 @@ use crate::{
     NativeState,
 };
 
-const RULES_PATH: &str = "AGENTS.md";
+mod apply;
+mod validate;
+pub(crate) use validate::{validate_bundle, validate_package_bundle};
 
 pub async fn install_extension(
     home: &Path,
@@ -92,18 +99,114 @@ pub(crate) fn install_prepared_bundle(
     bundle: &ExtensionInstallBundle,
     clients: &[AgentClient],
     overwrite: bool,
-) -> Result<Vec<super::model::HookReviewItem>, ClientError> {
+) -> Result<Vec<HookReviewItem>, ClientError> {
     validate_bundle(bundle)?;
+    let host = ExtensionHost::from_clients(clients)
+        .ok_or_else(|| ClientError::new("invalid_request", "未选择可安装的客户端。"))?;
+    let _lock = host_state::lock(home, host)?;
+    host_state::ensure_migrated_locked(home)?;
+    let state = HostState::load_locked(home, host)?;
+    state.ensure_writable()?;
+    if bundle
+        .artifacts
+        .iter()
+        .any(|artifact| artifact.kind == ExtensionKind::Rule)
+    {
+        install_rule_bundle(home, host, clients, bundle, overwrite)?;
+        return Ok(Vec::new());
+    }
+    install_plugin_bundle(home, host, clients, bundle, overwrite, &state)
+}
+
+fn install_rule_bundle(
+    home: &Path,
+    host: ExtensionHost,
+    clients: &[AgentClient],
+    bundle: &ExtensionInstallBundle,
+    overwrite: bool,
+) -> Result<(), ClientError> {
+    let artifact = &bundle.artifacts[0];
+    let file = artifact
+        .files
+        .first()
+        .ok_or_else(|| ClientError::new("invalid_response", "规则制品为空。"))?;
+    let mut rules_state = HostState::load_locked(home, host)?.rules;
+    let mut plans = Vec::new();
+    for target in agent_rule_targets(clients, home) {
+        let key = normalize_path(&target);
+        let previous = rules_state.targets.get(&key).cloned();
+        if let Some(entry) = &previous {
+            if entry.package != bundle.name {
+                return Err(ClientError::new(
+                    "extension_target_exists",
+                    "规则目标已由另一个扩展包管理。",
+                ));
+            }
+        } else if target.exists() && !overwrite {
+            return Err(ClientError::new(
+                "extension_target_exists",
+                "规则目标已存在，确认后可覆盖安装。",
+            ));
+        }
+        let (content, planned) = rules::plan_rule(
+            &bundle.name,
+            &bundle.version.tag,
+            &bundle.version.commit_sha,
+            file,
+        )?;
+        plans.push((target, key, previous, content, planned));
+    }
+    for (target, key, previous, content, planned) in plans {
+        rules::remember(&mut rules_state, &target, planned);
+        host_state::write_rules(home, host, &rules_state)?;
+        if let Err(error) = rules::write_rule(&target, &content) {
+            if let Some(previous) = previous {
+                rules::remember(&mut rules_state, &target, previous);
+            } else {
+                rules::forget(&mut rules_state, &target);
+            }
+            host_state::write_rules(home, host, &rules_state)?;
+            return Err(error);
+        }
+        if let Some(entry) = rules_state.targets.get_mut(&key) {
+            entry.state = PluginState::Installed;
+        }
+        host_state::write_rules(home, host, &rules_state)?;
+    }
+    Ok(())
+}
+
+fn install_plugin_bundle(
+    home: &Path,
+    host: ExtensionHost,
+    clients: &[AgentClient],
+    bundle: &ExtensionInstallBundle,
+    overwrite: bool,
+    state: &HostState,
+) -> Result<Vec<HookReviewItem>, ClientError> {
+    let skill_targets = agent_skill_target_roots(clients, home);
+    let mcp_target = normalize_path(&home.join(".codex").join("config.toml"));
+    let hook_target = normalize_path(&home.join(".codex").join("hooks.json"));
+    let mut planned = Vec::new();
+    let mut manifests = BTreeMap::new();
+    let mut planned_hook_handlers = Vec::new();
+    let mut planned_hook_artifacts = Vec::new();
+    let previous = state.plugin(&bundle.name).cloned();
     for artifact in &bundle.artifacts {
         match artifact.kind {
             ExtensionKind::Skill => {
-                for target_root in agent_skill_target_roots(clients, home) {
-                    skills::preflight_skill_files(
-                        &target_root,
+                for target in &skill_targets {
+                    let names = skills::preflight_skill_files(
+                        target,
                         &bundle.name,
                         &artifact.files,
                         overwrite,
+                        state,
                     )?;
+                    planned.push(PluginArtifact::Skill {
+                        target: normalize_path(target),
+                        names,
+                    });
                 }
             }
             ExtensionKind::Mcp => {
@@ -113,218 +216,124 @@ pub(crate) fn install_prepared_bundle(
                         .first()
                         .ok_or_else(|| ClientError::new("invalid_response", "MCP 制品为空。"))?,
                 )?;
-                mcp::preflight_mcp_install(home, clients, &bundle.name, &manifest, overwrite)?;
+                let install =
+                    mcp::preflight_mcp_install(home, &bundle.name, &manifest, overwrite, state)?;
+                planned.push(PluginArtifact::Mcp {
+                    target: mcp_target.clone(),
+                    server_name: install.server_name.clone(),
+                    manifest_hash: install.manifest_hash.clone(),
+                });
+                manifests.insert(bundle.name.clone(), manifest);
             }
             ExtensionKind::Hook => {
-                hooks::preflight_hooks(
+                let handlers = super::hooks::plan_hooks(
                     home,
-                    clients,
                     &bundle.name,
                     &bundle.version.commit_sha,
                     &artifact.files,
                 )?;
+                planned_hook_handlers = handlers;
+                planned_hook_artifacts = planned_hook_handlers
+                    .iter()
+                    .map(|handler| PluginArtifact::Hook {
+                        target: hook_target.clone(),
+                        event: handler.event.clone(),
+                        matcher: handler.matcher.clone(),
+                        handler_hash: handler.hash.clone(),
+                    })
+                    .collect();
             }
             ExtensionKind::Rule | ExtensionKind::Unknown => {}
         }
     }
-    let mut review = Vec::new();
-    let mut targets = clients
-        .iter()
-        .map(|client| {
-            (
-                client_key(*client).to_string(),
-                InstalledTargetRecord::default(),
-            )
-        })
-        .collect::<BTreeMap<_, _>>();
-    for artifact in &bundle.artifacts {
-        match artifact.kind {
-            ExtensionKind::Rule => {
-                let rules_file = artifact
-                    .files
-                    .first()
-                    .ok_or_else(|| ClientError::new("invalid_response", "规则制品为空。"))?;
-                for target in agent_rule_targets(clients, home) {
-                    rules::install_rule(
-                        &target,
-                        &bundle.name,
-                        &bundle.version.tag,
-                        &bundle.version.commit_sha,
-                        rules_file,
-                    )?;
-                }
-                for target in targets.values_mut() {
-                    target.rule = true;
-                }
-            }
-            ExtensionKind::Skill => {
-                for target_root in agent_skill_target_roots(clients, home) {
-                    skills::install_skill_files(
-                        &target_root,
-                        &bundle.name,
-                        &bundle.version.tag,
-                        &bundle.version.commit_sha,
-                        &artifact.files,
-                        overwrite,
-                    )?;
-                }
-                let roots = skill_roots(&artifact.files);
-                for target in targets.values_mut() {
-                    target.skills = roots.clone();
-                }
-            }
-            ExtensionKind::Mcp => {
-                let manifest = mcp_manifest::read_mcp_manifest(
-                    artifact
-                        .files
-                        .first()
-                        .ok_or_else(|| ClientError::new("invalid_response", "MCP 制品为空。"))?,
-                )?;
-                mcp::install_mcp(
-                    home,
-                    clients,
-                    &bundle.name,
-                    &bundle.version.tag,
-                    &bundle.version.commit_sha,
-                    &manifest,
-                    overwrite,
-                )?;
-                for target in targets.values_mut() {
-                    target.mcps = vec![manifest.name.clone()];
-                }
-            }
-            ExtensionKind::Hook => {
-                let hook_review = hooks::install_hooks(
-                    home,
-                    clients,
-                    &bundle.name,
-                    &bundle.version.tag,
-                    &bundle.version.commit_sha,
-                    &artifact.files,
-                    overwrite,
-                )?;
-                for client in clients
-                    .iter()
-                    .copied()
-                    .filter(|client| client.is_codex_host())
-                {
-                    if let Some(target) = targets.get_mut(client_key(client)) {
-                        target.hooks = hook_labels(&hook_review);
-                    }
-                }
-                review.extend(hook_review);
-            }
-            ExtensionKind::Unknown => {
-                return Err(ClientError::new(
-                    "extension_install_unsupported",
-                    "当前客户端不支持该扩展制品，请升级 Prelay。",
-                ));
-            }
-        }
+    planned.extend(planned_hook_artifacts);
+    if !planned_hook_handlers.is_empty() {
+        super::hooks::preflight_hook_install(
+            home,
+            &bundle.name,
+            &planned_hook_handlers,
+            overwrite,
+            state,
+        )?;
     }
-    upsert_extension_record(
-        home,
-        &bundle.name,
-        &bundle.version.tag,
-        &bundle.version.commit_sha,
-        targets,
-    )?;
+    if let Some(previous) = &previous {
+        preflight_obsolete(home, previous, &planned)?;
+    }
+    let installing = PluginRecord {
+        schema_version: host_state::PLUGIN_SCHEMA_VERSION,
+        name: bundle.name.clone(),
+        version: bundle.version.tag.clone(),
+        commit_sha: bundle.version.commit_sha.clone(),
+        state: PluginState::Installing,
+        artifacts: planned.clone(),
+    };
+    host_state::write_plugin(home, host, &installing)?;
+
+    let existing = previous.is_some();
+    let applied = apply::apply_artifacts(home, bundle, clients, overwrite, state, &manifests);
+    let (artifacts, review) = match applied {
+        Ok(applied) => applied,
+        Err(error) => {
+            if overwrite || existing {
+                return Err(error);
+            }
+            apply::rollback(home, &planned);
+            let _ = host_state::remove_plugin(home, host, &bundle.name);
+            return Err(error);
+        }
+    };
+    if let Some(previous) = &previous {
+        remove_obsolete(home, previous, &artifacts)?;
+    }
+    let removes_hook = previous.as_ref().is_some_and(|plugin| {
+        plugin
+            .artifacts
+            .iter()
+            .any(|artifact| matches!(artifact, PluginArtifact::Hook { .. }))
+    }) && !artifacts
+        .iter()
+        .any(|artifact| matches!(artifact, PluginArtifact::Hook { .. }));
+    let record = PluginRecord {
+        schema_version: host_state::PLUGIN_SCHEMA_VERSION,
+        name: bundle.name.clone(),
+        version: bundle.version.tag.clone(),
+        commit_sha: bundle.version.commit_sha.clone(),
+        state: PluginState::Installed,
+        artifacts,
+    };
+    host_state::write_plugin(home, host, &record)?;
+    if removes_hook {
+        let _ =
+            super::uninstall::cleanup_package_root(home, &bundle.name, &bundle.version.commit_sha);
+    }
+    if let Some(previous) = previous.filter(|plugin| plugin.commit_sha != bundle.version.commit_sha)
+    {
+        let _ = super::uninstall::cleanup_package_root(home, &previous.name, &previous.commit_sha);
+    }
     Ok(review)
 }
 
-pub(crate) fn validate_package_bundle(
-    package: &ExtensionPackage,
-    bundle: &ExtensionInstallBundle,
+fn preflight_obsolete(
+    home: &Path,
+    previous: &PluginRecord,
+    planned: &[PluginArtifact],
 ) -> Result<(), ClientError> {
-    validate_bundle(bundle)?;
-    if bundle.name != package.name
-        || bundle.version.tag != package.version
-        || bundle.version.commit_sha != package.commit_sha
-    {
-        return Err(ClientError::new(
-            "invalid_response",
-            "扩展安装包与已选择的固定版本不一致。",
-        ));
-    }
-    if !package.artifacts.is_empty() {
-        let expected = package
-            .artifacts
-            .iter()
-            .map(|artifact| artifact.kind)
-            .collect::<Vec<_>>();
-        let actual = bundle
-            .artifacts
-            .iter()
-            .map(|artifact| artifact.kind)
-            .collect::<Vec<_>>();
-        if expected.len() != actual.len() || expected.iter().any(|kind| !actual.contains(kind)) {
-            return Err(ClientError::new(
-                "invalid_response",
-                "扩展安装包与目录声明的制品不一致。",
-            ));
+    for artifact in &previous.artifacts {
+        if artifact_is_kept(artifact, planned) {
+            continue;
         }
-    }
-    Ok(())
-}
-
-fn validate_bundle(bundle: &ExtensionInstallBundle) -> Result<(), ClientError> {
-    if bundle.artifacts.is_empty() {
-        return Err(ClientError::new(
-            "invalid_response",
-            "extension install bundle is empty",
-        ));
-    }
-    let mut kinds = Vec::new();
-    for artifact in &bundle.artifacts {
-        if kinds.contains(&artifact.kind) {
-            return Err(ClientError::new(
-                "invalid_response",
-                "extension install bundle contains duplicate artifacts",
-            ));
-        }
-        kinds.push(artifact.kind);
-        if artifact.files.is_empty() {
-            return Err(ClientError::new(
-                "invalid_response",
-                "extension install bundle contains an empty artifact",
-            ));
-        }
-        match artifact.kind {
-            ExtensionKind::Rule
-                if bundle.artifacts.len() == 1
-                    && artifact.files.len() == 1
-                    && artifact.files[0].path == RULES_PATH => {}
-            ExtensionKind::Skill
-                if artifact
-                    .files
-                    .iter()
-                    .all(|file| safe_skill_path(&file.path))
-                    && artifact
-                        .files
-                        .iter()
-                        .any(|file| file.path.ends_with("/SKILL.md")) => {}
-            ExtensionKind::Mcp
-                if artifact.files.len() == 1
-                    && mcp_manifest::read_mcp_manifest(&artifact.files[0]).is_ok() => {}
-            ExtensionKind::Hook
-                if artifact.files.iter().all(|file| safe_hook_path(&file.path))
-                    && artifact
-                        .files
-                        .iter()
-                        .filter(|file| file.path == HOOKS_MANIFEST_PATH)
-                        .count()
-                        == 1
-                    && hooks::validate_hook_files(&artifact.files).is_ok() => {}
-            ExtensionKind::Unknown => {
+        if let PluginArtifact::Mcp {
+            server_name,
+            manifest_hash,
+            ..
+        } = artifact
+        {
+            if mcp::health(home, server_name, manifest_hash)?
+                == super::host_state::ArtifactHealth::Modified
+            {
                 return Err(ClientError::new(
-                    "extension_install_unsupported",
-                    "当前客户端不支持该扩展制品，请升级 Prelay。",
-                ));
-            }
-            _ => {
-                return Err(ClientError::new(
-                    "invalid_response",
-                    "extension install bundle is invalid",
+                    "local_extensions_conflict",
+                    format!("MCP 服务 {server_name} 已被修改，未更新扩展包。"),
                 ));
             }
         }
@@ -332,49 +341,94 @@ fn validate_bundle(bundle: &ExtensionInstallBundle) -> Result<(), ClientError> {
     Ok(())
 }
 
-fn safe_skill_path(path: &str) -> bool {
-    path.starts_with(super::model::SKILLS_PREFIX)
-        && !path.contains('\\')
-        && path
-            .split('/')
-            .all(|part| !part.is_empty() && !matches!(part, "." | ".."))
+fn remove_obsolete(
+    home: &Path,
+    previous: &PluginRecord,
+    planned: &[PluginArtifact],
+) -> Result<(), ClientError> {
+    for artifact in &previous.artifacts {
+        if let PluginArtifact::Skill { target, names } = artifact {
+            let removed = names
+                .iter()
+                .filter(|name| {
+                    !planned.iter().any(|artifact| {
+                        matches!(
+                            artifact,
+                            PluginArtifact::Skill {
+                                target: planned_target,
+                                names: planned_names,
+                            } if planned_target == target && planned_names.contains(name)
+                        )
+                    })
+                })
+                .cloned()
+                .collect::<Vec<_>>();
+            if !removed.is_empty() {
+                skills::remove_skill_roots(Path::new(target), &removed)?;
+            }
+            continue;
+        }
+        if artifact_is_kept(artifact, planned) {
+            continue;
+        }
+        match artifact {
+            PluginArtifact::Mcp { server_name, .. } => {
+                mcp::remove_mcp(home, server_name)?;
+            }
+            PluginArtifact::Hook { handler_hash, .. } => {
+                super::hooks::remove_hook_handler(home, handler_hash)?;
+            }
+            PluginArtifact::Skill { .. } => {}
+        }
+    }
+    Ok(())
 }
 
-fn safe_hook_path(path: &str) -> bool {
-    path.starts_with("hooks/")
-        && !path.contains('\\')
-        && !path.contains('\0')
-        && path
-            .split('/')
-            .all(|part| !part.is_empty() && !matches!(part, "." | ".."))
-}
-
-#[cfg(test)]
-#[path = "install_tests.rs"]
-mod tests;
-
-fn hook_labels(review: &[super::model::HookReviewItem]) -> Vec<String> {
-    review
-        .iter()
-        .map(|item| match &item.matcher {
-            Some(matcher) => format!("{}:{}", item.event, matcher),
-            None => item.event.clone(),
-        })
-        .collect()
-}
-
-pub(crate) fn skill_roots(files: &[ExtensionFile]) -> Vec<String> {
-    files
-        .iter()
-        .filter_map(|file| {
-            file.path
-                .strip_prefix(super::model::SKILLS_PREFIX)?
-                .split('/')
-                .next()
-                .filter(|root| !root.is_empty())
-                .map(str::to_string)
-        })
-        .collect::<std::collections::BTreeSet<_>>()
-        .into_iter()
-        .collect()
+fn artifact_is_kept(current: &PluginArtifact, planned: &[PluginArtifact]) -> bool {
+    match current {
+        PluginArtifact::Skill { target, names } => names.iter().all(|name| {
+            planned.iter().any(|artifact| {
+                matches!(
+                    artifact,
+                    PluginArtifact::Skill {
+                        target: planned_target,
+                        names: planned_names,
+                    } if planned_target == target && planned_names.contains(name)
+                )
+            })
+        }),
+        PluginArtifact::Mcp {
+            target,
+            server_name,
+            ..
+        } => planned.iter().any(|artifact| {
+            matches!(
+                artifact,
+                PluginArtifact::Mcp {
+                    target: planned_target,
+                    server_name: planned_server,
+                    ..
+                } if planned_target == target && planned_server == server_name
+            )
+        }),
+        PluginArtifact::Hook {
+            target,
+            event,
+            matcher,
+            handler_hash,
+        } => planned.iter().any(|artifact| {
+            matches!(
+                artifact,
+                PluginArtifact::Hook {
+                    target: planned_target,
+                    event: planned_event,
+                    matcher: planned_matcher,
+                    handler_hash: planned_hash,
+                } if planned_target == target
+                    && planned_event == event
+                    && planned_matcher == matcher
+                    && planned_hash == handler_hash
+            )
+        }),
+    }
 }

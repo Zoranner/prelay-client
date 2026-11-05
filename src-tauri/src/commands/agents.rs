@@ -31,12 +31,20 @@ pub fn agents_remove(
     kind: AgentItemKind,
     name: String,
     source_path: String,
+    hook_hash: Option<String>,
 ) -> Result<(), ClientError> {
     let home = std::env::var_os("USERPROFILE")
         .map(PathBuf::from)
         .ok_or_else(|| ClientError::new("local_agents_error", "USERPROFILE is unavailable"))?;
-    uninstall_user_item(&home, client, kind, &name, &source_path)
-        .map_err(|error| ClientError::new("local_agents_error", error))
+    uninstall_user_item(
+        &home,
+        client,
+        kind,
+        &name,
+        &source_path,
+        hook_hash.as_deref(),
+    )
+    .map_err(|error| ClientError::new("local_agents_error", error))
 }
 
 #[tauri::command]
