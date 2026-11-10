@@ -61,11 +61,10 @@ pub(crate) fn normalize_path(path: &Path) -> String {
 }
 
 pub(crate) fn normalize_path_str(value: &str) -> String {
-    let replaced = value.replace('/', "\\");
     if cfg!(windows) {
-        replaced.to_lowercase()
+        value.replace('/', "\\").to_lowercase()
     } else {
-        replaced
+        value.to_string()
     }
 }
 
