@@ -2,25 +2,19 @@
 import { isTauri } from "@tauri-apps/api/core";
 import type { UnlistenFn } from "@tauri-apps/api/event";
 import { listen } from "@tauri-apps/api/event";
-import { Button, NotificationContainer, Result } from "@stellar/ui";
+import { NotificationContainer } from "@stellar/ui";
 import type { ProviderCatalogResponse } from "~/types/relay";
 import AppTitlebar from "~/components/shell/Titlebar.vue";
+import ConnectionError from "~/components/shell/ConnectionError.vue";
 import ClientUpdateDialog from "~/components/settings/ClientUpdateDialog.vue";
 import DesktopPreferencesDialog from "~/components/settings/DesktopPreferencesDialog.vue";
 import DashboardShell from "~/components/dashboard/frame/Shell.vue";
 import { setModelCatalog } from "~/stores/modelCatalog";
 import { loadModelCatalogRequest } from "~/stores/modelCatalog";
-import { errorDetail, errorText } from "~/utils/errors";
 
 const managementApi = useRelayManagementApiStatus();
 const { invokeCommand } = useRelayCommand();
 const managementApiError = computed(() => managementApi.error.value);
-const managementErrorText = computed(() =>
-  managementApiError.value ? errorText(managementApiError.value) : "",
-);
-const managementErrorDetail = computed(() =>
-  managementApiError.value ? errorDetail(managementApiError.value) : null,
-);
 const relaySettings = useRelaySettings();
 const desktopPreferences = useDesktopPreferences();
 const desktopPreferencesDialog = useDesktopPreferencesDialog();
@@ -111,21 +105,13 @@ function isDesktopRuntime() {
     <div
       v-if="managementApiError && canShowManagementError"
       class="app-error-state"
+      role="alert"
     >
-      <Result
-        status="error"
-        title="无法连接服务地址"
-        description="当前无法访问配置的服务地址。"
-      >
-        <p class="app-error-detail">{{ managementErrorText }}</p>
-        <p v-if="managementErrorDetail" class="app-error-detail">
-          {{ managementErrorDetail }}
-        </p>
-        <Button @click="switchRelayAddress">切换服务地址</Button>
-        <Button semantic="primary" variant="solid" @click="reloadApplication">
-          重新加载
-        </Button>
-      </Result>
+      <ConnectionError
+        :relay-url="relayUrl"
+        @switch-address="switchRelayAddress"
+        @reload="reloadApplication"
+      />
     </div>
     <DesktopPreferencesDialog v-model:visible="desktopPreferencesVisible" />
     <ClientUpdateDialog
@@ -154,15 +140,8 @@ function isDesktopRuntime() {
   inset: var(--pr-titlebar-height) 0 0;
   display: grid;
   place-items: center;
+  overflow: auto;
   padding: var(--spacing-xl);
   background: color-mix(in srgb, var(--st-bg-base) 88%, transparent);
-}
-
-.app-error-detail {
-  margin: 0 0 var(--spacing-md);
-  color: var(--st-text-muted);
-  font-family: var(--font-family-mono);
-  font-size: 12px;
-  overflow-wrap: anywhere;
 }
 </style>

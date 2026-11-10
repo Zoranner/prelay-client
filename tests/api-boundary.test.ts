@@ -51,16 +51,22 @@ test("仪表盘使用同一范围读取概览、趋势、模型和供应商统�
   expect(page).not.toContain("查看活动");
 });
 
-test("全屏管理服务错误读取嵌套 Ref 的当前值", () => {
+test("全屏管理服务错误展示连接状态与恢复入口", () => {
   const app = source("app.vue");
+  const connectionError = source("components/shell/ConnectionError.vue");
 
   expect(app).toContain(
     "const managementApiError = computed(() => managementApi.error.value);",
   );
   expect(app).toContain("managementApiError && canShowManagementError");
-  expect(app).toContain("<Result");
-  expect(app).toContain("{{ managementErrorText }}");
-  expect(app).toContain("{{ managementErrorDetail }}");
+  expect(app).toContain("<ConnectionError");
+  expect(app).toContain(':relay-url="relayUrl"');
+  expect(connectionError).toContain("无法连接服务地址");
+  expect(connectionError).toContain(
+    "请确认服务正在运行，或切换服务地址后重试。",
+  );
+  expect(connectionError).toContain("切换服务地址");
+  expect(connectionError).toContain("重新加载");
 });
 
 test("Nuxt 页面不直连服务端或读取认证凭据", () => {

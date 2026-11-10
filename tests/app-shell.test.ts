@@ -48,11 +48,18 @@ test("Tauri uses the static Nuxt output and a fixed development port", () => {
 
 test("管理 API 不可达时由应用根节点显示阻断层", () => {
   const app = appSource();
+  const connectionError = readFileSync(
+    new URL("../app/components/shell/ConnectionError.vue", import.meta.url),
+    "utf8",
+  );
   expect(app).toContain("useRelayManagementApiStatus");
   expect(app).toContain("managementApi.error");
-  expect(app).toContain("Result");
+  expect(app).toContain("ConnectionError");
   expect(app).toContain("NotificationContainer");
-  expect(app).toContain("重新加载");
+  expect(connectionError).toContain("重新加载");
+  expect(connectionError).toContain("切换服务地址");
+  expect(connectionError).toContain('semantic="error"');
+  expect(connectionError).toContain("connection-error__actions");
 });
 
 test("桌面窗口只保留自绘标题栏和内容工作区", () => {
