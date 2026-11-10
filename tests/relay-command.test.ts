@@ -60,6 +60,7 @@ test("并行 command 在最后一个请求结束前保持 pending", async () => 
 
 test("管理 API 不可达时公开全局阻断状态", async () => {
   requests.length = 0;
+  notifications.length = 0;
   const relay = useRelayCommand();
   const managementApi = useRelayManagementApiStatus();
   const request = relay.invokeCommand("stats_overview");
@@ -74,6 +75,7 @@ test("管理 API 不可达时公开全局阻断状态", async () => {
     message: "unable to reach the relay management API",
   });
   expect(managementApi.error.value?.code).toBe("network_error");
+  expect(notifications).toEqual([]);
 });
 
 test("校验失败的通知直接展示服务端给出的具体原因", async () => {

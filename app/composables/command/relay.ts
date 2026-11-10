@@ -78,12 +78,13 @@ export function useRelayCommand(): CommandState & {
     } catch (caught) {
       const relayError = toRelayError(caught);
       error.value = relayError;
-      // 具体原因优先：校验失败时固定文案说不清是哪一项不合法。
-      notifications.error(errorReason(relayError) ?? errorText(relayError), {
-        title: "管理服务请求失败",
-      });
       if (relayError.code === "network_error") {
         managementApiError.value = relayError;
+      } else {
+        // 连接级错误由全局阻断层或设置页就地反馈，避免通知与遮罩重复。
+        notifications.error(errorReason(relayError) ?? errorText(relayError), {
+          title: "管理服务请求失败",
+        });
       }
       throw relayError;
     } finally {

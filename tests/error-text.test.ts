@@ -127,13 +127,16 @@ test("错误字符串仍按已知错误码识别", () => {
 
 test("界面展示错误时统一使用文案层", () => {
   for (const path of [
-    "app.vue",
+    "pages/setup.vue",
     "composables/command/relay.ts",
     "composables/command/local.ts",
     "composables/clientUpdate.ts",
   ]) {
     expect(source(path)).toContain("errorText(");
   }
+  expect(source("components/shell/ConnectionError.vue")).toContain(
+    "无法连接服务地址",
+  );
   expect(source("components/extensions/install/Drawer.vue")).toContain(
     "errorText(",
   );

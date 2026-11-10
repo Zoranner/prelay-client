@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { Button, Card, Input, useNotification } from "@stellar/ui";
 import { useRelayStore } from "~/stores/relay";
+import { errorText, toRelayError } from "~/utils/errors";
 
 const settings = useRelaySettings();
 const { pending } = useRelayCommand();
@@ -22,8 +23,13 @@ async function save() {
     clearBootstrap();
     notifications.success("服务地址已连接");
     await navigateTo("/");
-  } catch {
-    // The command composable exposes the stable error to this view.
+  } catch (caught) {
+    const relayError = toRelayError(caught);
+    if (relayError.code === "network_error") {
+      notifications.error(errorText(relayError), {
+        title: "管理服务请求失败",
+      });
+    }
   }
 }
 </script>
