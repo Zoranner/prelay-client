@@ -126,7 +126,9 @@ function formatAmount(window: QuotaWindow) {
           <strong>{{ formatPercent(remainingPercent(window)) }}</strong>
           <small>
             <template v-if="window.amount != null">
-              剩 {{ formatAmount(window) }} ·
+              剩 {{ formatAmount(window) }}
+              <template v-if="window.display"> · {{ window.display }}</template>
+              ·
             </template>
             <template v-else-if="window.display">
               {{ window.display }} ·

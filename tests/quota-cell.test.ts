@@ -14,6 +14,7 @@ test("额度列按套餐、余额、共享和未接入四类紧凑展示", () =>
   expect(cell).toContain("Tooltip");
   expect(cell).toContain('mode === "shared_limited"');
   expect(cell).toContain("balance");
+  expect(cell).toContain("window.display");
   expect(cell).toContain('"未接入"');
   expect(cell).toContain('"待配置"');
   expect(cell).toContain('"查询失败"');
