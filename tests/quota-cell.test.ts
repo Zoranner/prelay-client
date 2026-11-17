@@ -12,15 +12,17 @@ test("额度列按套餐、余额、共享和未接入四类紧凑展示", () =>
   expect(cell).toContain("QuotaPlanRings");
   expect(cell).toContain("ProgressBar");
   expect(cell).toContain("Tooltip");
-  expect(cell).toContain("quota.quota.kind === 'plan'");
-  expect(cell).toContain("quota.quota.kind === 'shared'");
+  expect(cell).toContain('mode === "shared_limited"');
   expect(cell).toContain("balance");
   expect(cell).toContain('"未接入"');
+  expect(cell).toContain('"待配置"');
   expect(cell).toContain('"查询失败"');
+  expect(cell).toContain("stale");
 });
 
-test("套餐额度用三个同心圆环表示剩余比例", () => {
-  expect(rings).toContain('["five_hour", "week", "month"]');
+test("套餐额度按实际窗口画同心圆环", () => {
+  expect(rings).toContain("windows.slice(0, radii.length)");
+  expect(rings).toContain("100 - window.used_percent");
   expect(rings).toContain('pathLength="100"');
   expect(rings).toContain("stroke-dasharray");
   expect(rings).toContain("--st-danger");

@@ -11,25 +11,24 @@ const props = withDefaults(
   { size: 24 },
 );
 
-const orderedWindows = ["five_hour", "week", "month"] as const;
 const radii = [4.5, 7.5, 10.5];
 
 const rings = computed(() => {
-  const byKind = new Map(
-    props.windows.map((window) => [window.window, window]),
-  );
-  return orderedWindows.flatMap((kind, index) => {
-    const window = byKind.get(kind);
-    if (!window) return [];
-    const percent = clampPercent(window.remaining_percent);
-    return [{ kind, radius: radii[index], percent, color: colorFor(percent) }];
+  return props.windows.slice(0, radii.length).map((window, index) => {
+    const percent = clampPercent(100 - window.used_percent);
+    return {
+      key: `${window.label}-${index}`,
+      radius: radii[index],
+      percent,
+      color: colorFor(percent),
+    };
   });
 });
 
 const tightest = computed(() =>
   Math.min(
     100,
-    ...props.windows.map((window) => clampPercent(window.remaining_percent)),
+    ...props.windows.map((window) => clampPercent(100 - window.used_percent)),
   ),
 );
 
@@ -54,7 +53,7 @@ function colorFor(percent: number) {
   >
     <circle
       v-for="ring in rings"
-      :key="`track-${ring.kind}`"
+      :key="`track-${ring.key}`"
       class="quota-rings__track"
       cx="12"
       cy="12"
@@ -63,7 +62,7 @@ function colorFor(percent: number) {
     />
     <circle
       v-for="ring in rings"
-      :key="`value-${ring.kind}`"
+      :key="`value-${ring.key}`"
       class="quota-rings__value"
       cx="12"
       cy="12"

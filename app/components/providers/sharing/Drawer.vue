@@ -7,8 +7,8 @@ import type {
   ProviderShare,
   ProviderSharing,
   ProviderSharingInput,
-  QuotaWindowKind,
   ShareQuotaWindow,
+  ShareQuotaWindowKind,
 } from "~/types/quota";
 import { identityAvatarSrc } from "~/utils/ui/avatar";
 import type { EditableShare, EditableWindow } from "./types";
@@ -164,7 +164,7 @@ function toQuotaRule(window: EditableWindow): ShareQuotaWindow | null {
     return null;
   }
   return {
-    window: window.kind as QuotaWindowKind,
+    window: window.kind as ShareQuotaWindowKind,
     limit,
     accumulate: window.accumulate,
     reset_time: window.reset_time,

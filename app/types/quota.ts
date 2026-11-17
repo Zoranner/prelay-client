@@ -1,9 +1,9 @@
-export type QuotaWindowKind = "five_hour" | "day" | "week" | "month";
+export type ShareQuotaWindowKind = "day" | "week" | "month";
 
 export type ProviderQuotaMode = "own" | "shared_unlimited" | "shared_limited";
 
 export interface ShareQuotaWindow {
-  window: QuotaWindowKind;
+  window: ShareQuotaWindowKind;
   limit: number;
   accumulate: boolean;
   reset_time: string;
@@ -32,28 +32,49 @@ export interface ProviderSharingInput {
 }
 
 export interface QuotaWindow {
-  window: QuotaWindowKind;
-  accumulate: boolean;
-  remaining_percent: number;
-  remaining: number | null;
-  limit: number | null;
-  used: number | null;
-  carry_over: number | null;
-  resets_at: string | null;
+  label: string;
+  span_secs?: number | null;
+  used_percent: number;
+  resets_at?: string | null;
+  display?: string | null;
+  amount?: string | null;
+  limit?: string | null;
+  unit?: string | null;
+  aside: boolean;
+  pool?: string | null;
+}
+
+export interface QuotaBalancePart {
+  currency: string;
+  amount: string;
 }
 
 export interface QuotaBalance {
+  text: string;
+  parts: QuotaBalancePart[];
   available: boolean;
-  amount: string;
-  currency: string;
 }
 
-export type ProviderQuota =
-  | { kind: "plan"; windows: QuotaWindow[] }
-  | ({ kind: "balance" } & QuotaBalance)
-  | { kind: "shared"; windows: QuotaWindow[] }
-  | { kind: "unsupported" }
-  | { kind: "error"; message: string };
+export type QuotaErrorCode =
+  | "unsupported"
+  | "unconfigured"
+  | "unauthorized"
+  | "unreachable"
+  | "invalid_response";
+
+export interface QuotaError {
+  code: QuotaErrorCode;
+  message: string;
+}
+
+export interface ProviderQuota {
+  plan?: string | null;
+  windows?: QuotaWindow[];
+  balance?: QuotaBalance | null;
+  error?: QuotaError | null;
+  read_at?: string | null;
+  stale: boolean;
+}
 
 export interface ProviderQuotaResponse {
   provider_id: string;
