@@ -124,9 +124,13 @@ test("供应商保存命令发送启用清单", () => {
   expect(command).toContain("models: input.models");
 });
 
-test("共享供应商前端类型只保留可见元数据和统计展示字段", () => {
+test("共享供应商前端类型只保留额度与共享展示字段", () => {
   const relay = readFileSync(
     new URL("../app/types/relay.ts", import.meta.url),
+    "utf8",
+  );
+  const quota = readFileSync(
+    new URL("../app/types/quota.ts", import.meta.url),
     "utf8",
   );
 
@@ -137,15 +141,16 @@ test("共享供应商前端类型只保留可见元数据和统计展示字段",
   expect(relay).toContain("owner_identity_id: string;");
   expect(relay).toContain("owner_display_name: string;");
   expect(relay).toContain("can_manage: boolean;");
-  expect(relay).toContain("export interface ProviderSharing");
-  expect(relay).toContain("selected_identity_ids: string[];");
   expect(relay).toContain("export interface ProviderUsage");
   expect(relay).toContain("export interface ProviderUsageUser");
   expect(relay).toContain("export interface IdentityDirectoryEntry");
+  expect(quota).toContain("export interface ProviderSharing");
+  expect(quota).toContain("export interface ShareQuotaWindow");
+  expect(quota).toContain("export interface ProviderQuotaResponse");
 
   const listItem = relay.slice(
     relay.indexOf("export interface ProviderListItem"),
-    relay.indexOf("export interface ProviderSharing"),
+    relay.indexOf("export interface ProviderUsage"),
   );
   expect(listItem).not.toContain("api_key");
   expect(listItem).not.toContain("credential");

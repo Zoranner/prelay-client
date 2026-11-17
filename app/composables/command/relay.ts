@@ -23,6 +23,7 @@ export type RelayCommand =
   | "providers_save"
   | "providers_delete"
   | "providers_ping"
+  | "providers_quotas"
   | "providers_test_protocol"
   | "providers_sharing_get"
   | "providers_sharing_save"

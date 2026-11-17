@@ -129,22 +129,21 @@ test("供应商表格使用组件库表格，并通过供应商 ID 执行 Ping",
   expect(page).toContain(':loading="loadingProviders"');
 });
 
-test("供应商列表用头像展示创建人和可见范围，不展示使用统计和模型数量列", () => {
+test("供应商列表展示创建人和额度列，不再展示可见范围", () => {
   expect(providerListSource).toContain('key: "owner"');
-  expect(providerListSource).toContain('key: "visibility"');
+  expect(providerListSource).toContain('key: "quota"');
   expect(providerListSource).toContain("owner_display_name");
-  expect(providerListSource).toContain('title: "可见范围"');
-  expect(providerListSource).toContain("ProviderVisibilityScope");
+  expect(providerListSource).toContain('title: "额度"');
+  expect(providerListSource).toContain("ProviderQuotaCell");
   expect(providerListSource).toContain("identityAvatarSrc");
+  expect(providerListSource).not.toContain('key: "visibility"');
+  expect(providerListSource).not.toContain("ProviderVisibilityScope");
   expect(providerListSource).not.toContain('key: "models"');
   expect(providerListSource).not.toContain("modelCatalogProviderModels");
   expect(providerListSource).not.toContain("待新增");
   expect(providerListSource).not.toContain('key: "usage"');
   expect(providerListSource).not.toContain("使用统计");
-  expect(providerListSource).not.toContain("total_requests");
-  expect(providerListSource).not.toContain("input_tokens");
-  expect(providerListSource).not.toContain("output_tokens");
-  expect(pageSource()).toContain(':identities="identities"');
+  expect(pageSource()).toContain(':quota-by-provider="quotaByProvider"');
 });
 
 test("非创建人供应商保留连通性测试，禁用编辑、删除和协议测试", () => {
@@ -158,7 +157,7 @@ test("非创建人供应商保留连通性测试，禁用编辑、删除和协�
   expect(page).toContain(
     "void Promise.all(providers.value.map(pingProvider));",
   );
-  expect(providerListSource).not.toContain("emit('share'");
+  expect(providerListSource).toContain("emit('share', row)");
   expect(page).toContain("editingProvider.can_manage && !editingRetired");
   expect(page).toContain(':retired="editingRetired"');
   expect(page).toContain(
@@ -167,23 +166,28 @@ test("非创建人供应商保留连通性测试，禁用编辑、删除和协�
   expect(providerSharingDrawerSource).toContain("can_manage");
 });
 
-test("供应商分享抽屉支持三种范围、身份选择和完整使用明细", () => {
-  expect(providerSharingDrawerSource).toContain('value: "private"');
-  expect(providerSharingDrawerSource).toContain('value: "selected"');
-  expect(providerSharingDrawerSource).toContain('value: "all"');
-  expect(providerSharingDrawerSource).toContain("multiple");
-  expect(providerSharingDrawerSource).toContain("selected_identity_ids");
-  expect(providerSharingDrawerSource).toContain("total_requests");
-  expect(providerSharingDrawerSource).toContain("input_tokens");
-  expect(providerSharingDrawerSource).toContain("output_tokens");
-  expect(providerSharingDrawerSource).toContain("total_tokens");
-  expect(providerSharingDrawerSource).toContain("latest_used_at");
-  expect(providerSharingDrawerSource).toContain("request_count");
-  expect(providerSharingDrawerSource).toContain("users");
+test("共享抽屉支持直接共享和日周月限额组合", () => {
+  const windowEditor = readFileSync(
+    new URL(
+      "../app/components/providers/sharing/WindowEditor.vue",
+      import.meta.url,
+    ),
+    "utf8",
+  );
+
+  expect(providerSharingDrawerSource).toContain('label: "不限额"');
+  expect(providerSharingDrawerSource).toContain('label: "限额"');
+  expect(providerSharingDrawerSource).toContain("WindowEditor");
+  expect(windowEditor).toContain("Checkbox");
+  expect(windowEditor).toContain("Toggle");
+  expect(windowEditor).toContain("reset_time");
+  expect(windowEditor).toContain("reset_weekday");
+  expect(windowEditor).toContain("reset_day");
   expect(providerSharingDrawerSource).toContain("save-sharing");
+  expect(providerSharingDrawerSource).not.toContain("providers_usage_get");
 });
 
-test("供应商页面通过 Tauri commands 管理分享、统计和撤销后的刷新", () => {
+test("供应商页面通过 Tauri commands 加载额度并保存共享", () => {
   const page = pageSource();
   const sharing = readFileSync(
     new URL("../app/composables/providerSharing.ts", import.meta.url),
@@ -196,11 +200,11 @@ test("供应商页面通过 Tauri commands 管理分享、统计和撤销后的�
   expect(sharing).toContain(
     'invokeCommand<IdentityDirectoryEntry[]>("identity_directory_list")',
   );
-  expect(sharing).toContain(
-    'invokeCommand<ProviderUsage>("providers_usage_get"',
-  );
   expect(sharing).toContain('"providers_sharing_save"');
+  expect(sharing).not.toContain("providers_usage_get");
   expect(sharing).toContain("await options.loadProviders()");
+  expect(page).toContain("invokeCommand<ProviderQuotaResponse[]>(");
+  expect(page).toContain('"providers_quotas"');
   expect(page).toContain("<ProviderSharingDrawer");
   expect(page).toContain("@save-sharing");
 });

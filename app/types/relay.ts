@@ -147,17 +147,6 @@ export interface ProviderListItem {
   created_at: string;
 }
 
-export interface ProviderSharing {
-  visibility: ProviderVisibility;
-  selected_identity_ids: string[];
-  can_manage: boolean;
-}
-
-export interface ProviderSharingInput {
-  visibility: ProviderVisibility;
-  identity_ids: string[];
-}
-
 export interface ProviderUsage {
   total_requests: number;
   input_tokens: number;

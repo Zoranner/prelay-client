@@ -1,29 +1,24 @@
 <script setup lang="ts">
 defineOptions({ name: "ProviderSharingDrawer" });
 
-import {
-  Button,
-  Drawer,
-  RadioGroup,
-  Select,
-  StatCard,
-  Table,
-  Tag,
-} from "@stellar/ui";
+import { Avatar, Button, Drawer, Select, useNotification } from "@stellar/ui";
+import type { IdentityDirectoryEntry, ProviderListItem } from "~/types/relay";
 import type {
-  IdentityDirectoryEntry,
-  ProviderListItem,
+  ProviderShare,
   ProviderSharing,
   ProviderSharingInput,
-  ProviderUsage,
-} from "~/types/relay";
+  QuotaWindowKind,
+  ShareQuotaWindow,
+} from "~/types/quota";
+import { identityAvatarSrc } from "~/utils/ui/avatar";
+import type { EditableShare, EditableWindow } from "./types";
+import WindowEditor from "./WindowEditor.vue";
 
 const visible = defineModel<boolean>("visible", { default: false });
 const props = defineProps<{
   provider: ProviderListItem | null;
   sharing: ProviderSharing | null;
   identities: IdentityDirectoryEntry[];
-  usage: ProviderUsage | null;
   pending?: boolean;
   loading?: boolean;
 }>();
@@ -32,79 +27,193 @@ const emit = defineEmits<{
   close: [];
 }>();
 
-const visibility = ref<ProviderSharing["visibility"]>("private");
-const selectedIdentityIds = ref<string[]>([]);
-const visibilityOptions = [
-  { label: "私有", value: "private" },
-  { label: "指定身份", value: "selected" },
-  { label: "全部身份", value: "all" },
+const notifications = useNotification();
+const shares = ref<EditableShare[]>([]);
+const selectedIdentityId = ref("");
+
+const modeOptions = [
+  { label: "不限额", value: "unlimited" },
+  { label: "限额", value: "limited" },
 ];
+const windowNames: Record<EditableWindow["kind"], string> = {
+  day: "日",
+  week: "周",
+  month: "月",
+};
+
+const availableIdentities = computed(() => {
+  const ownerId = props.provider?.owner_identity_id;
+  const used = new Set(shares.value.map((share) => share.identity_id));
+  return props.identities.filter(
+    (identity) =>
+      identity.identity_id !== ownerId && !used.has(identity.identity_id),
+  );
+});
+
 const identityOptions = computed(() =>
-  props.identities
-    .filter(
-      (identity) => identity.identity_id !== props.provider?.owner_identity_id,
-    )
-    .map((identity) => ({
-      label: identity.display_name,
-      value: identity.identity_id,
-    })),
-);
-const usageColumns = [
-  { key: "display_name", title: "使用者", width: 150, ellipsis: true },
-  { key: "request_count", title: "请求", width: 84, align: "right" as const },
-  { key: "input_tokens", title: "输入", width: 96, align: "right" as const },
-  { key: "output_tokens", title: "输出", width: 96, align: "right" as const },
-  { key: "total_tokens", title: "总量", width: 96, align: "right" as const },
-  { key: "latest_used_at", title: "最近使用", width: 168, ellipsis: true },
-];
-const usageRows = computed<Record<string, unknown>[]>(
-  () => (props.usage?.users ?? []) as unknown as Record<string, unknown>[],
+  availableIdentities.value.map((identity) => ({
+    label: identity.display_name,
+    value: identity.identity_id,
+  })),
 );
 
 watch(
   () => [props.sharing, visible.value] as const,
   ([sharing, isVisible]) => {
-    if (!isVisible || !sharing) return;
-    visibility.value = sharing.visibility;
-    selectedIdentityIds.value = [...sharing.selected_identity_ids];
+    if (!isVisible) {
+      shares.value = [];
+      return;
+    }
+    if (!sharing) {
+      shares.value = [];
+      return;
+    }
+    shares.value = sharing.shares.map(toEditableShare);
+    selectedIdentityId.value = "";
   },
   { immediate: true },
 );
 
-function updateVisibility(value: string | number | boolean) {
+function defaultWindow(kind: EditableWindow["kind"]): EditableWindow {
+  return {
+    kind,
+    enabled: kind === "day",
+    limit: "",
+    accumulate: false,
+    reset_time: "00:00",
+    reset_weekday: 1,
+    reset_day: 1,
+  };
+}
+
+function emptyWindows() {
+  return [defaultWindow("day"), defaultWindow("week"), defaultWindow("month")];
+}
+
+function toEditableShare(share: ProviderShare): EditableShare {
+  const windows = emptyWindows();
+  if (share.quota?.length) {
+    for (const rule of share.quota) {
+      const window = windows.find(
+        (candidate) => candidate.kind === rule.window,
+      );
+      if (!window) continue;
+      window.enabled = true;
+      window.limit = String(rule.limit);
+      window.accumulate = rule.accumulate;
+      window.reset_time = rule.reset_time;
+      if (rule.reset_weekday != null) window.reset_weekday = rule.reset_weekday;
+      if (rule.reset_day != null) window.reset_day = rule.reset_day;
+    }
+  }
+  return {
+    identity_id: share.identity_id,
+    display_name: share.display_name,
+    mode: share.quota?.length ? "limited" : "unlimited",
+    windows,
+  };
+}
+
+function addShare() {
+  const identity = props.identities.find(
+    (candidate) => candidate.identity_id === selectedIdentityId.value,
+  );
+  if (!identity) return;
+  shares.value.push({
+    identity_id: identity.identity_id,
+    display_name: identity.display_name,
+    mode: "unlimited",
+    windows: emptyWindows(),
+  });
+  selectedIdentityId.value = "";
+}
+
+function removeShare(index: number) {
+  shares.value.splice(index, 1);
+}
+
+function updateMode(share: EditableShare, value: string | number | boolean) {
   if (typeof value !== "string") return;
-  visibility.value = value as ProviderSharing["visibility"];
-  if (visibility.value !== "selected") selectedIdentityIds.value = [];
+  share.mode = value === "limited" ? "limited" : "unlimited";
+}
+
+function toQuotaRule(window: EditableWindow): ShareQuotaWindow | null {
+  const limit = Number(window.limit);
+  if (!Number.isInteger(limit) || limit <= 0) {
+    notifications.error(`${windowNames[window.kind]}额度必须是正整数。`);
+    return null;
+  }
+  if (!/^\d{2}:\d{2}$/.test(window.reset_time)) {
+    notifications.error(`${windowNames[window.kind]}清零时间必须是 HH:MM。`);
+    return null;
+  }
+  const resetWeekday = Number(window.reset_weekday);
+  const resetDay = Number(window.reset_day);
+  if (
+    window.kind === "week" &&
+    (!Number.isInteger(resetWeekday) || resetWeekday < 1 || resetWeekday > 7)
+  ) {
+    notifications.error("周额度清零星期必须在周一到周日之间。");
+    return null;
+  }
+  if (
+    window.kind === "month" &&
+    (!Number.isInteger(resetDay) || resetDay < 1 || resetDay > 28)
+  ) {
+    notifications.error("月额度清零日期必须在 1 到 28 之间。");
+    return null;
+  }
+  return {
+    window: window.kind as QuotaWindowKind,
+    limit,
+    accumulate: window.accumulate,
+    reset_time: window.reset_time,
+    reset_weekday: window.kind === "week" ? resetWeekday : null,
+    reset_day: window.kind === "month" ? resetDay : null,
+  };
 }
 
 function saveSharing() {
-  emit("save-sharing", {
-    visibility: visibility.value,
-    identity_ids:
-      visibility.value === "selected" ? [...selectedIdentityIds.value] : [],
-  });
+  if (!props.sharing) {
+    notifications.error("共享配置尚未加载。");
+    return;
+  }
+  const input: ProviderSharingInput = {
+    shares: [],
+  };
+  for (const share of shares.value) {
+    if (share.mode === "unlimited") {
+      input.shares.push({ identity_id: share.identity_id, quota: null });
+      continue;
+    }
+    const quota = share.windows
+      .filter((window) => window.enabled)
+      .map(toQuotaRule);
+    if (quota.some((rule) => rule === null)) return;
+    if (!quota.length) {
+      notifications.error("限额共享至少启用一个窗口。");
+      return;
+    }
+    input.shares.push({
+      identity_id: share.identity_id,
+      quota: quota as ShareQuotaWindow[],
+    });
+  }
+  emit("save-sharing", input);
 }
 
 function close() {
   visible.value = false;
   emit("close");
 }
-
-function formatDate(value: unknown) {
-  if (typeof value !== "string" || !value) return "暂无";
-  return new Date(value).toLocaleString("zh-CN", {
-    dateStyle: "short",
-    timeStyle: "short",
-  });
-}
 </script>
 
 <template>
   <Drawer
     :visible="visible"
-    :title="provider ? `${provider.name} · 共享与统计` : '共享与统计'"
+    :title="provider ? `${provider.name} · 共享设置` : '共享设置'"
     size="xlarge"
-    :blocked="pending"
+    :blocked="pending || loading"
     @update:visible="
       (nextVisible) => (nextVisible ? (visible = true) : close())
     "
@@ -113,67 +222,89 @@ function formatDate(value: unknown) {
       <section class="drawer-section">
         <div class="section-heading">
           <div>
-            <h3>分享设置</h3>
+            <h3>共享给</h3>
             <p>
               创建人：{{ provider?.owner_display_name || "暂无" }}
-              <Tag v-if="!provider?.can_manage" size="small">只读</Tag>
+              <span v-if="!provider?.can_manage" class="readonly-tag"
+                >只读</span
+              >
             </p>
           </div>
         </div>
-        <RadioGroup
-          :model-value="visibility"
-          :options="visibilityOptions"
-          variant="button"
-          :disabled="!provider?.can_manage || pending"
-          aria-label="共享范围"
-          @update:model-value="updateVisibility"
-        />
-        <Select
-          v-if="visibility === 'selected'"
-          v-model="selectedIdentityIds"
-          label="可见身份"
-          placeholder="选择身份"
-          :options="identityOptions"
-          multiple
-          :disabled="!provider?.can_manage || pending"
-        />
+        <div v-if="provider?.can_manage && !loading" class="add-share">
+          <Select
+            v-model="selectedIdentityId"
+            :options="identityOptions"
+            placeholder="选择身份"
+            :disabled="pending || !identityOptions.length"
+          />
+          <Button
+            :disabled="
+              pending || !selectedIdentityId || !identityOptions.length
+            "
+            icon="ph:plus"
+            @click="addShare"
+          >
+            添加
+          </Button>
+        </div>
         <p
-          v-if="visibility === 'selected' && !identityOptions.length"
+          v-if="provider?.can_manage && !loading && !identityOptions.length"
           class="empty-text"
         >
-          暂无可授权的其他身份。
+          暂无可共享的其他身份。
         </p>
       </section>
 
-      <section class="drawer-section">
-        <div class="section-heading">
-          <div>
-            <h3>使用统计</h3>
-            <p>所有能够看到该 Provider 的身份都可查看完整统计。</p>
+      <section
+        v-for="(share, index) in shares"
+        :key="share.identity_id"
+        class="drawer-section share-card"
+      >
+        <div class="share-header">
+          <div class="share-identity">
+            <Avatar
+              :src="identityAvatarSrc(share.identity_id)"
+              :alt="share.display_name"
+              size="small"
+              shape="circle"
+            />
+            <strong>{{ share.display_name }}</strong>
           </div>
-          <small
-            >最近使用：{{ formatDate(usage?.latest_used_at ?? null) }}</small
-          >
+          <div class="share-actions">
+            <Select
+              class="share-mode"
+              :model-value="share.mode"
+              :options="modeOptions"
+              :disabled="pending || !provider?.can_manage"
+              @update:model-value="updateMode(share, $event)"
+            />
+            <Button
+              v-if="provider?.can_manage"
+              square
+              size="small"
+              semantic="error"
+              variant="ghost"
+              icon="ph:trash"
+              aria-label="移除共享"
+              title="移除共享"
+              :disabled="pending"
+              @click="removeShare(index)"
+            />
+          </div>
         </div>
-        <div class="usage-cards">
-          <StatCard title="请求数" :value="usage?.total_requests ?? 0" />
-          <StatCard title="输入 Token" :value="usage?.input_tokens ?? 0" />
-          <StatCard title="输出 Token" :value="usage?.output_tokens ?? 0" />
-          <StatCard title="总 Token" :value="usage?.total_tokens ?? 0" />
-        </div>
-        <Table
-          :columns="usageColumns"
-          :data="usageRows"
-          empty-text="暂无使用记录"
-          :loading="loading"
-          row-key="identity_id"
-          fixed-header
-        >
-          <template #cell-latest_used_at="{ row }">
-            {{ formatDate(row.latest_used_at) }}
-          </template>
-        </Table>
+
+        <WindowEditor
+          v-if="share.mode === 'limited'"
+          :windows="share.windows"
+          :disabled="pending || !provider?.can_manage"
+        />
       </section>
+
+      <p v-if="loading" class="empty-text">正在加载共享设置...</p>
+      <p v-else-if="!shares.length" class="empty-text">
+        还没有共享给任何身份。
+      </p>
     </div>
     <template #footer>
       <Button @click="close">关闭</Button>
@@ -181,7 +312,7 @@ function formatDate(value: unknown) {
         v-if="provider?.can_manage"
         semantic="primary"
         variant="solid"
-        :disabled="pending"
+        :disabled="pending || loading || !sharing"
         @click="saveSharing"
       >
         {{ pending ? "保存中..." : "保存共享设置" }}
@@ -192,19 +323,14 @@ function formatDate(value: unknown) {
 
 <style scoped>
 .sharing-drawer,
-.drawer-section,
-.usage-cards {
+.drawer-section {
   display: grid;
-  gap: var(--spacing-lg);
+  gap: var(--spacing-md);
 }
 
 .sharing-drawer {
   min-height: 100%;
   padding: var(--spacing-lg);
-}
-
-.drawer-section {
-  min-width: 0;
 }
 
 .section-heading {
@@ -225,8 +351,8 @@ function formatDate(value: unknown) {
 }
 
 .section-heading p,
-.section-heading small,
-.empty-text {
+.empty-text,
+.readonly-tag {
   color: var(--st-text-secondary);
 }
 
@@ -234,13 +360,50 @@ function formatDate(value: unknown) {
   margin-top: var(--spacing-xs);
 }
 
-.usage-cards {
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+.readonly-tag {
+  margin-left: var(--spacing-xs);
+  font-size: 11px;
 }
 
-@media (max-width: 760px) {
-  .usage-cards {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
+.add-share {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: var(--spacing-sm);
+  align-items: end;
+}
+
+.share-card {
+  padding: var(--spacing-md);
+  border: 1px solid var(--st-border-divider);
+  border-radius: var(--st-radius-md);
+  background: var(--st-bg-elevated);
+}
+
+.share-header,
+.share-actions,
+.share-identity {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+}
+
+.share-header {
+  justify-content: space-between;
+}
+
+.share-mode {
+  width: 112px;
+  flex: 0 0 auto;
+}
+
+.share-identity {
+  min-width: 0;
+}
+
+.share-identity strong {
+  overflow: hidden;
+  color: var(--st-text-primary);
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 </style>

@@ -2,19 +2,24 @@
 defineOptions({ name: "ProviderList" });
 
 import { Avatar, Button, Table, Tag } from "@stellar/ui";
-import type { IdentityDirectoryEntry, ProviderListItem } from "~/types/relay";
-import ProviderVisibilityScope from "~/components/providers/sharing/VisibilityScope.vue";
+import type { ProviderListItem } from "~/types/relay";
+import type { ProviderQuotaResponse } from "~/types/quota";
+import ProviderQuotaCell from "~/components/providers/quota/QuotaCell.vue";
 import { identityAvatarSrc } from "~/utils/ui/avatar";
 import { providerProtocolOptions } from "~/utils/provider/capabilities";
 import { protocolLabel, protocolTagPalette } from "~/utils/provider/templates";
 
 type ProviderRow = ProviderListItem &
-  Record<string, unknown> & { ping: ReturnType<typeof pingStatus> };
+  Record<string, unknown> & {
+    ping: ReturnType<typeof pingStatus>;
+    quota: ProviderQuotaResponse | null;
+  };
 
 const props = defineProps<{
   loading?: boolean;
+  quotaLoading?: boolean;
   providers: ProviderListItem[];
-  identities: IdentityDirectoryEntry[];
+  quotaByProvider: Record<string, ProviderQuotaResponse>;
   pingStates: Record<
     string,
     {
@@ -36,11 +41,11 @@ const columns = [
   { key: "protocols", title: "协议", minWidth: 260, ellipsis: true },
   { key: "status", title: "状态", width: 116 },
   { key: "owner", title: "创建人", width: 128, ellipsis: true },
-  { key: "visibility", title: "可见范围", width: 140 },
+  { key: "quota", title: "额度", width: 140 },
   {
     key: "actions",
     title: "操作",
-    width: 108,
+    width: 140,
     align: "right" as const,
     fixed: "right" as const,
   },
@@ -63,6 +68,7 @@ const rows = computed<ProviderRow[]>(() =>
   props.providers.map((provider) => ({
     ...provider,
     ping: pingStatus(provider.id),
+    quota: props.quotaByProvider[provider.id] ?? null,
   })),
 );
 </script>
@@ -110,8 +116,8 @@ const rows = computed<ProviderRow[]>(() =>
         </Tag>
       </div>
     </template>
-    <template #cell-visibility="{ row }">
-      <ProviderVisibilityScope :provider="row" :identities="identities" />
+    <template #cell-quota="{ row }">
+      <ProviderQuotaCell :quota="row.quota" :loading="quotaLoading" />
     </template>
     <template #cell-status="{ row }">
       <Tag :semantic="row.ping.semantic" size="small">
@@ -128,6 +134,15 @@ const rows = computed<ProviderRow[]>(() =>
           :aria-label="`测试 ${row.name || row.provider_type}`"
           title="测试连接"
           @click.stop="emit('ping', row)"
+        />
+        <Button
+          square
+          size="small"
+          icon="ph:share-network"
+          :disabled="!row.can_manage"
+          aria-label="共享供应商"
+          title="共享供应商"
+          @click.stop="emit('share', row)"
         />
         <Button
           square

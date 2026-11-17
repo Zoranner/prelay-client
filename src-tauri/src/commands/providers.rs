@@ -1,8 +1,8 @@
 use prelay_protocol::{
     CatalogProviderResponse, CreateProviderRequest, ProviderCapabilityOverrides,
     ProviderCatalogResponse, ProviderListItemResponse, ProviderOperationRequest,
-    ProviderOperationResponse, ProviderResponse, ProviderSharingResponse, ProviderUsageResponse,
-    UpdateProviderRequest, UpdateProviderSharingRequest,
+    ProviderOperationResponse, ProviderQuotaResponse, ProviderResponse, ProviderSharingResponse,
+    ProviderUsageResponse, UpdateProviderRequest, UpdateProviderSharingRequest,
 };
 use serde::{Deserialize, Serialize};
 use tauri::State;
@@ -143,6 +143,16 @@ pub async fn providers_sharing_get(
     authenticated_api(&state)
         .await?
         .get(&format!("/api/providers/{provider_id}/sharing"))
+        .await
+}
+
+#[tauri::command]
+pub async fn providers_quotas(
+    state: State<'_, NativeState>,
+) -> Result<Vec<ProviderQuotaResponse>, ClientError> {
+    authenticated_api(&state)
+        .await?
+        .get("/api/providers/quotas")
         .await
 }
 

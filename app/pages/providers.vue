@@ -6,6 +6,7 @@ import type {
   ProviderListItem,
   UpstreamProtocol,
 } from "~/types/relay";
+import type { ProviderQuotaResponse } from "~/types/quota";
 import type { ProviderFormPayload } from "~/composables/providerForm";
 import { useProviderSharing } from "~/composables/providerSharing";
 import { type ProviderOperationResult } from "~/utils/provider/operations";
@@ -20,6 +21,8 @@ const { confirm: confirmAction } = useConfirm();
 const notifications = useNotification();
 const workspaceExit = useWorkspaceExitGuard();
 const providers = ref<ProviderListItem[]>([]);
+const quotaByProvider = ref<Record<string, ProviderQuotaResponse>>({});
+const loadingQuotas = ref(false);
 const catalogProviders = ref<CatalogProvider[]>([]);
 const editingProvider = ref<EditableProvider | null>(null);
 const showForm = ref(false);
@@ -35,7 +38,6 @@ const {
   provider: sharingProvider,
   save: saveSharing,
   sharing,
-  usage: sharingUsage,
   visible: showSharing,
 } = useProviderSharing({
   providers,
@@ -80,11 +82,27 @@ async function loadProviders() {
     pingStates.value = Object.fromEntries(
       providers.value.map((provider) => [provider.id, { checking: false }]),
     );
+    void loadQuotas();
     void Promise.all(providers.value.map(pingProvider));
   } catch {
     // The command composable exposes the error to this view.
   } finally {
     loadingProviders.value = false;
+  }
+}
+
+async function loadQuotas() {
+  loadingQuotas.value = true;
+  try {
+    const rows =
+      await invokeCommand<ProviderQuotaResponse[]>("providers_quotas");
+    quotaByProvider.value = Object.fromEntries(
+      rows.map((row) => [row.provider_id, row]),
+    );
+  } catch {
+    quotaByProvider.value = {};
+  } finally {
+    loadingQuotas.value = false;
   }
 }
 
@@ -242,8 +260,9 @@ onMounted(loadProviders);
       </template>
       <ProviderList
         :loading="loadingProviders"
+        :quota-loading="loadingQuotas"
         :providers="providers"
-        :identities="identities"
+        :quota-by-provider="quotaByProvider"
         :ping-states="pingStates"
         @edit="editProvider"
         @ping="pingProvider"
@@ -290,7 +309,6 @@ onMounted(loadProviders);
       :provider="sharingProvider"
       :sharing="sharing"
       :identities="identities"
-      :usage="sharingUsage"
       :pending="pending"
       :loading="loadingSharing"
       @save-sharing="saveSharing"

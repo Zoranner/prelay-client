@@ -30,6 +30,7 @@ pub fn run() {
             crate::commands::providers::providers_save,
             crate::commands::providers::providers_delete,
             crate::commands::providers::providers_ping,
+            crate::commands::providers::providers_quotas,
             crate::commands::providers::providers_test_protocol,
             crate::commands::providers::providers_sharing_get,
             crate::commands::providers::providers_sharing_save,

@@ -1,10 +1,5 @@
-import type {
-  IdentityDirectoryEntry,
-  ProviderListItem,
-  ProviderSharing,
-  ProviderSharingInput,
-  ProviderUsage,
-} from "~/types/relay";
+import type { IdentityDirectoryEntry, ProviderListItem } from "~/types/relay";
+import type { ProviderSharing, ProviderSharingInput } from "~/types/quota";
 import { useNotification } from "@stellar/ui";
 
 type ProviderSharingOptions = {
@@ -18,41 +13,23 @@ export function useProviderSharing(options: ProviderSharingOptions) {
   const notifications = useNotification();
   const provider = ref<ProviderListItem | null>(null);
   const sharing = ref<ProviderSharing | null>(null);
-  const usage = ref<ProviderUsage | null>(null);
   const visible = ref(false);
   const loading = ref(false);
-
-  function emptyUsage(): ProviderUsage {
-    return {
-      total_requests: 0,
-      input_tokens: 0,
-      output_tokens: 0,
-      total_tokens: 0,
-      latest_used_at: null,
-      users: [],
-    };
-  }
 
   async function open(next: ProviderListItem) {
     provider.value = next;
     sharing.value = null;
-    usage.value = null;
     visible.value = true;
     loading.value = true;
     try {
-      const [sharingResponse, identityList, usageResponse] = await Promise.all([
+      const [sharingResponse, identityList] = await Promise.all([
         invokeCommand<ProviderSharing>("providers_sharing_get", {
           providerId: next.id,
         }),
         invokeCommand<IdentityDirectoryEntry[]>("identity_directory_list"),
-        invokeCommand<ProviderUsage>("providers_usage_get", {
-          providerId: next.id,
-          range: "all",
-        }),
       ]);
       sharing.value = sharingResponse;
       options.identities.value = identityList;
-      usage.value = usageResponse;
     } catch {
       // The command composable exposes the error to this view.
     } finally {
@@ -64,7 +41,6 @@ export function useProviderSharing(options: ProviderSharingOptions) {
     visible.value = false;
     provider.value = null;
     sharing.value = null;
-    usage.value = null;
   }
 
   async function save(input: ProviderSharingInput) {
@@ -83,17 +59,6 @@ export function useProviderSharing(options: ProviderSharingOptions) {
       );
       if (refreshedProvider) {
         provider.value = refreshedProvider;
-        try {
-          usage.value = await invokeCommand<ProviderUsage>(
-            "providers_usage_get",
-            {
-              providerId: refreshedProvider.id,
-              range: "all",
-            },
-          );
-        } catch {
-          usage.value = emptyUsage();
-        }
       } else {
         close();
       }
@@ -110,7 +75,6 @@ export function useProviderSharing(options: ProviderSharingOptions) {
     provider,
     save,
     sharing,
-    usage,
     visible,
   };
 }
