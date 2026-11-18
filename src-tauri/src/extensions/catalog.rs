@@ -112,11 +112,13 @@ pub async fn update_all_extensions(
             message: "没有可更新扩展。".to_string(),
             skipped: Vec::new(),
             review: Vec::new(),
+            warning: None,
         });
     }
 
     let client = authenticated_api(state).await?;
     let updated = catalog.packages.len();
+    let mut warnings = Vec::new();
     for package in catalog.packages {
         let bundle: ExtensionInstallBundle = client
             .get(&format!(
@@ -125,12 +127,16 @@ pub async fn update_all_extensions(
             ))
             .await?;
         validate_package_bundle(&package, &bundle)?;
-        install_prepared_bundle(home, &bundle, &package.installed_clients, false)?;
+        let outcome = install_prepared_bundle(home, &bundle, &package.installed_clients, false)?;
+        if let Some(warning) = outcome.trust_warning {
+            warnings.push(warning);
+        }
     }
     Ok(super::model::ExtensionInstallResult {
         message: format!("已更新 {updated} 个扩展。"),
         skipped: Vec::new(),
         review: Vec::new(),
+        warning: (!warnings.is_empty()).then(|| warnings.join(" ")),
     })
 }
 

@@ -377,6 +377,7 @@ export interface ExtensionInstallResult {
   message: string;
   skipped: string[];
   review: HookReviewItem[];
+  warning?: string | null;
 }
 
 export type CodexSettings = Partial<{

@@ -17,6 +17,7 @@ use super::{
 use crate::agents::AgentItemKind;
 
 mod hook_identity;
+mod trust;
 
 fn bundle(name: &str, artifacts: Vec<ExtensionArtifact>) -> ExtensionInstallBundle {
     bundle_with_version(name, "v1.0.0", artifacts)
@@ -27,11 +28,20 @@ fn bundle_with_version(
     tag: &str,
     artifacts: Vec<ExtensionArtifact>,
 ) -> ExtensionInstallBundle {
+    bundle_with_identity(name, tag, "abc", artifacts)
+}
+
+fn bundle_with_identity(
+    name: &str,
+    tag: &str,
+    commit_sha: &str,
+    artifacts: Vec<ExtensionArtifact>,
+) -> ExtensionInstallBundle {
     ExtensionInstallBundle {
         name: name.to_string(),
         version: ExtensionVersion {
             tag: tag.to_string(),
-            commit_sha: "abc".to_string(),
+            commit_sha: commit_sha.to_string(),
             updated_at: "2026-11-05T00:00:00Z".to_string(),
         },
         artifacts,

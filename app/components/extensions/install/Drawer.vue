@@ -119,7 +119,7 @@ async function install(overwrite = false) {
   }
   installing.value = true;
   try {
-    await invokeLocalCommand<ExtensionInstallResult>(
+    const result = await invokeLocalCommand<ExtensionInstallResult>(
       "extensions_install",
       {
         request: {
@@ -130,6 +130,9 @@ async function install(overwrite = false) {
       },
       { notify: false },
     );
+    if (result.warning) {
+      notifications.warning(result.warning, { title: "Hook 信任未写入" });
+    }
     emit("installed", props.extension.catalogKind);
     visible.value = false;
   } catch (caught) {

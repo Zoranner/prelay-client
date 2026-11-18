@@ -19,6 +19,7 @@ use super::{
 
 mod merge;
 mod root;
+mod trust;
 use merge::{
     add_handler, collect_incoming_hooks, document_hooks, hooks_object_mut, read_hook_document,
     remove_hash,
@@ -27,6 +28,7 @@ use root::{
     hook_package_root, install_hook_support_files, remove_hook_root, restore_document,
     restore_hook_root,
 };
+pub(crate) use trust::{entries as codex_trust_entries, write as write_codex_trust};
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub(crate) struct HookHandler {
@@ -275,6 +277,6 @@ pub(crate) fn remove_package_root(
     remove_hook_root(home, package, commit_sha)
 }
 
-fn hooks_path(home: &Path) -> PathBuf {
+pub(super) fn hooks_path(home: &Path) -> PathBuf {
     home.join(".codex").join("hooks.json")
 }

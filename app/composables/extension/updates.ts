@@ -27,13 +27,15 @@ export function useExtensionUpdates({
     if (updating.value) return;
     updating.value = true;
     try {
-      const result = await invokeLocalCommand<{ message: string }>(
-        "extensions_update_all",
-        { kind },
-        { notify: false },
-      );
+      const result = await invokeLocalCommand<{
+        message: string;
+        warning?: string | null;
+      }>("extensions_update_all", { kind }, { notify: false });
       await refresh(kind);
       notifications.success(result.message);
+      if (result.warning) {
+        notifications.warning(result.warning, { title: "Hook 信任未写入" });
+      }
     } finally {
       updating.value = false;
     }

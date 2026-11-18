@@ -1,4 +1,4 @@
-use std::path::Path;
+use std::{collections::BTreeMap, path::Path};
 
 use crate::{agents::AgentClient, relay::client::ClientError};
 
@@ -23,6 +23,12 @@ pub(crate) fn uninstall_plugin_for_client(
             format!("本机没有扩展包 {package} 的安装记录。"),
         ));
     };
+    let before_trust = record
+        .artifacts
+        .iter()
+        .any(|artifact| matches!(artifact, PluginArtifact::Hook { .. }))
+        .then(|| super::hooks::codex_trust_entries(home, &state))
+        .transpose()?;
     preflight(home, &record)?;
 
     let mut removing = record.clone();
@@ -46,6 +52,18 @@ pub(crate) fn uninstall_plugin_for_client(
         }
     }
     host_state::remove_plugin(home, host, package)?;
+    if let Some(before) = before_trust {
+        if let Ok(state) = HostState::load_locked(home, host) {
+            if let Ok(after) = super::hooks::codex_trust_entries(home, &state) {
+                let stale = before
+                    .iter()
+                    .filter(|(key, _)| !after.contains_key(*key))
+                    .map(|(key, hash)| (key.clone(), hash.clone()))
+                    .collect::<BTreeMap<_, _>>();
+                let _ = super::hooks::write_codex_trust(home, &after, &stale);
+            }
+        }
+    }
     cleanup_package_root(home, &record.name, &record.commit_sha)?;
     Ok(())
 }

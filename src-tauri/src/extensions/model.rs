@@ -54,6 +54,8 @@ pub struct ExtensionInstallResult {
     pub skipped: Vec<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub review: Vec<HookReviewItem>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub warning: Option<String>,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq)]

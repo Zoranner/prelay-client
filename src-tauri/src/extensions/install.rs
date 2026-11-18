@@ -22,8 +22,16 @@ use crate::{
 };
 
 mod apply;
+mod cleanup;
 mod validate;
+use cleanup::{preflight_obsolete, remove_obsolete};
 pub(crate) use validate::{validate_bundle, validate_package_bundle};
+
+#[derive(Debug, Default)]
+pub(crate) struct PreparedInstall {
+    pub review: Vec<HookReviewItem>,
+    pub trust_warning: Option<String>,
+}
 
 pub async fn install_extension(
     home: &Path,
@@ -38,7 +46,7 @@ pub async fn install_extension(
         ))
         .await?;
     validate_package_bundle(&request.package, &bundle)?;
-    let review = install_prepared_bundle(home, &bundle, &request.clients, request.overwrite)?;
+    let outcome = install_prepared_bundle(home, &bundle, &request.clients, request.overwrite)?;
     Ok(ExtensionInstallResult {
         message: if bundle.skipped.is_empty() {
             format!("已安装{}。", bundle.name)
@@ -50,7 +58,8 @@ pub async fn install_extension(
             )
         },
         skipped: bundle.skipped,
-        review,
+        review: outcome.review,
+        warning: outcome.trust_warning,
     })
 }
 
@@ -99,7 +108,7 @@ pub(crate) fn install_prepared_bundle(
     bundle: &ExtensionInstallBundle,
     clients: &[AgentClient],
     overwrite: bool,
-) -> Result<Vec<HookReviewItem>, ClientError> {
+) -> Result<PreparedInstall, ClientError> {
     validate_bundle(bundle)?;
     let host = ExtensionHost::from_clients(clients)
         .ok_or_else(|| ClientError::new("invalid_request", "未选择可安装的客户端。"))?;
@@ -113,9 +122,14 @@ pub(crate) fn install_prepared_bundle(
         .any(|artifact| artifact.kind == ExtensionKind::Rule)
     {
         install_rule_bundle(home, host, clients, bundle, overwrite)?;
-        return Ok(Vec::new());
+        return Ok(PreparedInstall::default());
     }
-    install_plugin_bundle(home, host, clients, bundle, overwrite, &state)
+    let (review, trust_warning) =
+        install_plugin_bundle(home, host, clients, bundle, overwrite, &state)?;
+    Ok(PreparedInstall {
+        review,
+        trust_warning,
+    })
 }
 
 fn install_rule_bundle(
@@ -183,7 +197,7 @@ fn install_plugin_bundle(
     bundle: &ExtensionInstallBundle,
     overwrite: bool,
     state: &HostState,
-) -> Result<Vec<HookReviewItem>, ClientError> {
+) -> Result<(Vec<HookReviewItem>, Option<String>), ClientError> {
     let skill_targets = agent_skill_target_roots(clients, home);
     let mcp_target = normalize_path(&home.join(".codex").join("config.toml"));
     let hook_target = normalize_path(&home.join(".codex").join("hooks.json"));
@@ -192,6 +206,19 @@ fn install_plugin_bundle(
     let mut planned_hook_handlers = Vec::new();
     let mut planned_hook_artifacts = Vec::new();
     let previous = state.plugin(&bundle.name).cloned();
+    let hooks_involved = bundle
+        .artifacts
+        .iter()
+        .any(|artifact| artifact.kind == ExtensionKind::Hook)
+        || previous.as_ref().is_some_and(|plugin| {
+            plugin
+                .artifacts
+                .iter()
+                .any(|artifact| matches!(artifact, PluginArtifact::Hook { .. }))
+        });
+    let before_trust = hooks_involved
+        .then(|| super::hooks::codex_trust_entries(home, state))
+        .transpose()?;
     for artifact in &bundle.artifacts {
         match artifact.kind {
             ExtensionKind::Skill => {
@@ -302,6 +329,17 @@ fn install_plugin_bundle(
         artifacts,
     };
     host_state::write_plugin(home, host, &record)?;
+    let trust_warning = if let Some(before) = before_trust {
+        match sync_codex_hook_trust(home, host, &before) {
+            Ok(()) => None,
+            Err(error) => Some(format!(
+                "Hook 已安装，但 Codex 自动信任写入失败：{}。请在 Codex 的 Hook 设置中手动批准。",
+                error.message
+            )),
+        }
+    } else {
+        None
+    };
     if removes_hook {
         let _ =
             super::uninstall::cleanup_package_root(home, &bundle.name, &bundle.version.commit_sha);
@@ -310,125 +348,20 @@ fn install_plugin_bundle(
     {
         let _ = super::uninstall::cleanup_package_root(home, &previous.name, &previous.commit_sha);
     }
-    Ok(review)
+    Ok((review, trust_warning))
 }
 
-fn preflight_obsolete(
+fn sync_codex_hook_trust(
     home: &Path,
-    previous: &PluginRecord,
-    planned: &[PluginArtifact],
+    host: ExtensionHost,
+    before: &BTreeMap<String, String>,
 ) -> Result<(), ClientError> {
-    for artifact in &previous.artifacts {
-        if artifact_is_kept(artifact, planned) {
-            continue;
-        }
-        if let PluginArtifact::Mcp {
-            server_name,
-            manifest_hash,
-            ..
-        } = artifact
-        {
-            if mcp::health(home, server_name, manifest_hash)?
-                == super::host_state::ArtifactHealth::Modified
-            {
-                return Err(ClientError::new(
-                    "local_extensions_conflict",
-                    format!("MCP 服务 {server_name} 已被修改，未更新扩展包。"),
-                ));
-            }
-        }
-    }
-    Ok(())
-}
-
-fn remove_obsolete(
-    home: &Path,
-    previous: &PluginRecord,
-    planned: &[PluginArtifact],
-) -> Result<(), ClientError> {
-    for artifact in &previous.artifacts {
-        if let PluginArtifact::Skill { target, names } = artifact {
-            let removed = names
-                .iter()
-                .filter(|name| {
-                    !planned.iter().any(|artifact| {
-                        matches!(
-                            artifact,
-                            PluginArtifact::Skill {
-                                target: planned_target,
-                                names: planned_names,
-                            } if planned_target == target && planned_names.contains(name)
-                        )
-                    })
-                })
-                .cloned()
-                .collect::<Vec<_>>();
-            if !removed.is_empty() {
-                skills::remove_skill_roots(Path::new(target), &removed)?;
-            }
-            continue;
-        }
-        if artifact_is_kept(artifact, planned) {
-            continue;
-        }
-        match artifact {
-            PluginArtifact::Mcp { server_name, .. } => {
-                mcp::remove_mcp(home, server_name)?;
-            }
-            PluginArtifact::Hook { handler_hash, .. } => {
-                super::hooks::remove_hook_handler(home, handler_hash)?;
-            }
-            PluginArtifact::Skill { .. } => {}
-        }
-    }
-    Ok(())
-}
-
-fn artifact_is_kept(current: &PluginArtifact, planned: &[PluginArtifact]) -> bool {
-    match current {
-        PluginArtifact::Skill { target, names } => names.iter().all(|name| {
-            planned.iter().any(|artifact| {
-                matches!(
-                    artifact,
-                    PluginArtifact::Skill {
-                        target: planned_target,
-                        names: planned_names,
-                    } if planned_target == target && planned_names.contains(name)
-                )
-            })
-        }),
-        PluginArtifact::Mcp {
-            target,
-            server_name,
-            ..
-        } => planned.iter().any(|artifact| {
-            matches!(
-                artifact,
-                PluginArtifact::Mcp {
-                    target: planned_target,
-                    server_name: planned_server,
-                    ..
-                } if planned_target == target && planned_server == server_name
-            )
-        }),
-        PluginArtifact::Hook {
-            target,
-            event,
-            matcher,
-            handler_hash,
-        } => planned.iter().any(|artifact| {
-            matches!(
-                artifact,
-                PluginArtifact::Hook {
-                    target: planned_target,
-                    event: planned_event,
-                    matcher: planned_matcher,
-                    handler_hash: planned_hash,
-                } if planned_target == target
-                    && planned_event == event
-                    && planned_matcher == matcher
-                    && planned_hash == handler_hash
-            )
-        }),
-    }
+    let state = HostState::load_locked(home, host)?;
+    let after = super::hooks::codex_trust_entries(home, &state)?;
+    let stale = before
+        .iter()
+        .filter(|(key, _)| !after.contains_key(*key))
+        .map(|(key, hash)| (key.clone(), hash.clone()))
+        .collect::<BTreeMap<_, _>>();
+    super::hooks::write_codex_trust(home, &after, &stale)
 }

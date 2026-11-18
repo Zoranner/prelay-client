@@ -307,7 +307,7 @@ pub(super) fn document_hooks(document: &Value) -> Vec<DocumentHook> {
     hooks
 }
 
-fn review_item(
+pub(super) fn review_item(
     event: &str,
     matcher: Option<&str>,
     handler: &Value,
@@ -364,7 +364,7 @@ fn handler_hash(
     hash_review(&review_item(event, matcher, handler)?)
 }
 
-fn hash_review(review: &HookReviewItem) -> Result<String, ClientError> {
+pub(super) fn hash_review(review: &HookReviewItem) -> Result<String, ClientError> {
     let identity = serde_json::json!({
         "event": review.event,
         "matcher": review.matcher,
