@@ -13,6 +13,7 @@ type ExtensionRow = ExtensionCatalogPackage & Record<string, unknown>;
 const props = defineProps<{
   packages: ExtensionCatalogPackage[];
   pending?: boolean;
+  installing?: Record<string, { label: string; running: boolean }> | null;
 }>();
 const emit = defineEmits<{
   detail: [item: ExtensionCatalogPackage];
@@ -29,6 +30,14 @@ const artifactOrder: ExtensionArtifactKind[] = ["skill", "mcp", "hook", "rule"];
 const showContents = computed(() =>
   props.packages.some((extension) => extension.artifacts.length > 0),
 );
+// 有更新的包先显示，避免用户在多页目录里寻找可更新项。
+const rows = computed(() => {
+  const updateFirst = (extension: ExtensionCatalogPackage) =>
+    extension.installAction === "update" ? 0 : 1;
+  return [...props.packages].sort(
+    (left, right) => updateFirst(left) - updateFirst(right),
+  );
+});
 
 function repositoryUrl(repository: string) {
   return repository;
@@ -49,6 +58,32 @@ function installAction(row: ExtensionCatalogPackage) {
   if (row.installAction === "installed")
     return { icon: "ph:check", label: "已安装" };
   return { icon: "ph:download-simple", label: "安装" };
+}
+
+function installButtonAppearance(row: ExtensionCatalogPackage) {
+  return row.installAction === "update"
+    ? { semantic: "primary" as const, variant: "solid" as const }
+    : {};
+}
+
+function installingJob(row: ExtensionCatalogPackage) {
+  return props.installing?.[row.name];
+}
+
+function actionIcon(row: ExtensionCatalogPackage) {
+  const job = installingJob(row);
+  if (!job) return installAction(row).icon;
+  return job.running ? "ph:circle-notch" : "ph:clock";
+}
+
+function actionLabel(row: ExtensionCatalogPackage) {
+  return installingJob(row)?.label ?? installAction(row).label;
+}
+
+function actionDisabled(row: ExtensionCatalogPackage) {
+  return Boolean(
+    props.pending || row.installAction === "installed" || installingJob(row),
+  );
 }
 
 async function copyRepositoryUrl(repository: string) {
@@ -100,7 +135,7 @@ const columns = computed(() => {
   <Table
     class="extension-catalog-table"
     :columns="columns"
-    :data="packages as ExtensionRow[]"
+    :data="rows as ExtensionRow[]"
     empty-text="暂无此类扩展"
     :loading="pending"
     fixed-header
@@ -154,10 +189,15 @@ const columns = computed(() => {
         <Button
           square
           size="small"
-          :icon="installAction(row).icon"
-          :aria-label="installAction(row).label"
-          :title="installAction(row).label"
-          :disabled="pending || row.installAction === 'installed'"
+          v-bind="installButtonAppearance(row)"
+          :class="{
+            'extension-catalog-action--busy':
+              installingJob(row)?.running === true,
+          }"
+          :icon="actionIcon(row)"
+          :aria-label="actionLabel(row)"
+          :title="actionLabel(row)"
+          :disabled="actionDisabled(row)"
           @click.stop="emit('install', row)"
         />
       </div>
@@ -185,6 +225,16 @@ const columns = computed(() => {
   display: flex;
   justify-content: flex-end;
   gap: var(--spacing-xs);
+}
+
+.extension-catalog-action--busy :deep(.iconify) {
+  animation: extension-catalog-spin 800ms linear infinite;
+}
+
+@keyframes extension-catalog-spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .extension-catalog-link {

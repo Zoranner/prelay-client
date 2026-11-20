@@ -4,9 +4,6 @@ import type { AgentClient } from "~/types/relay";
 import AgentClientContent from "~/components/agents/workspace/Content.vue";
 import AgentSettingsDrawer from "~/components/agents/settings/Drawer.vue";
 import AgentSidebar from "~/components/agents/workspace/Sidebar.vue";
-import ExtensionDetailDrawer from "~/components/extensions/DetailDrawer.vue";
-import ExtensionInstallDrawer from "~/components/extensions/install/Drawer.vue";
-import ExtensionLibraryContent from "~/components/extensions/library/Content.vue";
 import PanelSection from "~/components/shell/layout/PanelSection.vue";
 
 const workspace = useAgentWorkspace();
@@ -18,11 +15,9 @@ const {
 const selection = useAgentPageSelection(workspace);
 const {
   activateClient,
-  activateExtensions,
   activeClient,
   activeClientDetected,
   activeSection,
-  activeWorkspace,
   agentClients,
   availableSectionOptions,
   isAgentContentLoading,
@@ -74,27 +69,6 @@ const activeRules = computed({
     agentRules.draft[activeClient.value] = rules;
   },
 });
-const extensionLibrary = useExtensionLibrary({
-  refreshClient: () => workspace.refreshClient(activeClient.value),
-  relayUrl: computed(() => bootstrap.value?.relay_url ?? null),
-  visible: computed(() => activeWorkspace.value === "extensions"),
-});
-const {
-  activeSection: extensionSection,
-  installed: extensionInstalled,
-  loading: extensionLoading,
-  openDetails: openExtensionDetails,
-  openInstall: openExtensionInstall,
-  packages: extensionPackages,
-  refresh: refreshExtensions,
-  selected: selectedExtension,
-  showDetails: showExtensionDetails,
-  showInstall: showExtensionInstall,
-  totalUpdates: totalExtensionUpdates,
-  updateAll: updateAllExtensions,
-  updates: extensionUpdates,
-  updating: extensionUpdating,
-} = extensionLibrary;
 const itemActions = useAgentItemActions({
   client: activeClient,
   refreshClient: workspace.refreshClient,
@@ -191,15 +165,12 @@ onBeforeUnmount(() => {
       </template>
       <div class="agent-content">
         <AgentSidebar
-          :active-workspace="activeWorkspace"
+          :active-client="activeClient"
           :clients="agentClients"
           :status-loading="clientStatusesLoading"
-          :total-extension-updates="totalExtensionUpdates"
           @select-client="selectClient"
-          @select-extensions="activateExtensions"
         />
         <AgentClientContent
-          v-if="activeWorkspace !== 'extensions'"
           v-model:active-section="activeSection"
           v-model:rules="activeRules"
           :client-content-loading="isAgentContentLoading(activeClient)"
@@ -210,17 +181,6 @@ onBeforeUnmount(() => {
           :section-options="availableSectionOptions"
           @open-settings="openSettings(activeClientDetected)"
           @uninstall="itemActions.uninstall"
-        />
-        <ExtensionLibraryContent
-          v-else
-          v-model:active-section="extensionSection"
-          :loading="extensionLoading"
-          :packages="extensionPackages"
-          :updates="extensionUpdates"
-          :updating="extensionUpdating"
-          @detail="openExtensionDetails"
-          @install="openExtensionInstall"
-          @update-all="updateAllExtensions"
         />
       </div>
     </PanelSection>
@@ -236,21 +196,6 @@ onBeforeUnmount(() => {
     @close="requestCloseSettings"
     @save="saveSettings"
     @update:visible="updateSettingsVisibility"
-  />
-  <ExtensionDetailDrawer
-    v-model:visible="showExtensionDetails"
-    :extension="selectedExtension"
-  />
-  <ExtensionInstallDrawer
-    v-model:visible="showExtensionInstall"
-    :extension="selectedExtension"
-    :detected-clients="
-      agentClients
-        .filter((client) => client.installed)
-        .map((client) => client.client)
-    "
-    @installed="extensionInstalled"
-    @refreshed="refreshExtensions"
   />
 </template>
 

@@ -11,11 +11,14 @@ test("智能体工作区按客户端状态、内容与设置职责分层", () =>
   const app = source("app.vue");
   const page = source("pages/agents.vue");
   const workspace = source("composables/agent/workspace.ts");
+  const clientStatus = source("composables/agent/clientStatus.ts");
+  const sync = source("composables/agent/sync.ts");
+  const selection = source("composables/agent/pageSelection.ts");
   const sidebar = source("components/agents/workspace/Sidebar.vue");
   const clientIcon = source("components/agents/client/Icon.vue");
   const clientAvatarGroup = source("components/agents/client/AvatarGroup.vue");
   const content = source("components/agents/workspace/Content.vue");
-  const extensionContent = source("components/extensions/library/Content.vue");
+  const extensionsPage = source("pages/extensions.vue");
   const settings = source("composables/agent/settings.ts");
   const rules = source("composables/agent/rules.ts");
 
@@ -23,13 +26,20 @@ test("智能体工作区按客户端状态、内容与设置职责分层", () =>
   expect(page).toContain("useAgentWorkspace");
   expect(page).toContain("AgentSidebar");
   expect(page).toContain("AgentClientContent");
-  expect(page).toContain("ExtensionLibraryContent");
+  expect(page).not.toContain("ExtensionLibraryContent");
   expect(page).toContain("AgentSettingsDrawer");
   expect(page).toContain("function refreshAgentClients()");
   expect(page).toContain('@click="refreshAgentClients"');
-  expect(page).toContain("workspace.refreshClient(activeClient.value)");
+  expect(selection).toContain(
+    "void workspace.refreshClient(activeClient.value)",
+  );
   expect(page).not.toContain('"agents_list"');
-  expect(workspace).toContain('"agents_status"');
+  expect(clientStatus).toContain('"agents_status"');
+  expect(workspace).toContain("useAgentClientStatus");
+  expect(workspace).not.toContain('"agents_status"');
+  expect(sync).toContain("useAgentClientStatus");
+  expect(sync).toContain("refreshClientStatuses()");
+  expect(sync).not.toContain('"agents_status"');
   expect(workspace).toContain('"agent_items_get"');
   expect(workspace).toContain('"agent_settings_get"');
   expect(workspace).not.toContain('"agents_list"');
@@ -55,7 +65,7 @@ test("智能体工作区按客户端状态、内容与设置职责分层", () =>
   expect(content).toContain("AgentMcpList");
   expect(content).toContain("AgentSkillList");
   expect(content).toContain("AgentHookList");
-  expect(extensionContent).toContain("ExtensionCatalogTable");
+  expect(extensionsPage).toContain("ExtensionCatalogTable");
   expect(content).toContain('icon="ph:sliders-horizontal"');
   expect(content).toContain('aria-label="配置"');
 

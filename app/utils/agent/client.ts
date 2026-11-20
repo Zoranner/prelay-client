@@ -3,7 +3,6 @@ import codexIcon from "@lobehub/icons-static-svg/icons/codex.svg";
 import openaiIcon from "@lobehub/icons-static-svg/icons/openai.svg";
 
 export type AgentSection = "rules" | AgentItemKind;
-export type AgentWorkspace = AgentClient | "extensions";
 export type AgentSectionOption = {
   value: AgentSection;
   label: string;

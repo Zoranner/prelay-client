@@ -10,7 +10,6 @@ import {
   sortAgentClients,
   type AgentSection,
   type AgentSectionOption,
-  type AgentWorkspace,
 } from "~/utils/agent/client";
 import { hasUnresolvedError } from "~/utils/agent/itemDisplay";
 
@@ -46,13 +45,7 @@ export function useAgentPageSelection(workspace: AgentPageWorkspace) {
     ),
   );
   const initialClient = agentClients.value[0]?.client ?? "chatgpt";
-  const activeWorkspace = ref<AgentWorkspace>(initialClient);
-  const lastActiveClient = ref<AgentClient>(initialClient);
-  const activeClient = computed<AgentClient>(() =>
-    activeWorkspace.value === "extensions"
-      ? lastActiveClient.value
-      : activeWorkspace.value,
-  );
+  const activeClient = ref<AgentClient>(initialClient);
   const activeSection = ref<AgentSection>("rules");
   const availableSectionOptions = computed<AgentSectionOption[]>(() => {
     const definition = agentClientDefinitions.find(
@@ -90,12 +83,7 @@ export function useAgentPageSelection(workspace: AgentPageWorkspace) {
   }
 
   function activateClient(client: AgentClient) {
-    lastActiveClient.value = client;
-    activeWorkspace.value = client;
-  }
-
-  function activateExtensions() {
-    activeWorkspace.value = "extensions";
+    activeClient.value = client;
   }
 
   watch(
@@ -111,26 +99,18 @@ export function useAgentPageSelection(workspace: AgentPageWorkspace) {
   watch(
     clientStatuses,
     () => {
-      if (
-        activeWorkspace.value !== "extensions" &&
-        !activeClientDetected.value
-      ) {
+      if (!activeClientDetected.value) {
         const fallback = agentClients.value[0]?.client ?? "chatgpt";
-        lastActiveClient.value = fallback;
-        activeWorkspace.value = fallback;
+        activeClient.value = fallback;
       }
     },
     { immediate: true },
   );
 
   watch(
-    [clientStatusesLoaded, activeWorkspace],
+    [clientStatusesLoaded, activeClient],
     () => {
-      if (
-        activeWorkspace.value !== "extensions" &&
-        clientStatusesLoaded.value &&
-        activeClientDetected.value
-      ) {
+      if (clientStatusesLoaded.value && activeClientDetected.value) {
         void workspace.refreshClient(activeClient.value);
       }
     },
@@ -141,11 +121,9 @@ export function useAgentPageSelection(workspace: AgentPageWorkspace) {
     activeClient,
     activeClientDetected,
     activeSection,
-    activeWorkspace,
     agentClients,
     availableSectionOptions,
     activateClient,
-    activateExtensions,
     isAgentContentLoading,
     sectionItems,
   };

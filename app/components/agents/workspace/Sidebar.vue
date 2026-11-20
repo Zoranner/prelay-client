@@ -1,7 +1,7 @@
 <script setup lang="ts">
 defineOptions({ name: "AgentWorkspaceSidebar" });
 
-import { Badge, Icon, List, ListItem } from "@stellar/ui";
+import { Icon, List, ListItem } from "@stellar/ui";
 import type { AgentClient } from "~/types/relay";
 import AgentClientIcon from "~/components/agents/client/Icon.vue";
 
@@ -13,15 +13,13 @@ type AgentClientCard = {
 };
 
 defineProps<{
-  activeWorkspace: AgentClient | "extensions";
+  activeClient: AgentClient;
   clients: AgentClientCard[];
-  totalExtensionUpdates: number;
   statusLoading: boolean;
 }>();
 
 const emit = defineEmits<{
   selectClient: [client: AgentClient];
-  selectExtensions: [];
 }>();
 </script>
 
@@ -31,7 +29,7 @@ const emit = defineEmits<{
       <ListItem
         v-for="client in clients"
         :key="client.client"
-        :active="activeWorkspace === client.client"
+        :active="activeClient === client.client"
         clickable
         @click="emit('selectClient', client.client)"
       >
@@ -52,28 +50,6 @@ const emit = defineEmits<{
         </span>
       </ListItem>
     </List>
-    <List class="agent-extension-library" :divided="false">
-      <ListItem
-        :active="activeWorkspace === 'extensions'"
-        clickable
-        @click="emit('selectExtensions')"
-      >
-        <template #prefix>
-          <span class="agent-client-icon-frame">
-            <Icon icon="ph:storefront" size="24" />
-          </span>
-        </template>
-        <span class="agent-extension-identity">
-          <span>扩展库</span>
-          <Badge
-            v-if="totalExtensionUpdates > 0"
-            semantic="error"
-            variant="solid"
-            :count="totalExtensionUpdates"
-          />
-        </span>
-      </ListItem>
-    </List>
   </aside>
 </template>
 
@@ -81,7 +57,7 @@ const emit = defineEmits<{
 .agent-sidebar {
   display: grid;
   min-height: 0;
-  grid-template-rows: minmax(0, 1fr) auto;
+  grid-template-rows: minmax(0, 1fr);
   padding-right: var(--spacing-md);
   border-right: 1px solid var(--st-border-divider);
 }
@@ -92,19 +68,12 @@ const emit = defineEmits<{
   overflow-y: auto;
 }
 
-.agent-client-list :deep(.st-list-item > div:first-child),
-.agent-extension-library :deep(.st-list-item > div:first-child) {
+.agent-client-list :deep(.st-list-item > div:first-child) {
   display: flex;
   width: 40px;
   height: 40px;
   align-items: center;
   justify-content: center;
-}
-
-.agent-extension-library {
-  margin-top: 0;
-  padding-top: var(--spacing-sm);
-  border-top: 1px solid var(--st-border-divider);
 }
 
 .agent-client-icon-frame {
@@ -131,14 +100,6 @@ const emit = defineEmits<{
 .agent-client-identity {
   display: grid;
   gap: 2px;
-}
-
-.agent-extension-identity {
-  display: flex;
-  min-width: 0;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--spacing-sm);
 }
 
 .agent-client-identity small {

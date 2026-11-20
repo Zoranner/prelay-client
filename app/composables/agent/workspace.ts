@@ -1,10 +1,10 @@
 import type {
   AgentClient,
   AgentClientItems,
-  AgentClientStatus,
   AgentSettings,
 } from "~/types/relay";
 import { clientSupportsSettings } from "~/utils/agent/client";
+import { useAgentClientStatus } from "~/composables/agent/clientStatus";
 import { waitForAgentSync } from "~/composables/agent/sync";
 
 function emptyClientFlags() {
@@ -14,23 +14,16 @@ function emptyClientFlags() {
   } satisfies Record<AgentClient, boolean>;
 }
 
-let clientStatusRequest: Promise<void> | undefined;
 const clientContentRequests: Partial<Record<AgentClient, Promise<void>>> = {};
 
 export function useAgentWorkspace() {
   const { invokeLocalCommand } = useLocalCommand();
-  const clientStatuses = useState<AgentClientStatus[]>(
-    "agent-workspace-client-statuses",
-    () => [],
-  );
-  const clientStatusesLoaded = useState(
-    "agent-workspace-client-statuses-loaded",
-    () => false,
-  );
-  const clientStatusesLoading = useState(
-    "agent-workspace-client-statuses-loading",
-    () => false,
-  );
+  const {
+    clientStatuses,
+    clientStatusesLoaded,
+    clientStatusesLoading,
+    refreshClientStatuses,
+  } = useAgentClientStatus();
   const clientItems = useState<Partial<Record<AgentClient, AgentClientItems>>>(
     "agent-workspace-client-items",
     () => ({}),
@@ -51,30 +44,6 @@ export function useAgentWorkspace() {
     "agent-workspace-settings-loaded",
     emptyClientFlags,
   );
-
-  async function refreshClientStatuses() {
-    if (clientStatusRequest) return clientStatusRequest;
-
-    clientStatusesLoaded.value = false;
-    clientStatusesLoading.value = true;
-    clientStatusRequest = (async () => {
-      try {
-        clientStatuses.value = await invokeLocalCommand<AgentClientStatus[]>(
-          "agents_status",
-          undefined,
-          { notify: false, trackPending: false },
-        );
-      } catch {
-        // The status list remains empty when local detection is unavailable.
-      } finally {
-        clientStatusesLoaded.value = true;
-        clientStatusesLoading.value = false;
-        clientStatusRequest = undefined;
-      }
-    })();
-
-    return clientStatusRequest;
-  }
 
   async function loadClientItems(client: AgentClient, force = false) {
     if (!force && (clientItems.value[client] || itemsLoading.value[client])) {

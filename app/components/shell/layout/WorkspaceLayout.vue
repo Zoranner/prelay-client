@@ -57,10 +57,6 @@ withDefaults(
   gap: var(--spacing-sm);
 }
 
-.workspace-toolbar :deep(.workspace-update-hint) {
-  white-space: nowrap;
-}
-
 .workspace-results {
   display: flex;
   flex: 1;

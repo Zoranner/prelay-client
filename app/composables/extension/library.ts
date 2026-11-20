@@ -4,16 +4,12 @@ import type {
 } from "~/types/relay";
 
 type ExtensionLibraryOptions = {
-  refreshClient: () => Promise<void>;
   relayUrl: Readonly<Ref<string | null | undefined>>;
-  visible: Readonly<Ref<boolean>>;
 };
 
 export function useExtensionLibrary(options: ExtensionLibraryOptions) {
   const catalog = useExtensionCatalog();
-  const actions = useExtensionUpdates({
-    refreshClient: options.refreshClient,
-  });
+  const actions = useExtensionUpdates();
   const activeSection = ref<ExtensionCatalogKind>("rule");
   const selected = ref<ExtensionCatalogPackage | null>(null);
   const showDetails = ref(false);
@@ -36,22 +32,13 @@ export function useExtensionLibrary(options: ExtensionLibraryOptions) {
     showInstall.value = true;
   }
 
-  function updateAll() {
-    return actions.updateAll(activeSection.value);
-  }
-
   watch(activeSection, (kind) => {
-    if (options.visible.value) void catalog.load(kind, true);
-  });
-
-  watch(options.visible, (visible) => {
-    if (visible) void catalog.load(activeSection.value);
+    void catalog.load(kind, true);
   });
 
   watch(options.relayUrl, () => {
     catalog.invalidate();
     void Promise.all(extensionCatalogKinds.map((kind) => catalog.load(kind)));
-    if (options.visible.value) void catalog.load(activeSection.value);
   });
 
   onMounted(() => {
@@ -60,7 +47,6 @@ export function useExtensionLibrary(options: ExtensionLibraryOptions) {
 
   return {
     activeSection,
-    installed: actions.installed,
     loading,
     openDetails,
     openInstall,
@@ -69,9 +55,6 @@ export function useExtensionLibrary(options: ExtensionLibraryOptions) {
     selected,
     showDetails,
     showInstall,
-    totalUpdates: catalog.totalUpdateCount,
-    updateAll,
     updates,
-    updating: actions.updating,
   };
 }

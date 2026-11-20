@@ -1,6 +1,6 @@
 import type { AgentItem } from "~/types/relay";
 
-/** 扩展库装的 MCP 只有一条宿主配置，技能包才会连带包内全部 Skill。 */
+/** 扩展安装的 MCP 只有一条宿主配置，技能包才会连带包内全部 Skill。 */
 export function agentUninstallDescription(item: AgentItem): string {
   if (item.kind === "hook") {
     return item.package === null

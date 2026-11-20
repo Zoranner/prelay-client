@@ -14,6 +14,7 @@ test("桌面壳层按仪表盘组织客户端入口", () => {
   expect(navigation).toContain('label: "仪表盘"');
   expect(navigation).toContain('label: "供应商"');
   expect(navigation).toContain('label: "接入点"');
+  expect(navigation).toContain('label: "扩展"');
   expect(navigation).toContain('label: "活动"');
   expect(navigation).not.toContain('label="设置"');
   expect(titlebar).toContain('aria-label="设置"');

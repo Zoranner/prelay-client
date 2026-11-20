@@ -12,7 +12,7 @@ test("智能体页面只编排路由级状态，展示和设置由领域组件�
   const shell = source("components/dashboard/frame/Shell.vue");
   const sidebar = source("components/agents/workspace/Sidebar.vue");
   const clientContent = source("components/agents/workspace/Content.vue");
-  const extensionContent = source("components/extensions/library/Content.vue");
+  const extensionsPage = source("pages/extensions.vue");
   const selection = source("composables/agent/pageSelection.ts");
   const drawer = source("components/agents/settings/Drawer.vue");
   const installDrawer = source("components/extensions/install/Drawer.vue");
@@ -24,8 +24,14 @@ test("智能体页面只编排路由级状态，展示和设置由领域组件�
   expect(page).toContain("availableSectionOptions");
   expect(page).toContain("AgentSidebar");
   expect(page).toContain("AgentClientContent");
-  expect(page).toContain("ExtensionLibraryContent");
+  expect(page).not.toContain("ExtensionLibraryContent");
   expect(page).toContain("AgentSettingsDrawer");
+  expect(shell).toContain(
+    '{ label: "扩展", path: "/extensions", icon: "ph:storefront" }',
+  );
+  expect(extensionsPage).toContain("<ExtensionCatalogTable");
+  expect(extensionsPage).toContain("<ExtensionInstallDrawer");
+  expect(extensionsPage).toContain("<ExtensionDetailDrawer");
   expect(sidebar).toContain("agent-client-list");
   expect(sidebar).toContain("AgentClientIcon");
   expect(sidebar).not.toContain("agent-client-icon--monochrome");
@@ -33,8 +39,8 @@ test("智能体页面只编排路由级状态，展示和设置由领域组件�
   expect(clientContent).toContain("activeSection === 'plugin'");
   expect(clientContent).toContain("AgentHookList");
   expect(clientContent).not.toContain("showItemStatus");
-  expect(extensionContent).toContain("@update:model-value");
-  expect(extensionContent).toContain("<ExtensionCatalogTable");
+  expect(extensionsPage).toContain("@update:model-value");
+  expect(extensionsPage).toContain("<ExtensionCatalogTable");
   expect(selection).toContain("agentSectionOptions");
   expect(selection).toContain("AgentSectionOption");
   expect(clientContent).not.toContain('icon="ph:gear-six"');
@@ -53,14 +59,12 @@ test("进入智能体页面时默认选中客户端列表第一项", () => {
     'const initialClient = agentClients.value[0]?.client ?? "chatgpt";',
   );
   expect(selection).toContain(
-    "const activeWorkspace = ref<AgentWorkspace>(initialClient);",
+    "const activeClient = ref<AgentClient>(initialClient);",
   );
   expect(selection).toContain(
     'const fallback = agentClients.value[0]?.client ?? "chatgpt";',
   );
-  expect(selection).not.toContain(
-    'const activeWorkspace = ref<AgentWorkspace>("codexCli");',
-  );
+  expect(selection).not.toContain("AgentWorkspace");
   expect(selection).not.toContain(
     'const fallback =\n        clientStatuses.value.find((status) => status.installed)?.client ??\n        "codexCli";',
   );

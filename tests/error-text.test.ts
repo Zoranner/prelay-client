@@ -137,7 +137,7 @@ test("界面展示错误时统一使用文案层", () => {
   expect(source("components/shell/ConnectionError.vue")).toContain(
     "无法连接服务地址",
   );
-  expect(source("components/extensions/install/Drawer.vue")).toContain(
+  expect(source("composables/extension/installJobs.ts")).toContain(
     "errorText(",
   );
 });

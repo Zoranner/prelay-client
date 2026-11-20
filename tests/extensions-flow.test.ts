@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 
 const source = (path: string) =>
   readFileSync(new URL(`../app/${path}`, import.meta.url), "utf8").replace(
@@ -8,7 +8,7 @@ const source = (path: string) =>
   );
 
 test("扩展表格显示名称、版本和可复制的仓库地址", () => {
-  const catalogTable = source("components/extensions/library/CatalogTable.vue");
+  const catalogTable = source("components/extensions/CatalogTable.vue");
   const installationScope = source("components/extensions/install/Scope.vue");
   const clientAvatarGroup = source("components/agents/client/AvatarGroup.vue");
 
@@ -47,7 +47,15 @@ test("扩展表格显示名称、版本和可复制的仓库地址", () => {
   expect(catalogTable).toContain('row.installAction === "installed"');
   expect(catalogTable).toContain('icon: "ph:arrow-circle-down"');
   expect(catalogTable).toContain('label: "更新"');
-  expect(catalogTable).toContain(':icon="installAction(row).icon"');
+  expect(catalogTable).toContain("installAction(row).icon");
+  expect(catalogTable).toContain("installingJob(row)");
+  expect(catalogTable).toContain("ph:circle-notch");
+  expect(catalogTable).toContain("ph:clock");
+  expect(catalogTable).toContain(".iconify");
+  expect(catalogTable).toContain('semantic: "primary" as const');
+  expect(catalogTable).toContain(
+    'extension.installAction === "update" ? 0 : 1',
+  );
   expect(catalogTable).toContain("<ExtensionInstallationScope");
   expect(
     catalogTable.indexOf('key: "installation", title: "安装状态"'),
@@ -62,43 +70,69 @@ test("扩展表格显示名称、版本和可复制的仓库地址", () => {
   expect(clientAvatarGroup).toContain("var(--pr-monochrome-icon-filter)");
 });
 
-test("扩展库沿用智能体工作区的分类表格与单层操作表面", () => {
-  const page = source("pages/agents.vue");
+test("扩展页独立成页并沿用统一分类表格与单层操作表面", () => {
+  const page = source("pages/extensions.vue");
+  const agentsPage = source("pages/agents.vue");
   const sidebar = source("components/agents/workspace/Sidebar.vue");
-  const workspace = source("components/extensions/library/Content.vue");
-  const workspaceStyles = source("components/shell/layout/WorkspaceLayout.vue");
+  const shell = source("components/dashboard/frame/Shell.vue");
   const selection = source("composables/agent/pageSelection.ts");
   const library = source("composables/extension/library.ts");
+  const installJobs = source("composables/extension/installJobs.ts");
   const detailDrawer = source("components/extensions/DetailDrawer.vue");
   const installDrawer = source("components/extensions/install/Drawer.vue");
   const catalog = source("composables/extension/catalog.ts");
   const updates = source("composables/extension/updates.ts");
   const agentClient = source("utils/agent/client.ts");
 
-  expect(updates).toContain('import { useNotification } from "@stellar/ui";');
-  expect(sidebar).toContain("扩展库");
-  expect(sidebar).toContain("totalExtensionUpdates");
-  expect(sidebar).toContain('semantic="error"');
-  expect(workspace).toContain("<ExtensionCatalogTable");
-  expect(workspace).not.toContain("installTest");
-  expect(page).not.toContain("extensions_mcp_test_package");
-  expect(workspace).toContain('class="workspace-update-hint"');
-  expect(workspace).toContain("可更新");
-  expect(workspace).toContain('v-if="updates > 0"');
-  expect(workspace).toContain("@click=\"emit('updateAll')\"");
-  expect(workspace).not.toContain(
-    'semantic="primary"\n            variant="solid"\n            icon="ph:arrows-clockwise"',
+  expect(shell).toContain(
+    '{ label: "扩展", path: "/extensions", icon: "ph:storefront" }',
   );
-  expect(workspaceStyles).toContain(".workspace-update-hint");
-  expect(workspaceStyles).toContain("white-space: nowrap");
-  expect(workspace).toContain('"更新中..." : "全部更新"');
-  expect(workspace).toContain('icon="ph:arrow-circle-down"');
-  expect(workspace).toContain("@click=\"emit('updateAll')\"");
+  expect(shell).toContain(
+    "v-if=\"item.path === '/extensions' && totalExtensionUpdates > 0\"",
+  );
+  expect(sidebar).not.toContain("扩展");
+  expect(sidebar).not.toContain("totalExtensionUpdates");
+  expect(page).toContain("<ExtensionCatalogTable");
+  expect(page).not.toContain("installTest");
+  expect(page).not.toContain("extensions_mcp_test_package");
+  expect(page).toContain('v-if="extensionUpdates > 0 || batchUpdating"');
+  expect(page).toContain('@click="updateAllExtensions"');
+  expect(page).toContain("updateExtensions(extensionPackages.value)");
+  expect(page).toContain('"更新中..." : "全部更新"');
+  expect(page).toContain('icon="ph:arrow-circle-down"');
+  expect(page).not.toContain("可更新");
+  expect(page).not.toContain("extension-update-hint");
+  const headerActions =
+    page.match(/<template #header-actions>[\s\S]*?<\/template>/)?.[0] ?? "";
+  expect(headerActions).toContain('semantic="primary"');
+  expect(headerActions).toContain('variant="solid"');
+  expect(headerActions).toContain('icon="ph:arrows-clockwise"');
+  expect(headerActions).toContain('@click="refreshExtensionsPage"');
+  expect(headerActions).not.toContain("updateAllExtensions");
+  const extensionToolbar =
+    page.match(
+      /<div class="extension-library__toolbar">[\s\S]*?<\/div>/,
+    )?.[0] ?? "";
+  expect(extensionToolbar).toContain('@click="updateAllExtensions"');
+  expect(extensionToolbar).toContain('icon="ph:arrow-circle-down"');
+  expect(extensionToolbar).toContain('class="extension-library__update"');
+  expect(extensionToolbar).not.toContain('semantic="primary"');
+  expect(page).toMatch(/\.extension-library__update \{[^}]*display: flex/);
+  expect(page).toMatch(/\.extension-library__update \{[^}]*flex: 0 0 auto/);
   expect(page).toContain("<ExtensionDetailDrawer");
   expect(page).toContain("<ExtensionInstallDrawer");
+  expect(page).toContain("refreshClientStatuses");
+  expect(page).toContain("refreshExtensionsPage");
+  expect(page).toContain('"刷新中..." : "刷新"');
+  expect(page).not.toContain("#header-inline");
+  expect(agentsPage).not.toContain("ExtensionLibraryContent");
+  expect(agentsPage).not.toContain("<ExtensionInstallDrawer");
+  expect(agentsPage).not.toContain("<ExtensionDetailDrawer");
   expect(selection).toContain("agentSectionOptions");
   expect(page).not.toContain("ph:plugs-connected");
-  expect(page).toContain('@refreshed="refreshExtensions"');
+  expect(page).toContain("useExtensionInstallJobs");
+  expect(page).toContain(':installing="activeJobs"');
+  expect(page).toContain('@install="installExtension"');
   expect(agentClient).toContain("export const agentSectionOptions");
   expect(agentClient).toContain(
     '{ value: "mcp", label: "MCP", icon: "ph:terminal-window" }',
@@ -110,7 +144,7 @@ test("扩展库沿用智能体工作区的分类表格与单层操作表面", ()
     agentClient.indexOf('value: "skill"'),
   );
   expect(page).not.toContain("ph:plugs-connected");
-  expect(workspace).toContain('value: "plugin"');
+  expect(page).toContain('value: "plugin"');
   expect(catalog).toContain("plugin: emptyCatalog()");
   expect(source("types/relay.ts")).toContain(
     "export type ExtensionCatalogPackage = ExtensionPackage;",
@@ -118,13 +152,11 @@ test("扩展库沿用智能体工作区的分类表格与单层操作表面", ()
   expect(source("types/relay.ts")).toContain(
     "packages: ExtensionCatalogPackage[];",
   );
-  expect(agentClient).toContain(
-    'export type AgentWorkspace = AgentClient | "extensions";',
-  );
-  expect(sidebar).toContain(':active="activeWorkspace === client.client"');
-  expect(sidebar).toContain(":active=\"activeWorkspace === 'extensions'\"");
-  expect(selection).toContain("function activateExtensions()");
-  expect(selection).toContain('activeWorkspace.value = "extensions";');
+  expect(agentClient).not.toContain('"extensions"');
+  expect(agentClient).not.toContain("AgentWorkspace");
+  expect(sidebar).toContain(':active="activeClient === client.client"');
+  expect(selection).not.toContain("activateExtensions");
+  expect(selection).not.toContain("activeWorkspace");
   expect(library).toContain("watch(activeSection");
   expect(library).toContain("catalog.load(kind, true)");
   expect(library).toContain(
@@ -135,8 +167,8 @@ test("扩展库沿用智能体工作区的分类表格与单层操作表面", ()
   expect(library).toContain(
     "extensionCatalogKinds.map((kind) => catalog.load(kind))",
   );
-  expect(updates).toContain('"extensions_update_all"');
-  expect(page).toContain(':updating="extensionUpdating"');
+  expect(installJobs).toContain('"extensions_install"');
+  expect(page).toContain(':disabled="batchUpdating"');
   expect(source("composables/agent/itemActions.ts")).toContain(
     "agentUninstallTitle(item)",
   );
@@ -167,9 +199,16 @@ test("扩展库沿用智能体工作区的分类表格与单层操作表面", ()
   expect(installDrawer).toContain("multiple");
   expect(installDrawer).toContain("synchronizeExtensionInstallSelection");
   expect(installDrawer).toContain("function selectClients");
-  expect(installDrawer).toContain("extension_target_exists");
-  expect(installDrawer).toContain('confirmText: "覆盖"');
-  expect(installDrawer).toContain("overwrite");
+  expect(installJobs).toContain("extension_target_exists");
+  expect(installJobs).toContain('confirmText: "覆盖"');
+  expect(installJobs).toContain("overwrite");
+  expect(installJobs).toContain("if (jobs.value[name]) return");
+  expect(installJobs).toContain("useState<Record<string, InstallJob>>");
+  expect(installJobs).toContain("async function updateAll");
+  expect(installJobs).toContain("runUpdateQueue(");
+  expect(installJobs).toContain('label: "等待中"');
+  expect(installJobs).toContain('setJob(extension, "更新中", true)');
+  expect(installDrawer).not.toContain("extensions_install");
   expect(installDrawer).not.toContain("mcpEnvironmentValues");
   expect(installDrawer).not.toContain("environment-values");
   expect(installDrawer).toContain("McpInstallForm");
@@ -232,12 +271,10 @@ test("扩展库沿用智能体工作区的分类表格与单层操作表面", ()
   expect(installDrawer).not.toContain("hookPreview");
   expect(installDrawer).not.toContain("hasContents");
   expect(installDrawer).not.toContain("contentsLoading");
-  expect(installDrawer).toContain(
-    'emit("refreshed", props.extension.catalogKind)',
-  );
+  expect(installDrawer).toContain('emit("install", {');
   expect(updates).toContain("async function refresh");
   expect(installDrawer).not.toContain('client !== "chatgpt"');
-  expect(installDrawer).toContain("MCP 服务");
+  expect(installJobs).toContain("MCP 服务");
   expect(installDrawer).toContain("manifest.name");
   expect(installDrawer).toContain("manifest.transport.type");
   expect(mcpInstallForm).toContain("headers");
@@ -252,17 +289,38 @@ test("扩展库沿用智能体工作区的分类表格与单层操作表面", ()
   expect(installDrawer).not.toContain("var(--st-text-error)");
 });
 
-test("扩展库省略就绪状态时仍显示工具栏和目录", () => {
-  const workspace = source("components/shell/layout/WorkspaceLayout.vue");
-
-  expect(workspace).toContain("withDefaults(");
-  expect(workspace).toContain("ready: true");
-  expect(workspace).toContain('v-if="ready === false"');
+test("扩展目录已迁出智能体工作区", () => {
+  expect(
+    existsSync(
+      new URL("../app/components/extensions/library", import.meta.url),
+    ),
+  ).toBe(false);
+  expect(
+    existsSync(
+      new URL("../app/components/extensions/CatalogTable.vue", import.meta.url),
+    ),
+  ).toBe(true);
+  expect(
+    existsSync(new URL("../app/pages/extensions.vue", import.meta.url)),
+  ).toBe(true);
 });
 
-test("扩展库只负责安装，Skill 按包展示且整包卸载挂在智能体条目上", () => {
-  const catalogTable = source("components/extensions/library/CatalogTable.vue");
-  const workspace = source("components/extensions/library/Content.vue");
+test("扩展页面独立于智能体工作区布局", () => {
+  const page = source("pages/extensions.vue");
+
+  expect(page).toContain("<PanelSection");
+  expect(page).toContain('<PanelSection title="扩展">');
+  expect(page).toContain('class="extension-library__toolbar"');
+  expect(page).toContain("<RadioGroup");
+  expect(page).not.toContain("#header-inline");
+  expect(page).toContain("<template #header-actions>");
+  expect(page).not.toContain("WorkspaceLayout");
+  expect(page).not.toContain("agent-sidebar");
+});
+
+test("扩展只负责安装，Skill 按包展示且整包卸载挂在智能体条目上", () => {
+  const catalogTable = source("components/extensions/CatalogTable.vue");
+  const page = source("pages/extensions.vue");
   const pluginList = source("components/agents/workspace/items/PluginList.vue");
   const hookList = source("components/agents/workspace/items/HookList.vue");
   const uninstall = source("utils/agent/uninstall.ts");
@@ -282,7 +340,7 @@ test("扩展库只负责安装，Skill 按包展示且整包卸载挂在智能�
 
   expect(catalogTable).not.toContain("canUninstall");
   expect(catalogTable).not.toContain("uninstall");
-  expect(workspace).not.toContain("uninstallExtension");
+  expect(page).not.toContain("uninstallExtension");
   expect(localCommand).not.toContain("extensions_uninstall");
   expect(localCommand).not.toContain("extensions_hook_preview");
   expect(localCommand).not.toContain("extensions_skill_preview");
@@ -302,7 +360,7 @@ test("扩展库只负责安装，Skill 按包展示且整包卸载挂在智能�
   expect(nativeHooks).toContain("command: Some(hook.command)");
 });
 
-test("扩展更新检查跟随进程，前端只订阅结果并在侧栏提示", () => {
+test("扩展更新检查跟随进程，前端只订阅结果并在导航提示", () => {
   const app = source("app.vue");
   const stream = source("composables/extension/updateStream.ts");
   const catalog = source("composables/extension/catalog.ts");
@@ -337,14 +395,11 @@ test("扩展更新检查跟随进程，前端只订阅结果并在侧栏提示",
   expect(catalog).toContain("function applySnapshot");
   expect(catalog).toContain("totalUpdateCount");
   expect(catalog).toMatch(/"rule",\s*"plugin",?/);
-  expect(sidebar).not.toContain("dot");
-  expect(sidebar).toContain(':count="totalExtensionUpdates"');
-  expect(sidebar).not.toContain(":max=");
-  expect(sidebar).not.toContain("agent-extension-notice");
+  expect(sidebar).not.toContain("totalExtensionUpdates");
   expect(shell).toContain("useExtensionCatalog().totalUpdateCount");
   expect(shell).toContain("#badge");
   expect(shell).toContain(
-    "v-if=\"item.path === '/agents' && totalExtensionUpdates > 0\"",
+    "v-if=\"item.path === '/extensions' && totalExtensionUpdates > 0\"",
   );
   expect(shell).toContain("dashboard-nav-notice");
   expect(shell).toContain("dot");

@@ -20,6 +20,7 @@ const navigation = [
   { label: "供应商", path: "/providers", icon: "ph:plugs-connected" },
   { label: "接入点", path: "/endpoints", icon: "ph:key" },
   { label: "智能体", path: "/agents", icon: "ph:robot" },
+  { label: "扩展", path: "/extensions", icon: "ph:storefront" },
   { label: "活动", path: "/stats", icon: "ph:chart-line-up" },
 ];
 const displayName = computed(() => bootstrap.value?.display_name ?? "当前用户");
@@ -50,7 +51,7 @@ onMounted(async () => {
           :to="item.path"
         >
           <template
-            v-if="item.path === '/agents' && totalExtensionUpdates > 0"
+            v-if="item.path === '/extensions' && totalExtensionUpdates > 0"
             #badge
           >
             <Badge

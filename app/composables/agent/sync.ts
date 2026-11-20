@@ -15,6 +15,7 @@ import {
   linkedEndpoint,
   type AgentEndpointLinks,
 } from "~/utils/agent/sync";
+import { useAgentClientStatus } from "~/composables/agent/clientStatus";
 import { useLocalCommand } from "~/composables/command/local";
 import { useRelayCommand } from "~/composables/command/relay";
 import { useRelayStore } from "~/stores/relay";
@@ -49,6 +50,7 @@ export function useAgentSync() {
   const notifications = useNotification();
   const { invokeCommand } = useRelayCommand();
   const { invokeLocalCommand } = useLocalCommand();
+  const { refreshClientStatuses } = useAgentClientStatus();
   const { status: catalogStatus } = useModelCatalog();
   const { bootstrap } = useRelayStore();
 
@@ -179,10 +181,7 @@ export function useAgentSync() {
         },
       ),
       invokeCommand<RelayEndpoint[]>("endpoints_list"),
-      invokeLocalCommand<AgentClientStatus[]>("agents_status", undefined, {
-        notify: false,
-        trackPending: false,
-      }),
+      refreshClientStatuses(),
     ]);
     const outcomes: AgentSyncOutcome[] = [];
     for (const client of SYNC_HOSTS) {
@@ -209,10 +208,7 @@ export function useAgentSync() {
         undefined,
         { notify: false, trackPending: false },
       ),
-      invokeLocalCommand<AgentClientStatus[]>("agents_status", undefined, {
-        notify: false,
-        trackPending: false,
-      }),
+      refreshClientStatuses(),
     ]);
     const outcomes: AgentSyncOutcome[] = [];
     for (const client of SYNC_HOSTS) {

@@ -1,28 +1,14 @@
 <script setup lang="ts">
 defineOptions({ name: "ExtensionInstallDrawer" });
 
-import {
-  Button,
-  Icon,
-  Loading,
-  Drawer,
-  Select,
-  Tag,
-  useConfirm,
-  useNotification,
-} from "@stellar/ui";
-import type {
-  AgentClient,
-  ExtensionCatalogPackage,
-  ExtensionInstallResult,
-} from "~/types/relay";
+import { Button, Icon, Loading, Drawer, Select, Tag } from "@stellar/ui";
+import type { AgentClient, ExtensionCatalogPackage } from "~/types/relay";
 import McpInstallForm from "~/components/extensions/install/McpForm.vue";
 import {
   extensionSupportsClient,
   synchronizeExtensionInstallSelection,
 } from "~/utils/extension/installSelection";
 import { mcpPreviewMatchesExtension } from "~/utils/extension/mcpPreview";
-import { errorText, toRelayError } from "~/utils/errors";
 
 const visible = defineModel<boolean>("visible", { default: false });
 const props = defineProps<{
@@ -30,14 +16,9 @@ const props = defineProps<{
   detectedClients: AgentClient[];
 }>();
 const emit = defineEmits<{
-  installed: [kind: ExtensionCatalogPackage["catalogKind"]];
-  refreshed: [kind: ExtensionCatalogPackage["catalogKind"]];
+  install: [{ package: ExtensionCatalogPackage; clients: AgentClient[] }];
 }>();
-const { invokeLocalCommand } = useLocalCommand();
-const { confirm: confirmAction } = useConfirm();
-const notifications = useNotification();
 const selectedClients = ref<AgentClient[]>([]);
-const installing = ref(false);
 const {
   mcpPreview,
   mcpLoading: mcpPreviewLoading,
@@ -108,7 +89,7 @@ function selectClients(values: AgentClient[]) {
   });
 }
 
-async function install(overwrite = false) {
+function submitInstall() {
   if (!props.extension || !selectedClients.value.length) return;
   if (
     isMcp.value &&
@@ -117,52 +98,11 @@ async function install(overwrite = false) {
   ) {
     return;
   }
-  installing.value = true;
-  try {
-    const result = await invokeLocalCommand<ExtensionInstallResult>(
-      "extensions_install",
-      {
-        request: {
-          package: props.extension,
-          clients: selectedClients.value,
-          overwrite,
-        },
-      },
-      { notify: false },
-    );
-    if (result.warning) {
-      notifications.warning(result.warning, { title: "Hook 信任未写入" });
-    }
-    emit("installed", props.extension.catalogKind);
-    visible.value = false;
-  } catch (caught) {
-    const error = caught as { code?: string; message?: string };
-    if (!overwrite && error.code === "extension_target_exists") {
-      const confirmed = await confirmAction({
-        title: isMcp.value ? "覆盖已有 MCP 配置" : "覆盖已有技能",
-        message: isMcp.value
-          ? "目标 MCP 服务名已存在，是否覆盖安装？"
-          : "目标技能目录已存在，是否覆盖安装？",
-        description: isMcp.value
-          ? "覆盖会替换目标 MCP 服务配置，并更新当前扩展包的版本记录。"
-          : "覆盖会删除该技能目录中的现有文件，然后写入当前扩展包内容。",
-        confirmText: "覆盖",
-        danger: true,
-      });
-      if (confirmed) {
-        await install(true);
-      }
-      return;
-    }
-    if (isMcp.value) {
-      emit("refreshed", props.extension.catalogKind);
-    }
-    notifications.error(errorText(toRelayError(caught)), {
-      title: "扩展安装失败",
-    });
-  } finally {
-    installing.value = false;
-  }
+  emit("install", {
+    package: props.extension,
+    clients: [...selectedClients.value],
+  });
+  visible.value = false;
 }
 
 watch(
@@ -197,7 +137,6 @@ watch(
     :title="`${actionLabel}扩展`"
     position="right"
     size="xlarge"
-    :blocked="installing"
     @update:visible="(nextVisible) => (visible = nextVisible)"
   >
     <div class="extension-install-drawer">
@@ -250,18 +189,14 @@ watch(
     <template #footer>
       <div class="extension-install-drawer__footer">
         <div class="extension-install-drawer__actions">
-          <Button :disabled="installing" @click="visible = false">
-            取消
-          </Button>
+          <Button @click="visible = false">取消</Button>
           <Button
             semantic="primary"
             variant="solid"
-            :disabled="
-              installing || !selectedClients.length || (isMcp && !mcpPreview)
-            "
-            @click="install()"
+            :disabled="!selectedClients.length || (isMcp && !mcpPreview)"
+            @click="submitInstall"
           >
-            {{ installing ? `${actionLabel}中...` : actionLabel }}
+            {{ actionLabel }}
           </Button>
         </div>
       </div>

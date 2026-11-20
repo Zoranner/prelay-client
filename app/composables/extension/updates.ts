@@ -1,45 +1,12 @@
 import type { ExtensionCatalogKind } from "~/types/relay";
 
-import { useNotification } from "@stellar/ui";
-
-export function useExtensionUpdates({
-  refreshClient,
-}: {
-  refreshClient: () => Promise<void>;
-}) {
+export function useExtensionUpdates() {
   const extensionCatalog = useExtensionCatalog();
-  const { invokeLocalCommand } = useLocalCommand();
-  const notifications = useNotification();
-  const updating = ref(false);
 
-  // 规则写入本机规则文件，插件按制品写入条目目录，
-  // 都需要同时重读分类目录与该客户端的本机内容。
+  // 扩展页只重读目录；智能体页在进入或切换客户端时重新扫描本机内容。
   async function refresh(kind: ExtensionCatalogKind) {
-    await Promise.all([extensionCatalog.load(kind, true), refreshClient()]);
+    await extensionCatalog.load(kind, true);
   }
 
-  async function installed(kind: ExtensionCatalogKind) {
-    await refresh(kind);
-    notifications.success("扩展已安装");
-  }
-
-  async function updateAll(kind: ExtensionCatalogKind) {
-    if (updating.value) return;
-    updating.value = true;
-    try {
-      const result = await invokeLocalCommand<{
-        message: string;
-        warning?: string | null;
-      }>("extensions_update_all", { kind }, { notify: false });
-      await refresh(kind);
-      notifications.success(result.message);
-      if (result.warning) {
-        notifications.warning(result.warning, { title: "Hook 信任未写入" });
-      }
-    } finally {
-      updating.value = false;
-    }
-  }
-
-  return { installed, refresh, updateAll, updating };
+  return { refresh };
 }
