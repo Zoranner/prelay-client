@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { Button, Popover, Select } from "@stellar/ui";
 
-type ProviderOption = { label: string; value: string; read_only?: boolean };
+type ProviderOption = { label: string; value: string };
 type UpstreamOption = { label: string; value: string };
 
 defineProps<{

@@ -25,8 +25,10 @@ const provider = (overrides: Partial<Provider> = {}): Provider => ({
   name: "测试供应商",
   provider_type: "openai_compatible",
   base_url: "https://api.example.com/v1",
-  api_key: "sk-provider-key",
-  api_key_masked: "sk-***",
+  owner_identity_id: "identity-1",
+  owner_display_name: "研发一组",
+  visibility: "private",
+  credential: { api_key: "sk-provider-key", api_key_masked: "sk-***" },
   upstream_protocols: ["responses"],
   capabilities: {
     upstream_protocols: ["responses"],

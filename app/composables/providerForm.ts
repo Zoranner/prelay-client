@@ -199,7 +199,7 @@ export function useProviderForm(options: ProviderFormOptions) {
     providerType.value =
       provider?.provider_type ?? template?.providerType ?? "";
     baseUrl.value = provider?.base_url ?? template?.baseUrl ?? "";
-    apiKey.value = provider?.api_key ?? "";
+    apiKey.value = provider?.credential?.api_key ?? "";
     const modelIds = catalogModelIds(providerType.value, template);
     languageModels.value = modelIds.language;
     imageGenerationModels.value = modelIds.image;

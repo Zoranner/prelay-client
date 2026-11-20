@@ -1,12 +1,8 @@
 <script setup lang="ts">
 defineOptions({ name: "EndpointForm" });
 
-import { Alert, Button, Input, useNotification } from "@stellar/ui";
-import type {
-  EndpointModel,
-  ProviderListItem,
-  RelayEndpoint,
-} from "~/types/relay";
+import { Alert, Button, EmptyState, Input, useNotification } from "@stellar/ui";
+import type { EndpointModel, Provider, RelayEndpoint } from "~/types/relay";
 import {
   availableEndpointModelsForProvider,
   checkEndpointMapping,
@@ -17,6 +13,7 @@ import {
   modelGroupName,
   normalizeEndpointModelIdentities,
   providerOptionLabel,
+  providerSourceLabel,
   type EndpointModelGroup,
   type EndpointModelLike,
 } from "~/utils/model/endpoints";
@@ -28,7 +25,8 @@ import EndpointModelRow from "~/components/endpoints/models/ModelRow.vue";
 import EndpointMappingPicker from "~/components/endpoints/models/MappingPicker.vue";
 const props = defineProps<{
   endpoint?: RelayEndpoint | null;
-  providers: ProviderListItem[];
+  providers: Provider[];
+  currentIdentityId?: string | null;
   pending?: boolean;
 }>();
 const emit = defineEmits<{
@@ -71,7 +69,7 @@ const invalidMappings = computed(() =>
 const providerOptions = computed(() => [
   { label: "选择供应商", value: "" },
   ...availableProviders.value.map((provider) => ({
-    ...providerOptionLabel(provider),
+    ...providerOptionLabel(provider, props.currentIdentityId),
   })),
 ]);
 let initialDraft = "";
@@ -131,11 +129,6 @@ function providerForModel(model: Pick<EndpointModel, "provider_id">) {
 function providerTypeFor(providerId: string) {
   return props.providers.find((provider) => provider.id === providerId)
     ?.provider_type;
-}
-
-function providerSourceLabel(provider: ProviderListItem | undefined) {
-  if (!provider || provider.can_manage !== false) return "";
-  return `共享自 ${provider.owner_display_name || "其他身份"} · 只读`;
 }
 
 function upstreamModelOptions(providerId: string, group?: EndpointModelGroup) {
@@ -340,7 +333,12 @@ function submit() {
               `${mapping.model.provider_id}-${mapping.model.upstream_model}-${mapping.index}`
             "
             :provider="providerForModel(mapping.model)?.name ?? '已删除供应商'"
-            :source="providerSourceLabel(providerForModel(mapping.model))"
+            :source="
+              providerSourceLabel(
+                providerForModel(mapping.model),
+                currentIdentityId,
+              )
+            "
             :model="mappingLabel(mapping.model)"
             :issue="issueFor(mapping.model)"
             :can-move-up="mappingPosition(group, mapping.index) > 0"
@@ -351,7 +349,7 @@ function submit() {
             @remove="removeModel(mapping.index)"
           />
         </div>
-        <p v-if="!models.length" class="empty-text">暂无模型。</p>
+        <EmptyState v-if="!models.length" size="small" title="暂无模型" />
       </div>
     </section>
   </form>
@@ -392,8 +390,7 @@ function submit() {
   gap: var(--spacing-sm);
 }
 .section-header span,
-.model-group__header small,
-.empty-text {
+.model-group__header small {
   color: var(--st-text-secondary);
 }
 .model-list {

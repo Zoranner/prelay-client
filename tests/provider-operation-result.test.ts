@@ -124,7 +124,7 @@ test("供应商保存命令发送启用清单", () => {
   expect(command).toContain("models: input.models");
 });
 
-test("共享供应商前端类型只保留额度与共享展示字段", () => {
+test("供应商前端只有一个读模型，列表与编辑共用", () => {
   const relay = readFileSync(
     new URL("../app/types/relay.ts", import.meta.url),
     "utf8",
@@ -137,10 +137,13 @@ test("共享供应商前端类型只保留额度与共享展示字段", () => {
   expect(relay).toContain(
     'export type ProviderVisibility = "private" | "selected" | "all";',
   );
-  expect(relay).toContain("export interface ProviderListItem");
+  expect(relay).toContain("export interface Provider {");
+  expect(relay).not.toContain("ProviderListItem");
   expect(relay).toContain("owner_identity_id: string;");
   expect(relay).toContain("owner_display_name: string;");
-  expect(relay).toContain("can_manage: boolean;");
+  expect(relay).toContain("credential: ProviderCredential | null;");
+  expect(relay).not.toContain("can_manage");
+  expect(relay).not.toContain("selected_identity_ids");
   expect(relay).toContain("export interface ProviderUsage");
   expect(relay).toContain("export interface ProviderUsageUser");
   expect(relay).toContain("export interface IdentityDirectoryEntry");
@@ -148,10 +151,12 @@ test("共享供应商前端类型只保留额度与共享展示字段", () => {
   expect(quota).toContain("export interface ShareQuotaWindow");
   expect(quota).toContain("export interface ProviderQuotaResponse");
 
-  const listItem = relay.slice(
-    relay.indexOf("export interface ProviderListItem"),
+  expect(relay.match(/export interface Provider \{/g)?.length).toBe(1);
+
+  const readModel = relay.slice(
+    relay.indexOf("export interface Provider {"),
     relay.indexOf("export interface ProviderUsage"),
   );
-  expect(listItem).not.toContain("api_key");
-  expect(listItem).not.toContain("credential");
+  expect(readModel).not.toContain("api_key");
+  expect(readModel).toContain("credential: ProviderCredential | null;");
 });

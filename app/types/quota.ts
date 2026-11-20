@@ -1,3 +1,5 @@
+import type { ProviderVisibility } from "./relay";
+
 export type ShareQuotaWindowKind = "day" | "week" | "month";
 
 export type ProviderQuotaMode = "own" | "shared_unlimited" | "shared_limited";
@@ -11,24 +13,25 @@ export interface ShareQuotaWindow {
   reset_day: number | null;
 }
 
-export interface ProviderShareInput {
+export interface ProviderShareUserInput {
   identity_id: string;
-  quota: ShareQuotaWindow[] | null;
 }
 
-export interface ProviderShare {
+export interface ProviderShareUser {
   identity_id: string;
   display_name: string;
-  quota: ShareQuotaWindow[] | null;
 }
 
 export interface ProviderSharing {
-  shares: ProviderShare[];
-  can_manage: boolean;
+  visibility: ProviderVisibility;
+  users: ProviderShareUser[];
+  quota: ShareQuotaWindow[] | null;
 }
 
 export interface ProviderSharingInput {
-  shares: ProviderShareInput[];
+  visibility: ProviderVisibility;
+  users: ProviderShareUserInput[];
+  quota: ShareQuotaWindow[] | null;
 }
 
 export interface QuotaWindow {

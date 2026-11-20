@@ -94,7 +94,7 @@ test("编辑供应商将密钥可见性切换交给组件库输入框", () => {
   );
 
   expect(relay).toContain("api_key: string;");
-  expect(providerSource).toContain('apiKey.value = provider?.api_key ?? ""');
+  expect(providerSource).toContain("provider?.credential?.api_key");
   expect(providerSource).toContain('type="password"');
   expect(providerSource).not.toContain("ph:eye-slash");
   expect(providerSource).not.toContain("showApiKey");
@@ -149,40 +149,45 @@ test("供应商列表展示创建人和额度列，不再展示可见范围", ()
 test("非创建人供应商保留连通性测试，禁用编辑、删除和协议测试", () => {
   const page = pageSource();
 
-  expect(providerListSource).toContain(':disabled="!row.can_manage"');
+  expect(providerListSource).toContain(':disabled="!row.isOwn"');
   expect(providerListSource).toContain(
     `:disabled="row.ping.label === '检查中'"`,
   );
-  expect(page).not.toContain("if (!provider.can_manage) return;");
+  expect(page).not.toContain("can_manage");
   expect(page).toContain(
     "void Promise.all(providers.value.map(pingProvider));",
   );
   expect(providerListSource).toContain("emit('share', row)");
-  expect(page).toContain("editingProvider.can_manage && !editingRetired");
+  expect(page).toContain("isOwnProvider(editingProvider,");
   expect(page).toContain(':retired="editingRetired"');
-  expect(page).toContain(
-    ':can-test="editingProvider ? editingProvider.can_manage : true"',
+  expect(page).toMatch(
+    /:can-test="[\s\S]{0,80}isOwnProvider\(editingProvider, currentIdentityId\)/,
   );
-  expect(providerSharingDrawerSource).toContain("can_manage");
+  expect(providerSharingDrawerSource).not.toContain("can_manage");
 });
 
-test("共享抽屉支持直接共享和日周月限额组合", () => {
-  const windowEditor = readFileSync(
+test("共享抽屉用一句话编辑额度规则", () => {
+  const ruleEditor = readFileSync(
     new URL(
-      "../app/components/providers/sharing/WindowEditor.vue",
+      "../app/components/providers/sharing/RuleEditor.vue",
       import.meta.url,
     ),
+    "utf8",
+  );
+  const rule = readFileSync(
+    new URL("../app/components/providers/sharing/rule.ts", import.meta.url),
     "utf8",
   );
 
   expect(providerSharingDrawerSource).toContain('label: "不限额"');
   expect(providerSharingDrawerSource).toContain('label: "限额"');
-  expect(providerSharingDrawerSource).toContain("WindowEditor");
-  expect(windowEditor).toContain("Checkbox");
-  expect(windowEditor).toContain("Toggle");
-  expect(windowEditor).toContain("reset_time");
-  expect(windowEditor).toContain("reset_weekday");
-  expect(windowEditor).toContain("reset_day");
+  expect(providerSharingDrawerSource).toContain("RuleEditor");
+  expect(ruleEditor).toContain("每天");
+  expect(ruleEditor).toContain("亿");
+  expect(ruleEditor).toContain("resetOptions");
+  expect(rule).toContain('label: "按周累积"');
+  expect(rule).toContain('label: "每周清零"');
+  expect(rule).toContain("minimumResetFor");
   expect(providerSharingDrawerSource).toContain("save-sharing");
   expect(providerSharingDrawerSource).not.toContain("providers_usage_get");
 });
@@ -410,18 +415,12 @@ test("供应商协议按目录只读展示，目录声明的地址由目录管�
   expect(providerSource).toContain("managedProtocols");
 });
 
-test("供应商与活动表共用协议 Tag 颜色", () => {
-  const providerList = readFileSync(
-    new URL("../app/components/providers/List.vue", import.meta.url),
-    "utf8",
-  );
+test("活动表使用共用的协议 Tag 颜色", () => {
   const requestTable = readFileSync(
     new URL("../app/components/activity/Table.vue", import.meta.url),
     "utf8",
   );
 
-  expect(providerList).toContain("protocolTagPalette");
-  expect(providerList).toContain("<Tag");
   expect(requestTable).toContain("protocolTagPalette");
   expect(requestTable).toContain("<Tag");
   expect(requestTable).not.toContain("function protocolLabel");

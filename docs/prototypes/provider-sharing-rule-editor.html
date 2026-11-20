@@ -1,0 +1,249 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <title>共享额度规则 · 一句话编辑器</title>
+    <style>
+      :root {
+        --bg: #121212;
+        --elevated: #1f1f1f;
+        --surface: #2b2b2b;
+        --border: #3f3f3f;
+        --divider: #373737;
+        --text: #f5f5f5;
+        --secondary: #d4d4d4;
+        --muted: #a3a3a3;
+        --primary: #0ea5e9;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        padding: 24px;
+        background: #0b0b0b;
+        color: var(--text);
+        font: 13px/1.5 "Segoe UI", "Microsoft YaHei", sans-serif;
+      }
+      h1 {
+        margin: 0 0 4px;
+        font-size: 16px;
+        font-weight: 600;
+      }
+      .lede {
+        margin: 0 0 20px;
+        color: var(--muted);
+      }
+      .grid {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 16px;
+      }
+      .card {
+        width: 400px;
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        background: var(--bg);
+        overflow: hidden;
+      }
+      .card h2 {
+        margin: 0;
+        padding: 10px 14px;
+        border-bottom: 1px solid var(--divider);
+        background: rgba(27, 27, 27, 0.5);
+        font-size: 12px;
+        font-weight: 600;
+      }
+      .card .body {
+        display: grid;
+        gap: 14px;
+        padding: 16px;
+      }
+      .scope {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+      }
+      .scope span {
+        color: var(--secondary);
+        font-size: 12px;
+      }
+      .select {
+        display: flex;
+        height: 32px;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0 10px;
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        background: var(--elevated);
+      }
+      .select em {
+        color: var(--muted);
+        font-style: normal;
+      }
+      .rule {
+        padding: 10px 12px;
+        border: 1px solid var(--divider);
+        border-radius: 8px;
+        background: var(--elevated);
+        color: var(--secondary);
+        font-size: 13px;
+        line-height: 2.2;
+      }
+      .chip {
+        display: inline-flex;
+        height: 26px;
+        align-items: center;
+        gap: 6px;
+        padding: 0 8px;
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        background: var(--surface);
+        color: var(--text);
+        font: inherit;
+        font-size: 12px;
+        vertical-align: middle;
+      }
+      .chip strong {
+        font-weight: 600;
+      }
+      .chip.dim {
+        color: var(--muted);
+      }
+      .hint {
+        color: var(--muted);
+        font-size: 11px;
+      }
+      .popover {
+        display: grid;
+        gap: 2px;
+        width: 190px;
+        padding: 6px;
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        background: var(--surface);
+        box-shadow: 0 12px 32px rgb(0 0 0 / 45%);
+      }
+      .popover button {
+        display: flex;
+        height: 30px;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0 8px;
+        border: 0;
+        border-radius: 6px;
+        background: transparent;
+        color: var(--text);
+        font: inherit;
+        font-size: 12px;
+        text-align: left;
+      }
+      .popover button.active {
+        background: var(--elevated);
+      }
+      .popover button:disabled {
+        color: var(--muted);
+        opacity: 0.5;
+      }
+      .popover small {
+        color: var(--muted);
+        font-size: 11px;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>共享额度规则 · 一句话编辑器</h1>
+    <p class="lede">
+      三个值合成一句话，编辑时才展开。下面四种状态覆盖累积 / 清零 / 不清零的组合。
+    </p>
+    <div class="grid">
+      <section class="card">
+        <h2>不累积 · 当天清零</h2>
+        <div class="body">
+          <div class="scope">
+            <span>共享范围</span>
+            <div class="select">指定用户<em>⌄</em></div>
+          </div>
+          <div class="rule">
+            每天 <button class="chip"><strong>1 亿</strong> Token</button>
+            <button class="chip dim">不累积</button>，
+            <button class="chip dim">每天清零</button>
+          </div>
+          <div class="hint">当天额度用完作废，次日重新开始。</div>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2>按周累积 · 每周清零</h2>
+        <div class="body">
+          <div class="scope">
+            <span>共享范围</span>
+            <div class="select">指定用户<em>⌄</em></div>
+          </div>
+          <div class="rule">
+            每天 <button class="chip"><strong>1 亿</strong> Token</button>
+            <button class="chip">按周累积</button>，
+            <button class="chip">每周清零</button>
+          </div>
+          <div class="hint">周内未用完的额度保留，下周一 00:00 清零。</div>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2>按周累积 · 不清零</h2>
+        <div class="body">
+          <div class="scope">
+            <span>共享范围</span>
+            <div class="select">指定用户<em>⌄</em></div>
+          </div>
+          <div class="rule">
+            每天 <button class="chip"><strong>1 亿</strong> Token</button>
+            <button class="chip">按周累积</button>，
+            <button class="chip">不清零</button>
+          </div>
+          <div class="hint">额度一直累加，总量用满为止。</div>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2>按月累积 · 每月清零</h2>
+        <div class="body">
+          <div class="scope">
+            <span>共享范围</span>
+            <div class="select">指定用户<em>⌄</em></div>
+          </div>
+          <div class="rule">
+            每天 <button class="chip"><strong>30 亿</strong> Token</button>
+            <button class="chip">按月累积</button>，
+            <button class="chip">每月清零</button>
+          </div>
+          <div class="hint">次月 1 日 00:00 清零。</div>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2>编辑态 · 清零周期受限</h2>
+        <div class="body">
+          <div class="scope">
+            <span>共享范围</span>
+            <div class="select">指定用户<em>⌄</em></div>
+          </div>
+          <div class="rule">
+            每天 <button class="chip"><strong>1 亿</strong> Token</button>
+            <button class="chip">按周累积</button>，
+            <button class="chip" style="border-color: var(--primary); color: var(--primary)">
+              每周清零
+            </button>
+          </div>
+          <div class="popover">
+            <button disabled>每天清零 <small>短于累积周期</small></button>
+            <button class="active">每周清零 <small>✓</small></button>
+            <button>每月清零 <small>更长</small></button>
+            <button>不清零 <small>总量封顶</small></button>
+          </div>
+        </div>
+      </section>
+    </div>
+  </body>
+</html>

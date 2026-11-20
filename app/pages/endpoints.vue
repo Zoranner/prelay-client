@@ -2,7 +2,7 @@
 import {
   type BootstrapState,
   type EndpointModel,
-  type ProviderListItem,
+  type Provider,
   type RelayEndpoint,
 } from "~/types/relay";
 import { useRelayStore } from "~/stores/relay";
@@ -24,7 +24,7 @@ const { confirm: confirmAction } = useConfirm();
 const notifications = useNotification();
 const workspaceExit = useWorkspaceExitGuard();
 const { bootstrap, setBootstrap } = useRelayStore();
-const providers = ref<ProviderListItem[]>([]);
+const providers = ref<Provider[]>([]);
 const endpoints = ref<RelayEndpoint[]>([]);
 const editingEndpoint = ref<RelayEndpoint | null>(null);
 const showForm = ref(false);
@@ -34,7 +34,7 @@ let exitRegistration: ReturnType<typeof workspaceExit.register> | undefined;
 async function load() {
   try {
     const [providerList, endpointList, bootstrapState] = await Promise.all([
-      invokeCommand<ProviderListItem[]>("providers_list"),
+      invokeCommand<Provider[]>("providers_list"),
       invokeCommand<RelayEndpoint[]>("endpoints_list"),
       bootstrap.value
         ? Promise.resolve(bootstrap.value)
@@ -202,6 +202,7 @@ onMounted(load);
       <EndpointForm
         :endpoint="editingEndpoint"
         :providers="providers"
+        :current-identity-id="bootstrap?.identity_id"
         :pending="pending"
         @dirty-change="formDirty = $event"
         @save="saveEndpoint"

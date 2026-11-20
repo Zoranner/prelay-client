@@ -1,8 +1,8 @@
 use prelay_protocol::{
     CatalogProviderResponse, CreateProviderRequest, ProviderCapabilityOverrides,
-    ProviderCatalogResponse, ProviderListItemResponse, ProviderOperationRequest,
-    ProviderOperationResponse, ProviderQuotaResponse, ProviderResponse, ProviderSharingResponse,
-    ProviderUsageResponse, UpdateProviderRequest, UpdateProviderSharingRequest,
+    ProviderCatalogResponse, ProviderOperationRequest, ProviderOperationResponse,
+    ProviderQuotaResponse, ProviderResponse, ProviderSharingResponse, ProviderUsageResponse,
+    UpdateProviderRequest, UpdateProviderSharingRequest,
 };
 use serde::{Deserialize, Serialize};
 use tauri::State;
@@ -26,7 +26,7 @@ pub struct ProviderSaveInput {
 #[tauri::command]
 pub async fn providers_list(
     state: State<'_, NativeState>,
-) -> Result<Vec<ProviderListItemResponse>, ClientError> {
+) -> Result<Vec<ProviderResponse>, ClientError> {
     authenticated_api(&state).await?.get("/api/providers").await
 }
 

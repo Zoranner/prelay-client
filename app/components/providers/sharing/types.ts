@@ -13,6 +13,4 @@ export type EditableWindow = {
 export type EditableShare = {
   identity_id: string;
   display_name: string;
-  mode: ShareMode;
-  windows: EditableWindow[];
 };

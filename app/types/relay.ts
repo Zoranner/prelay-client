@@ -111,27 +111,16 @@ export interface ProviderCapabilities {
   max_output_tokens?: number | null;
 }
 
-export interface Provider {
-  id: string;
-  name: string;
-  provider_type: string;
-  base_url: string;
-  api_key?: string;
-  api_key_masked?: string;
-  capabilities: ProviderCapabilities;
-  upstream_protocols: string[];
-  models: string[];
-  created_at: string;
-}
-
-export interface ProviderCredentialFields {
+export interface ProviderCredential {
   api_key: string;
   api_key_masked: string;
 }
 
 export type ProviderVisibility = "private" | "selected" | "all";
 
-export interface ProviderListItem {
+// Provider 唯一读模型：列表、编辑前加载和保存回写共用同一份结构。
+// 编辑权限由 owner_identity_id 与当前身份比对得出；credential 只在本人读取时存在。
+export interface Provider {
   id: string;
   name: string;
   provider_type: string;
@@ -139,12 +128,11 @@ export interface ProviderListItem {
   capabilities: ProviderCapabilities;
   upstream_protocols: string[];
   models: string[];
+  created_at: string;
   owner_identity_id: string;
   owner_display_name: string;
   visibility: ProviderVisibility;
-  selected_identity_ids: string[];
-  can_manage: boolean;
-  created_at: string;
+  credential: ProviderCredential | null;
 }
 
 export interface ProviderUsage {

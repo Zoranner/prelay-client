@@ -1,0 +1,736 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <title>共享设置抽屉 · 三版对比</title>
+    <style>
+      :root {
+        --bg: #121212;
+        --elevated: #1f1f1f;
+        --surface: #2b2b2b;
+        --border: #3f3f3f;
+        --divider: #373737;
+        --text: #f5f5f5;
+        --secondary: #d4d4d4;
+        --muted: #a3a3a3;
+        --primary: #0ea5e9;
+        --danger: #ef4444;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        padding: 24px;
+        background: #0b0b0b;
+        color: var(--text);
+        font: 13px/1.45 "Segoe UI", "Microsoft YaHei", sans-serif;
+      }
+      h1 {
+        margin: 0 0 4px;
+        font-size: 16px;
+        font-weight: 600;
+      }
+      .lede {
+        margin: 0 0 20px;
+        color: var(--muted);
+      }
+      .row {
+        display: flex;
+        align-items: flex-start;
+        gap: 20px;
+      }
+      .col {
+        width: 520px;
+        flex: 0 0 auto;
+      }
+      .col h2 {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin: 0 0 8px;
+        font-size: 13px;
+        font-weight: 600;
+      }
+      .badge {
+        display: inline-grid;
+        width: 20px;
+        height: 20px;
+        place-items: center;
+        border-radius: 4px;
+        background: var(--primary);
+        color: #08131a;
+        font-size: 12px;
+        font-weight: 700;
+      }
+      .note {
+        margin: 0 0 10px;
+        color: var(--muted);
+        font-size: 12px;
+      }
+      .drawer {
+        display: flex;
+        height: 600px;
+        flex-direction: column;
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        background: var(--bg);
+        overflow: hidden;
+      }
+      .drawer header {
+        padding: 12px 16px;
+        border-bottom: 1px solid var(--divider);
+        background: rgba(27, 27, 27, 0.5);
+        font-weight: 600;
+      }
+      .body {
+        display: flex;
+        flex: 1;
+        flex-direction: column;
+        gap: 16px;
+        padding: 16px;
+        overflow: hidden;
+      }
+      .field {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+      }
+      .field > span {
+        color: var(--secondary);
+        font-size: 12px;
+      }
+      .select {
+        display: flex;
+        height: 32px;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0 10px;
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        background: var(--elevated);
+        color: var(--text);
+      }
+      .select em {
+        color: var(--muted);
+        font-style: normal;
+      }
+      footer {
+        display: flex;
+        justify-content: flex-end;
+        gap: 8px;
+        padding: 10px 16px;
+        border-top: 1px solid var(--divider);
+        background: rgba(27, 27, 27, 0.5);
+      }
+      .btn {
+        height: 32px;
+        padding: 0 14px;
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        background: var(--elevated);
+        color: var(--text);
+        font: inherit;
+      }
+      .btn.primary {
+        border-color: transparent;
+        background: var(--primary);
+        color: #08131a;
+        font-weight: 600;
+      }
+      .btn.ghost {
+        border-color: transparent;
+        background: transparent;
+        color: var(--muted);
+      }
+      .avatar {
+        display: grid;
+        width: 28px;
+        height: 28px;
+        flex: 0 0 28px;
+        place-items: center;
+        border-radius: 50%;
+        color: #08131a;
+        font-size: 12px;
+        font-weight: 700;
+      }
+      .a1 {
+        background: #7dd3fc;
+      }
+      .a2 {
+        background: #fcd34d;
+      }
+      .a3 {
+        background: #6ee7b7;
+      }
+      .name {
+        color: var(--text);
+        font-weight: 600;
+      }
+      .meta {
+        color: var(--muted);
+        font-size: 12px;
+      }
+      /* A：行式 */
+      .rows {
+        border: 1px solid var(--divider);
+        border-radius: 8px;
+      }
+      .rows .item {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 10px 12px;
+      }
+      .rows .item + .item {
+        border-top: 1px solid var(--divider);
+      }
+      .rows .grow {
+        flex: 1;
+        min-width: 0;
+      }
+      .mini {
+        height: 28px;
+        min-width: 96px;
+        padding: 0 8px;
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        background: var(--elevated);
+        color: var(--text);
+        font: inherit;
+        font-size: 12px;
+      }
+      .remove {
+        display: grid;
+        width: 28px;
+        height: 28px;
+        place-items: center;
+        border: 0;
+        border-radius: 6px;
+        background: transparent;
+        color: var(--danger);
+        font-size: 14px;
+      }
+      .add-row {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        gap: 8px;
+      }
+      /* B：卡片 */
+      .cards {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        overflow: hidden;
+      }
+      .card {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        padding: 12px;
+        border: 1px solid var(--divider);
+        border-radius: 8px;
+        background: var(--elevated);
+      }
+      .card-head {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+      .card-head .grow {
+        flex: 1;
+        min-width: 0;
+      }
+      .windows {
+        display: flex;
+        gap: 8px;
+      }
+      .window {
+        flex: 1;
+        padding: 8px;
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        background: var(--bg);
+      }
+      .window b {
+        display: block;
+        font-size: 12px;
+        font-weight: 600;
+      }
+      .window small {
+        color: var(--muted);
+        font-size: 11px;
+      }
+      /* C：chips */
+      .chips {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+      .chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        height: 36px;
+        padding: 0 10px 0 4px;
+        border: 1px solid var(--border);
+        border-radius: 999px;
+        background: var(--elevated);
+      }
+      .chip .tag {
+        padding: 1px 6px;
+        border-radius: 999px;
+        background: var(--surface);
+        color: var(--muted);
+        font-size: 11px;
+      }
+      .add-chip {
+        display: inline-flex;
+        height: 36px;
+        align-items: center;
+        gap: 6px;
+        padding: 0 12px;
+        border: 1px dashed var(--border);
+        border-radius: 999px;
+        background: transparent;
+        color: var(--muted);
+        font: inherit;
+      }
+      .popover {
+        width: 300px;
+        padding: 6px;
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        background: var(--surface);
+        box-shadow: 0 12px 32px rgb(0 0 0 / 45%);
+      }
+      .popover .search {
+        height: 30px;
+        margin: 4px;
+        padding: 0 8px;
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        background: var(--bg);
+        color: var(--muted);
+        font: inherit;
+        font-size: 12px;
+      }
+      .popover .option {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 8px;
+        border-radius: 6px;
+      }
+      .popover .option:hover,
+      .popover .option.active {
+        background: var(--elevated);
+      }
+      .summary {
+        color: var(--muted);
+        font-size: 12px;
+      }
+      .spacer {
+        flex: 1;
+      }
+      /* 限额编辑器 */
+      .editor {
+        display: grid;
+        gap: 8px;
+        padding: 10px 12px;
+        border-top: 1px solid var(--divider);
+        background: var(--bg);
+      }
+      .editor-row {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .editor-row > span {
+        width: 28px;
+        color: var(--secondary);
+        font-size: 12px;
+      }
+      .num {
+        width: 110px;
+        height: 26px;
+        padding: 0 8px;
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        background: var(--elevated);
+        color: var(--text);
+        font: inherit;
+        font-size: 12px;
+      }
+      .time {
+        width: 62px;
+        height: 26px;
+        padding: 0 6px;
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        background: var(--elevated);
+        color: var(--text);
+        font: inherit;
+        font-size: 12px;
+      }
+      .check {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        color: var(--muted);
+        font-size: 12px;
+      }
+      .check input {
+        width: 13px;
+        height: 13px;
+        accent-color: var(--primary);
+      }
+      .editor .hint {
+        color: var(--muted);
+        font-size: 11px;
+      }
+      .popover .editor {
+        border-top: 1px solid var(--divider);
+        padding: 10px 6px 4px;
+      }
+      .popover .editor-row {
+        flex-wrap: wrap;
+      }
+      .rule {
+        display: grid;
+        grid-template-columns: 64px minmax(0, 1fr) auto auto;
+        gap: 8px;
+        align-items: center;
+      }
+      .rule > span {
+        color: var(--secondary);
+        font-size: 12px;
+      }
+      .rule .unit {
+        color: var(--muted);
+        font-size: 12px;
+      }
+      .rule .num {
+        width: 100%;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>共享设置抽屉 · 三版对比</h1>
+    <p class="lede">
+      同一场景：范围为“指定用户”，已有两个共享用户。差异在各版如何呈现用户、额度与添加入口。
+    </p>
+    <div class="row">
+      <section class="col">
+        <h2><span class="badge">A</span>行式列表</h2>
+        <p class="note">最紧凑，一屏可以放更多用户；额度用下拉，点开才编辑。</p>
+        <div class="drawer">
+          <header>共享设置</header>
+          <div class="body">
+            <label class="field">
+              <span>共享范围</span>
+              <div class="select">指定用户<em>⌄</em></div>
+            </label>
+            <div class="rows">
+              <div class="item">
+                <span class="avatar a1">李</span>
+                <div class="grow">
+                  <div class="name">李明</div>
+                  <div class="meta">限额</div>
+                </div>
+                <button class="mini">每天 1 亿 ⌄</button>
+                <button class="remove">✕</button>
+              </div>
+              <div class="item">
+                <span class="avatar a2">王</span>
+                <div class="grow">
+                  <div class="name">王芳</div>
+                  <div class="meta">不限额</div>
+                </div>
+                <button class="mini">不限额 ⌄</button>
+                <button class="remove">✕</button>
+              </div>
+            </div>
+            <div class="add-row">
+              <div class="select"><span class="avatar a3" style="width: 22px; height: 22px; flex-basis: 22px; font-size: 11px">赵</span>赵强<em>⌄</em></div>
+              <button class="btn">添加</button>
+            </div>
+          </div>
+          <footer>
+            <button class="btn">关闭</button>
+            <button class="btn primary">保存</button>
+          </footer>
+        </div>
+      </section>
+
+      <section class="col">
+        <h2><span class="badge">B</span>卡片 + 内联额度</h2>
+        <p class="note">每个用户一块卡片，限额规则直接铺开，适合需要逐人配置额度的场景。</p>
+        <div class="drawer">
+          <header>共享设置</header>
+          <div class="body">
+            <label class="field">
+              <span>共享范围</span>
+              <div class="select">指定用户<em>⌄</em></div>
+            </label>
+            <div class="add-row">
+              <div class="select"><span class="avatar a3" style="width: 22px; height: 22px; flex-basis: 22px; font-size: 11px">赵</span>赵强<em>⌄</em></div>
+              <button class="btn">添加</button>
+            </div>
+            <div class="cards">
+              <div class="card">
+                <div class="card-head">
+                  <span class="avatar a1">李</span>
+                  <div class="grow">
+                    <div class="name">李明</div>
+                    <div class="meta">日额度 · 每日 00:00 清零</div>
+                  </div>
+                  <button class="mini">限额 ⌄</button>
+                  <button class="remove">✕</button>
+                </div>
+                <div class="editor" style="border: 0; padding: 0">
+                  <div class="rule">
+                    <span>每日额度</span>
+                    <input class="num" value="100000000" />
+                    <em class="unit">Token</em>
+                  </div>
+                  <div class="rule">
+                    <span>累积周期</span>
+                    <button class="mini">按周 ⌄</button>
+                  </div>
+                  <div class="rule">
+                    <span>清零周期</span>
+                    <button class="mini">按周 ⌄</button>
+                  </div>
+                </div>
+              </div>
+              <div class="card">
+                <div class="card-head">
+                  <span class="avatar a2">王</span>
+                  <div class="grow">
+                    <div class="name">王芳</div>
+                    <div class="meta">不限额</div>
+                  </div>
+                  <button class="mini">不限额 ⌄</button>
+                  <button class="remove">✕</button>
+                </div>
+              </div>
+            </div>
+          </div>
+          <footer>
+            <button class="btn">关闭</button>
+            <button class="btn primary">保存</button>
+          </footer>
+        </div>
+      </section>
+
+      <section class="col">
+        <h2><span class="badge">C</span>头像 chips + 选择浮层</h2>
+        <p class="note">默认收起为头像胶囊，添加时弹出带搜索的用户选择；额度在浮层里改。</p>
+        <div class="drawer">
+          <header>共享设置</header>
+          <div class="body">
+            <label class="field">
+              <span>共享范围</span>
+              <div class="select">指定用户<em>⌄</em></div>
+            </label>
+            <div class="chips">
+              <span class="chip">
+                <span class="avatar a1">李</span>
+                李明
+                <span class="tag">每天 1 亿</span>
+              </span>
+              <span class="chip">
+                <span class="avatar a2">王</span>
+                王芳
+                <span class="tag">不限额</span>
+              </span>
+              <button class="add-chip">＋ 添加用户</button>
+            </div>
+            <div class="popover">
+              <input class="search" placeholder="搜索用户" />
+              <div class="option">
+                <span class="avatar a3">赵</span>
+                <span class="name">赵强</span>
+              </div>
+              <div class="option active">
+                <span class="avatar a1">钱</span>
+                <span class="name">钱伟</span>
+                <span class="meta">已添加</span>
+              </div>
+              <div class="option">
+                <span class="avatar a2">孙</span>
+                <span class="name">孙丽</span>
+              </div>
+            </div>
+            <div class="spacer"></div>
+            <div class="summary">已共享 2 个用户</div>
+          </div>
+          <footer>
+            <button class="btn">关闭</button>
+            <button class="btn primary">保存</button>
+          </footer>
+        </div>
+      </section>
+    </div>
+
+    <h1 style="margin-top: 32px">限额编辑态</h1>
+    <p class="lede">同一个编辑器，三个版本分别从行内、卡片内、浮层内进入。</p>
+    <div class="row">
+      <section class="col">
+        <h2><span class="badge">A</span>行内展开</h2>
+        <p class="note">点额度单元格就地展开，收起后回到一行高度。</p>
+        <div class="drawer">
+          <header>共享设置</header>
+          <div class="body">
+            <label class="field">
+              <span>共享范围</span>
+              <div class="select">指定用户<em>⌄</em></div>
+            </label>
+            <div class="rows">
+              <div class="item">
+                <span class="avatar a1">李</span>
+                <div class="grow">
+                  <div class="name">李明</div>
+                  <div class="meta">限额</div>
+                </div>
+                <button class="mini" style="border-color: var(--primary); color: var(--primary)">日 100 万 ⌃</button>
+                <button class="remove">✕</button>
+              </div>
+              <div class="editor">
+                <div class="rule">
+                  <span>每日额度</span>
+                  <input class="num" value="100000000" />
+                  <em class="unit">Token</em>
+                </div>
+                <div class="rule">
+                  <span>累积周期</span>
+                  <button class="mini">按周 ⌄</button>
+                </div>
+                <div class="rule">
+                  <span>清零周期</span>
+                  <button class="mini">按周 ⌄</button>
+                </div>
+              </div>
+              <div class="item">
+                <span class="avatar a2">王</span>
+                <div class="grow">
+                  <div class="name">王芳</div>
+                  <div class="meta">不限额</div>
+                </div>
+                <button class="mini">不限额 ⌄</button>
+                <button class="remove">✕</button>
+              </div>
+            </div>
+          </div>
+          <footer>
+            <button class="btn">关闭</button>
+            <button class="btn primary">保存</button>
+          </footer>
+        </div>
+      </section>
+
+      <section class="col">
+        <h2><span class="badge">B</span>卡片内直接编辑</h2>
+        <p class="note">窗口规则常驻，输入框就是最终形态，没有二级展开。</p>
+        <div class="drawer">
+          <header>共享设置</header>
+          <div class="body">
+            <label class="field">
+              <span>共享范围</span>
+              <div class="select">指定用户<em>⌄</em></div>
+            </label>
+            <div class="cards">
+              <div class="card">
+                <div class="card-head">
+                  <span class="avatar a1">李</span>
+                  <div class="grow">
+                    <div class="name">李明</div>
+                    <div class="meta">日额度 · 每日 00:00 清零</div>
+                  </div>
+                  <button class="mini">限额 ⌄</button>
+                  <button class="remove">✕</button>
+                </div>
+                <div class="editor" style="border: 1px solid var(--border); border-radius: 6px">
+                  <div class="rule">
+                    <span>每日额度</span>
+                    <input class="num" value="100000000" />
+                    <em class="unit">Token</em>
+                  </div>
+                  <div class="rule">
+                    <span>累积周期</span>
+                    <button class="mini">按周 ⌄</button>
+                  </div>
+                  <div class="rule">
+                    <span>清零周期</span>
+                    <button class="mini">按周 ⌄</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <footer>
+            <button class="btn">关闭</button>
+            <button class="btn primary">保存</button>
+          </footer>
+        </div>
+      </section>
+
+      <section class="col">
+        <h2><span class="badge">C</span>浮层内编辑</h2>
+        <p class="note">胶囊点开才出现编辑器，浮层内纵向排列，宽度有限。</p>
+        <div class="drawer">
+          <header>共享设置</header>
+          <div class="body">
+            <label class="field">
+              <span>共享范围</span>
+              <div class="select">指定用户<em>⌄</em></div>
+            </label>
+            <div class="chips">
+              <span class="chip" style="border-color: var(--primary)">
+                <span class="avatar a1">李</span>
+                李明
+                <span class="tag">日 100 万</span>
+              </span>
+              <span class="chip">
+                <span class="avatar a2">王</span>
+                王芳
+                <span class="tag">不限额</span>
+              </span>
+              <button class="add-chip">＋ 添加用户</button>
+            </div>
+            <div class="popover" style="width: 340px">
+              <div class="card-head" style="padding: 6px 4px">
+                <span class="avatar a1">李</span>
+                <div class="grow">
+                  <div class="name">李明</div>
+                  <div class="meta">共享额度</div>
+                </div>
+                <button class="mini">限额 ⌄</button>
+              </div>
+              <div class="editor">
+                <div class="rule">
+                  <span>每日额度</span>
+                  <input class="num" value="100000000" />
+                  <em class="unit">Token</em>
+                </div>
+                <div class="rule">
+                  <span>累积周期</span>
+                  <button class="mini">按周 ⌄</button>
+                </div>
+                <div class="rule">
+                  <span>清零周期</span>
+                  <button class="mini">按周 ⌄</button>
+                </div>
+              </div>
+            </div>
+          </div>
+          <footer>
+            <button class="btn">关闭</button>
+            <button class="btn primary">保存</button>
+          </footer>
+        </div>
+      </section>
+    </div>
+  </body>
+</html>

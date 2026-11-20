@@ -1,0 +1,19 @@
+.sharing-drawer {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-lg);
+}
+.sharing-field {
+  display: grid;
+  gap: var(--spacing-xs);
+}
+.sharing-field__label {
+  color: var(--st-text-secondary);
+  font-size: 12px;
+  font-weight: 500;
+}
+.sharing-users {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-md);
+}

@@ -2,15 +2,17 @@
 defineOptions({ name: "ProviderList" });
 
 import { Avatar, Button, Table, Tag } from "@stellar/ui";
-import type { ProviderListItem } from "~/types/relay";
+import type { Provider } from "~/types/relay";
 import type { ProviderQuotaResponse } from "~/types/quota";
 import ProviderQuotaCell from "~/components/providers/quota/QuotaCell.vue";
 import { identityAvatarSrc } from "~/utils/ui/avatar";
 import { providerProtocolOptions } from "~/utils/provider/capabilities";
 import { protocolLabel, protocolTagPalette } from "~/utils/provider/templates";
+import { isOwnProvider } from "~/utils/provider/ownership";
 
-type ProviderRow = ProviderListItem &
+type ProviderRow = Provider &
   Record<string, unknown> & {
+    isOwn: boolean;
     ping: ReturnType<typeof pingStatus>;
     quota: ProviderQuotaResponse | null;
   };
@@ -18,7 +20,8 @@ type ProviderRow = ProviderListItem &
 const props = defineProps<{
   loading?: boolean;
   quotaLoading?: boolean;
-  providers: ProviderListItem[];
+  providers: Provider[];
+  currentIdentityId?: string | null;
   quotaByProvider: Record<string, ProviderQuotaResponse>;
   pingStates: Record<
     string,
@@ -30,10 +33,10 @@ const props = defineProps<{
   >;
 }>();
 const emit = defineEmits<{
-  edit: [provider: ProviderListItem];
-  ping: [provider: ProviderListItem];
-  remove: [provider: ProviderListItem];
-  share: [provider: ProviderListItem];
+  edit: [provider: Provider];
+  ping: [provider: Provider];
+  remove: [provider: Provider];
+  share: [provider: Provider];
 }>();
 
 const columns = [
@@ -67,6 +70,7 @@ function pingStatus(providerId: string) {
 const rows = computed<ProviderRow[]>(() =>
   props.providers.map((provider) => ({
     ...provider,
+    isOwn: isOwnProvider(provider, props.currentIdentityId),
     ping: pingStatus(provider.id),
     quota: props.quotaByProvider[provider.id] ?? null,
   })),
@@ -143,7 +147,7 @@ const rows = computed<ProviderRow[]>(() =>
           square
           size="small"
           icon="ph:share-network"
-          :disabled="!row.can_manage"
+          :disabled="!row.isOwn"
           aria-label="共享供应商"
           title="共享供应商"
           @click.stop="emit('share', row)"
@@ -152,7 +156,7 @@ const rows = computed<ProviderRow[]>(() =>
           square
           size="small"
           icon="ph:pencil-simple"
-          :disabled="!row.can_manage"
+          :disabled="!row.isOwn"
           aria-label="编辑供应商"
           title="编辑供应商"
           @click.stop="emit('edit', row)"
@@ -163,7 +167,7 @@ const rows = computed<ProviderRow[]>(() =>
           semantic="error"
           variant="solid"
           icon="ph:trash"
-          :disabled="!row.can_manage"
+          :disabled="!row.isOwn"
           aria-label="删除供应商"
           title="删除供应商"
           @click.stop="emit('remove', row)"

@@ -144,8 +144,10 @@ test("接入点新增候选使用供应商自己的模型清单", () => {
     name: "Provider A",
     provider_type: "legacy-provider",
     base_url: "https://example.test",
-    api_key: "",
-    api_key_masked: "********",
+    owner_identity_id: "identity-a",
+    owner_display_name: "研发一组",
+    visibility: "private",
+    credential: null,
     capabilities: {},
     upstream_protocols: ["openai"],
     models: ["provider-model-b"],
@@ -238,7 +240,7 @@ test("接入点归组优先使用服务端模型显示名", () => {
   expect(group.displayName).toBe("服务端显示名");
 });
 
-test("共享 Provider 选项保留原始 ID并标记只读来源", () => {
+test("共享 Provider 选项保留原始 ID，来源文案由单一函数生成", () => {
   const source = readFileSync(
     new URL("../app/utils/model/endpoints.ts", import.meta.url),
     "utf8",
@@ -246,8 +248,9 @@ test("共享 Provider 选项保留原始 ID并标记只读来源", () => {
 
   expect(source).toContain("export function providerOptionLabel");
   expect(source).toContain("owner_display_name");
-  expect(source).toContain("const readOnly = provider.can_manage === false");
-  expect(source).toContain("read_only: readOnly");
+  expect(source).toContain("export function providerSourceLabel");
+  expect(source).toContain("providerSourceLabel(provider, identityId)");
+  expect(source).not.toContain("read_only");
   expect(source).toContain("provider.id");
 });
 

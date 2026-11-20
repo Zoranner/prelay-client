@@ -1,14 +1,16 @@
 <script setup lang="ts">
 import type {
+  BootstrapState,
   CatalogProvider,
   IdentityDirectoryEntry,
   Provider,
-  ProviderListItem,
   UpstreamProtocol,
 } from "~/types/relay";
 import type { ProviderQuotaResponse } from "~/types/quota";
 import type { ProviderFormPayload } from "~/composables/providerForm";
 import { useProviderSharing } from "~/composables/providerSharing";
+import { useRelayStore } from "~/stores/relay";
+import { isOwnProvider } from "~/utils/provider/ownership";
 import { type ProviderOperationResult } from "~/utils/provider/operations";
 import { Button, Drawer, useConfirm, useNotification } from "@stellar/ui";
 import ProviderForm from "~/components/providers/Form.vue";
@@ -20,11 +22,12 @@ const { pending, invokeCommand } = useRelayCommand();
 const { confirm: confirmAction } = useConfirm();
 const notifications = useNotification();
 const workspaceExit = useWorkspaceExitGuard();
-const providers = ref<ProviderListItem[]>([]);
+const { bootstrap, setBootstrap } = useRelayStore();
+const providers = ref<Provider[]>([]);
 const quotaByProvider = ref<Record<string, ProviderQuotaResponse>>({});
 const loadingQuotas = ref(false);
 const catalogProviders = ref<CatalogProvider[]>([]);
-const editingProvider = ref<EditableProvider | null>(null);
+const editingProvider = ref<Provider | null>(null);
 const showForm = ref(false);
 const loadingProviders = ref(false);
 const pingStates = ref<Record<string, ProviderPingState>>({});
@@ -33,10 +36,12 @@ const formDirty = ref(false);
 let exitRegistration: ReturnType<typeof workspaceExit.register> | undefined;
 const {
   close: closeProviderSharing,
+  failed: sharingFailed,
   loading: loadingSharing,
   open: openProviderSharing,
   provider: sharingProvider,
   save: saveSharing,
+  saving: savingSharing,
   sharing,
   visible: showSharing,
 } = useProviderSharing({
@@ -51,10 +56,7 @@ type ProviderPingState = {
   latencyMs?: number | null;
 };
 
-type EditableProvider = ProviderListItem & {
-  api_key?: string;
-  api_key_masked?: string;
-};
+const currentIdentityId = computed(() => bootstrap.value?.identity_id ?? "");
 
 // 目录条目已下架：现有模型继续可用，但不能再编辑，只能删除。
 const editingRetired = computed(
@@ -68,17 +70,25 @@ const editingRetired = computed(
 async function loadProviders() {
   loadingProviders.value = true;
   try {
-    const [availableProviders, availableCatalogProviders, directory] =
-      await Promise.all([
-        invokeCommand<ProviderListItem[]>("providers_list"),
-        invokeCommand<CatalogProvider[]>("catalog_providers_list"),
-        invokeCommand<IdentityDirectoryEntry[]>(
-          "identity_directory_list",
-        ).catch(() => []),
-      ]);
+    const [
+      availableProviders,
+      availableCatalogProviders,
+      directory,
+      bootstrapState,
+    ] = await Promise.all([
+      invokeCommand<Provider[]>("providers_list"),
+      invokeCommand<CatalogProvider[]>("catalog_providers_list"),
+      invokeCommand<IdentityDirectoryEntry[]>("identity_directory_list").catch(
+        () => [],
+      ),
+      bootstrap.value
+        ? Promise.resolve(bootstrap.value)
+        : invokeCommand<BootstrapState>("bootstrap").catch(() => null),
+    ]);
     providers.value = availableProviders;
     catalogProviders.value = availableCatalogProviders;
     identities.value = directory;
+    if (bootstrapState) setBootstrap(bootstrapState);
     pingStates.value = Object.fromEntries(
       providers.value.map((provider) => [provider.id, { checking: false }]),
     );
@@ -106,7 +116,7 @@ async function loadQuotas() {
   }
 }
 
-async function pingProvider(provider: ProviderListItem) {
+async function pingProvider(provider: Provider) {
   pingStates.value = {
     ...pingStates.value,
     [provider.id]: { checking: true },
@@ -158,7 +168,7 @@ async function saveProvider(payload: ProviderFormPayload) {
   }
 }
 
-async function deleteProvider(provider: ProviderListItem) {
+async function deleteProvider(provider: Provider) {
   const confirmed = await confirmAction({
     title: "删除供应商",
     message: `删除供应商“${provider.name}”？`,
@@ -188,18 +198,16 @@ function testProtocolFromForm(input: {
   });
 }
 
-async function editProvider(provider: ProviderListItem) {
+async function editProvider(provider: Provider) {
   formDirty.value = false;
-  let editable: EditableProvider = provider;
   try {
-    const detail = await invokeCommand<Provider>("providers_get", {
+    editingProvider.value = await invokeCommand<Provider>("providers_get", {
       providerId: provider.id,
     });
-    editable = { ...provider, ...detail };
   } catch {
     // The command composable exposes the error to this view.
+    return;
   }
-  editingProvider.value = editable;
   showForm.value = true;
 }
 
@@ -264,6 +272,7 @@ onMounted(loadProviders);
         :providers="providers"
         :quota-by-provider="quotaByProvider"
         :ping-states="pingStates"
+        :current-identity-id="currentIdentityId"
         @edit="editProvider"
         @ping="pingProvider"
         @remove="deleteProvider"
@@ -282,9 +291,16 @@ onMounted(loadProviders);
         :catalog-providers="catalogProviders"
         :pending="pending"
         :can-edit="
-          editingProvider ? editingProvider.can_manage && !editingRetired : true
+          editingProvider
+            ? isOwnProvider(editingProvider, currentIdentityId) &&
+              !editingRetired
+            : true
         "
-        :can-test="editingProvider ? editingProvider.can_manage : true"
+        :can-test="
+          editingProvider
+            ? isOwnProvider(editingProvider, currentIdentityId)
+            : true
+        "
         :retired="editingRetired"
         :test-protocol="testProtocolFromForm"
         @save="saveProvider"
@@ -309,8 +325,9 @@ onMounted(loadProviders);
       :provider="sharingProvider"
       :sharing="sharing"
       :identities="identities"
-      :pending="pending"
+      :pending="savingSharing"
       :loading="loadingSharing"
+      :failed="sharingFailed"
       @save-sharing="saveSharing"
       @close="closeProviderSharing"
     />

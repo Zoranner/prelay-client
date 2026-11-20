@@ -49,9 +49,14 @@ test("接入点 Provider 选项包含共享来源和创建人信息", () => {
     "utf8",
   );
   expect(endpointModels).toContain("owner_display_name");
-  expect(endpointModels).toContain("read_only");
-  expect(endpointForm).toContain("共享自");
+  expect(endpointModels).toContain("providerSourceLabel");
+  expect(endpointModels).toContain("共享自");
+  expect(endpointForm).not.toContain("共享自");
+  expect(endpointForm).toContain("providerSourceLabel");
   expect(endpointForm).toContain("providerOptions");
+  expect(endpointPage).toContain(
+    ':current-identity-id="bootstrap?.identity_id"',
+  );
 });
 
 test("接入点引用共享 Provider 时保存 payload 仍只有原始 ID 和上游模型", () => {
@@ -70,9 +75,7 @@ test("接入点引用共享 Provider 时保存 payload 仍只有原始 ID 和上
 });
 
 test("接入点重新加载时移除已撤销的共享 Provider，并保留服务端错误", () => {
-  expect(endpointPage).toContain(
-    'invokeCommand<ProviderListItem[]>("providers_list")',
-  );
+  expect(endpointPage).toContain('invokeCommand<Provider[]>("providers_list")');
   expect(endpointPage).toContain("await load()");
   expect(endpointPage).toContain("catch {");
   expect(endpointPage).toContain("The command composable exposes the error");

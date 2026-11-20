@@ -4,14 +4,18 @@ import { readFileSync } from "node:fs";
 const read = (path: string) =>
   readFileSync(new URL(`../${path}`, import.meta.url), "utf8");
 
-test("编辑供应商通过原生命令回填创建人可见的密钥", () => {
+test("编辑供应商用创建人可见的同一读模型回填，不再与列表对象合并", () => {
   const page = read("app/pages/providers.vue");
   const command = read("src-tauri/src/commands/providers.rs");
   const application = read("src-tauri/src/app/mod.rs");
   const relayCommand = read("app/composables/command/relay.ts");
 
   expect(page).toContain('invokeCommand<Provider>("providers_get"');
-  expect(page).toContain("editable = { ...provider, ...detail }");
+  expect(page).not.toContain("{ ...provider, ...detail }");
+  expect(page).toContain(
+    "editingProvider.value = await invokeCommand<Provider>(",
+  );
+  expect(page).toContain("isOwnProvider(editingProvider, currentIdentityId)");
   expect(command).toContain("pub async fn providers_get(");
   expect(command).toContain('.get(&format!("/api/providers/{provider_id}"))');
   expect(command).toContain("ProviderResponse");

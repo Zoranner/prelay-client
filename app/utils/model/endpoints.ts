@@ -1,6 +1,7 @@
-import type { EndpointModel, Provider, ProviderListItem } from "~/types/relay";
+import type { EndpointModel, Provider } from "~/types/relay";
 import type { CatalogModelResponse } from "~/types/relay";
 import { modelCatalogEntry, modelCatalogLabel } from "~/stores/modelCatalog";
+import { isOwnProvider } from "~/utils/provider/ownership";
 
 // 接入点模型按目录模型 id 归组，供应商上游名由服务端按目录映射解析后落在 upstream_model。
 export type EndpointModelGroup = {
@@ -21,21 +22,31 @@ export type EndpointProviderModelOption = {
 export type EndpointProviderOption = {
   label: string;
   value: string;
-  read_only: boolean;
 };
 
+type ProviderOwnership = Pick<
+  Provider,
+  "owner_identity_id" | "owner_display_name"
+>;
+
+export function providerSourceLabel(
+  provider: ProviderOwnership | undefined,
+  identityId: string | null | undefined,
+): string {
+  if (!provider || !identityId || isOwnProvider(provider, identityId))
+    return "";
+  return `共享自 ${provider.owner_display_name || "其他用户"} · 只读`;
+}
+
 export function providerOptionLabel(
-  provider: Pick<Provider, "id" | "name"> &
-    Partial<Pick<ProviderListItem, "owner_display_name" | "can_manage">>,
+  provider: Pick<Provider, "id" | "name"> & ProviderOwnership,
+  identityId: string | null | undefined,
 ) {
   const name = provider.name || provider.id;
-  const readOnly = provider.can_manage === false;
+  const source = providerSourceLabel(provider, identityId);
   return {
-    label: !readOnly
-      ? name
-      : `${name}（共享自 ${provider.owner_display_name || "其他身份"}）`,
+    label: source ? `${name}（${source}）` : name,
     value: provider.id,
-    read_only: readOnly,
   } satisfies EndpointProviderOption;
 }
 
@@ -150,10 +161,7 @@ export type EndpointMappingFailure = {
 
 export type EndpointMappingIssue = "provider_unavailable" | "model_removed";
 
-export type EndpointMappingProvider = Pick<
-  ProviderListItem,
-  "id" | "name" | "models"
->;
+export type EndpointMappingProvider = Pick<Provider, "id" | "name" | "models">;
 
 export type EndpointMappingProblem = {
   model: EndpointModelLike;
