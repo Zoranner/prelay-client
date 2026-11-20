@@ -1,0 +1,1476 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="dark">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Prelay · 额度列顺序与浮层方案</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        --bg-base: #121212;
+        --bg-elevated: #1f1f1f;
+        --bg-panel: #252525;
+        --bg-surface: #2b2b2b;
+        --bg-header: #1b1b1b;
+        --border: #3f3f3f;
+        --divider: #373737;
+        --text-primary: #f5f5f5;
+        --text-secondary: #d4d4d4;
+        --text-muted: #a3a3a3;
+        --primary: #0ea5e9;
+        --primary-soft: rgba(14, 165, 233, 0.14);
+        --success: #10b981;
+        --success-soft: rgba(16, 185, 129, 0.12);
+        --warning: #f59e0b;
+        --warning-soft: rgba(245, 158, 11, 0.14);
+        --danger: #ef4444;
+        --danger-soft: rgba(239, 68, 68, 0.14);
+        --info: #3b82f6;
+        --info-soft: rgba(59, 130, 246, 0.14);
+        --mono: "Cascadia Code", "SFMono-Regular", Consolas, monospace;
+        --font: "Segoe UI", "Microsoft YaHei", "PingFang SC", sans-serif;
+        --radius-sm: 6px;
+        --radius-md: 10px;
+        --radius-lg: 14px;
+      }
+
+      html[data-theme="light"] {
+        color-scheme: light;
+        --bg-base: #fafafa;
+        --bg-elevated: #ffffff;
+        --bg-panel: #ffffff;
+        --bg-surface: #f5f5f5;
+        --bg-header: #ffffff;
+        --border: #d4d4d4;
+        --divider: #e5e5e5;
+        --text-primary: #171717;
+        --text-secondary: #404040;
+        --text-muted: #737373;
+        --primary: #0284c7;
+        --primary-soft: rgba(2, 132, 199, 0.1);
+        --success: #059669;
+        --success-soft: rgba(5, 150, 105, 0.1);
+        --warning: #d97706;
+        --warning-soft: rgba(217, 119, 6, 0.1);
+        --danger: #dc2626;
+        --danger-soft: rgba(220, 38, 38, 0.1);
+        --info: #2563eb;
+        --info-soft: rgba(37, 99, 235, 0.1);
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        min-width: 760px;
+        margin: 0;
+        background:
+          radial-gradient(circle at 12% -8%, var(--primary-soft), transparent 32rem),
+          var(--bg-base);
+        color: var(--text-primary);
+        font-family: var(--font);
+        font-size: 14px;
+        line-height: 1.5;
+      }
+
+      button {
+        font: inherit;
+      }
+
+      button:focus-visible,
+      a:focus-visible {
+        outline: 2px solid var(--primary);
+        outline-offset: 2px;
+      }
+
+      .page {
+        max-width: 1220px;
+        margin: 0 auto;
+        padding: 28px 28px 64px;
+      }
+
+      .page-head {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 32px;
+        padding: 10px 0 24px;
+        border-bottom: 1px solid var(--divider);
+      }
+
+      .eyebrow {
+        margin-bottom: 8px;
+        color: var(--primary);
+        font-size: 12px;
+        font-weight: 650;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+      }
+
+      h1 {
+        margin: 0;
+        font-size: 26px;
+        line-height: 1.25;
+        letter-spacing: -0.02em;
+      }
+
+      .page-head p {
+        max-width: 780px;
+        margin: 10px 0 0;
+        color: var(--text-secondary);
+        font-size: 14px;
+      }
+
+      .page-head p strong {
+        color: var(--text-primary);
+        font-weight: 600;
+      }
+
+      .theme-toggle {
+        flex: 0 0 auto;
+        min-width: 88px;
+        height: 32px;
+        padding: 0 12px;
+        border: 1px solid var(--border);
+        border-radius: 999px;
+        background: var(--bg-elevated);
+        color: var(--text-secondary);
+        cursor: pointer;
+        font-size: 12px;
+      }
+
+      .theme-toggle:hover {
+        border-color: var(--primary);
+        color: var(--text-primary);
+      }
+
+      .section {
+        margin-top: 24px;
+      }
+
+      .section-head {
+        display: flex;
+        align-items: flex-end;
+        justify-content: space-between;
+        gap: 24px;
+        margin-bottom: 12px;
+      }
+
+      .section-head h2 {
+        margin: 0;
+        font-size: 18px;
+        letter-spacing: -0.01em;
+      }
+
+      .section-head p {
+        max-width: 760px;
+        margin: 4px 0 0;
+        color: var(--text-muted);
+        font-size: 13px;
+      }
+
+      .order-card {
+        overflow: hidden;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-lg);
+        background: var(--bg-panel);
+      }
+
+      .order-note {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px 18px;
+        padding: 12px 18px;
+        border-top: 1px solid var(--divider);
+        background: var(--bg-header);
+        color: var(--text-muted);
+        font-size: 12px;
+      }
+
+      .order-note strong {
+        color: var(--text-secondary);
+        font-weight: 600;
+      }
+
+      .table-shell {
+        overflow-x: auto;
+      }
+
+      table.provider-table {
+        width: 100%;
+        min-width: 1080px;
+        border-collapse: collapse;
+        table-layout: fixed;
+      }
+
+      .provider-table th,
+      .provider-table td {
+        padding: 12px 14px;
+        border-bottom: 1px solid var(--divider);
+        text-align: left;
+        vertical-align: middle;
+      }
+
+      .provider-table th {
+        background: var(--bg-header);
+        color: var(--text-secondary);
+        font-size: 12px;
+        font-weight: 600;
+      }
+
+      .provider-table td {
+        color: var(--text-secondary);
+        font-size: 12px;
+      }
+
+      .provider-table tbody tr:hover {
+        background: color-mix(in srgb, var(--primary) 4%, transparent);
+      }
+
+      .provider-table tbody tr:last-child td {
+        border-bottom: 0;
+      }
+
+      .col-name {
+        width: 200px;
+      }
+
+      .col-protocols {
+        width: 220px;
+      }
+
+      .col-owner {
+        width: 120px;
+      }
+
+      .col-quota {
+        width: 220px;
+      }
+
+      .col-status {
+        width: 100px;
+      }
+
+      .col-actions {
+        width: 110px;
+        text-align: right;
+      }
+
+      .tags {
+        display: flex;
+        gap: 4px;
+        min-width: 0;
+        overflow: hidden;
+      }
+
+      .tag {
+        display: inline-flex;
+        align-items: center;
+        height: 20px;
+        padding: 0 6px;
+        overflow: hidden;
+        border: 1px solid;
+        border-radius: 4px;
+        font-size: 12px;
+        font-weight: 500;
+        line-height: 1;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .tag.chat {
+        border-color: color-mix(in srgb, var(--info) 40%, var(--border));
+        background: var(--info-soft);
+        color: var(--info);
+      }
+
+      .tag.responses {
+        border-color: color-mix(in srgb, var(--success) 40%, var(--border));
+        background: var(--success-soft);
+        color: var(--success);
+      }
+
+      .tag.image {
+        border-color: color-mix(in srgb, var(--warning) 40%, var(--border));
+        background: var(--warning-soft);
+        color: var(--warning);
+      }
+
+      .provider-name {
+        display: grid;
+        min-width: 0;
+        gap: 3px;
+      }
+
+      .provider-name strong,
+      .provider-name small {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .provider-name strong {
+        color: var(--text-primary);
+        font-size: 13px;
+        font-weight: 600;
+      }
+
+      .provider-name small {
+        color: var(--text-muted);
+        font-family: var(--mono);
+        font-size: 12px;
+      }
+
+      .owner {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        min-width: 0;
+      }
+
+      .avatar {
+        display: grid;
+        flex: 0 0 auto;
+        width: 26px;
+        height: 26px;
+        place-items: center;
+        border: 1px solid var(--border);
+        border-radius: 999px;
+        background: var(--bg-surface);
+        color: var(--text-primary);
+        font-size: 12px;
+        font-weight: 600;
+      }
+
+      .owner span:last-child {
+        overflow: hidden;
+        color: var(--text-secondary);
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .status-tag {
+        display: inline-flex;
+        align-items: center;
+        height: 22px;
+        padding: 0 7px;
+        border: 1px solid color-mix(in srgb, var(--success) 40%, var(--border));
+        border-radius: 4px;
+        background: var(--success-soft);
+        color: var(--success);
+        font-size: 12px;
+        font-weight: 500;
+      }
+
+      .row-actions {
+        display: flex;
+        justify-content: flex-end;
+      }
+
+      .icon-button {
+        display: grid;
+        width: 28px;
+        height: 28px;
+        place-items: center;
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        background: var(--bg-elevated);
+        color: var(--text-muted);
+        font-size: 12px;
+      }
+
+      .quota {
+        display: flex;
+        min-width: 0;
+        align-items: center;
+        gap: 8px;
+        color: var(--text-secondary);
+        font-size: 12px;
+        font-variant-numeric: tabular-nums;
+        line-height: 1.2;
+      }
+
+      .quota__lead {
+        display: grid;
+        flex: 0 0 24px;
+        width: 24px;
+        height: 24px;
+        place-items: center;
+      }
+
+      .quota__main {
+        display: flex;
+        min-width: 0;
+        align-items: baseline;
+        gap: 4px;
+        white-space: nowrap;
+      }
+
+      .quota__window,
+      .quota__label {
+        color: var(--text-muted);
+        font-size: 12px;
+      }
+
+      .quota__value,
+      .quota__amount {
+        color: var(--text-primary);
+        font-size: 12px;
+        font-weight: 600;
+        font-variant-numeric: tabular-nums;
+      }
+
+      .quota__value.warning {
+        color: var(--warning);
+      }
+
+      .quota__value.danger {
+        color: var(--danger);
+      }
+
+      .quota__balance {
+        min-width: 0;
+        overflow: hidden;
+        color: var(--text-muted);
+        font-size: 12px;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .quota__status {
+        display: inline-flex;
+        align-items: center;
+        height: 20px;
+        padding: 0 6px;
+        border: 1px solid var(--border);
+        border-radius: 4px;
+        color: var(--text-muted);
+        font-size: 12px;
+        line-height: 1;
+      }
+
+      .quota__coin,
+      .quota__dash {
+        display: grid;
+        width: 22px;
+        height: 22px;
+        place-items: center;
+        border: 1px solid var(--border);
+        border-radius: 999px;
+        color: var(--text-muted);
+        font-size: 12px;
+        font-weight: 600;
+      }
+
+      .quota__dash::before {
+        width: 8px;
+        height: 1.5px;
+        border-radius: 999px;
+        background: currentColor;
+        content: "";
+      }
+
+      .rings {
+        position: relative;
+        width: 24px;
+        height: 24px;
+      }
+
+      .ring {
+        position: absolute;
+        border-radius: 50%;
+        background: conic-gradient(
+          var(--ring-color) calc(var(--p) * 1%),
+          var(--ring-track) 0
+        );
+        -webkit-mask: radial-gradient(
+          farthest-side,
+          transparent calc(100% - 2px),
+          #000 calc(100% - 2px)
+        );
+        mask: radial-gradient(
+          farthest-side,
+          transparent calc(100% - 2px),
+          #000 calc(100% - 2px)
+        );
+      }
+
+      .ring:nth-child(1) {
+        inset: 8px;
+      }
+
+      .ring:nth-child(2) {
+        inset: 4px;
+      }
+
+      .ring:nth-child(3) {
+        inset: 0;
+      }
+
+      .ring--disabled {
+        border: 2px dashed color-mix(in srgb, var(--text-muted) 55%, transparent);
+        background: transparent;
+        opacity: 0.55;
+        -webkit-mask: none;
+        mask: none;
+      }
+
+      .bar {
+        height: 5px;
+        overflow: hidden;
+        border-radius: 999px;
+        background: var(--bar-track, var(--bg-surface));
+      }
+
+      .bar i {
+        display: block;
+        width: calc(var(--p) * 1%);
+        height: 100%;
+        border-radius: inherit;
+        background: var(--bar-color, var(--primary));
+      }
+
+      .tooltip-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 18px;
+      }
+
+      .tooltip-option {
+        overflow: hidden;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-lg);
+        background: var(--bg-panel);
+      }
+
+      .tooltip-option__head {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 16px;
+        padding: 16px 18px;
+        border-bottom: 1px solid var(--divider);
+      }
+
+      .tooltip-option__title {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 8px;
+      }
+
+      .tooltip-option__title h3 {
+        margin: 0;
+        font-size: 15px;
+      }
+
+      .badge {
+        display: inline-flex;
+        align-items: center;
+        height: 22px;
+        padding: 0 8px;
+        border: 1px solid var(--border);
+        border-radius: 999px;
+        color: var(--text-muted);
+        font-size: 12px;
+        font-weight: 500;
+        white-space: nowrap;
+      }
+
+      .badge.recommended {
+        border-color: color-mix(in srgb, var(--success) 42%, var(--border));
+        background: var(--success-soft);
+        color: var(--success);
+      }
+
+      .badge.warning {
+        border-color: color-mix(in srgb, var(--warning) 42%, var(--border));
+        background: var(--warning-soft);
+        color: var(--warning);
+      }
+
+      .tooltip-option__head p {
+        max-width: 520px;
+        margin: 4px 0 0;
+        color: var(--text-muted);
+        font-size: 13px;
+      }
+
+      .tooltip-stage {
+        position: relative;
+        display: flex;
+        min-height: 292px;
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 10px;
+        padding: 18px;
+        background:
+          linear-gradient(var(--divider) 1px, transparent 1px),
+          linear-gradient(90deg, var(--divider) 1px, transparent 1px),
+          var(--bg-base);
+        background-size: 28px 28px;
+      }
+
+      .anchor-cell {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 6px 8px;
+        border: 1px dashed color-mix(in srgb, var(--primary) 45%, var(--border));
+        border-radius: 8px;
+        background: var(--bg-elevated);
+      }
+
+      .tooltip-card {
+        position: relative;
+        width: 100%;
+        max-width: 340px;
+        padding: 14px;
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        background: var(--bg-elevated);
+        box-shadow: 0 14px 32px rgb(0 0 0 / 0.32);
+      }
+
+      .tooltip-card::before {
+        position: absolute;
+        top: -6px;
+        left: 20px;
+        width: 10px;
+        height: 10px;
+        border-top: 1px solid var(--border);
+        border-left: 1px solid var(--border);
+        background: var(--bg-elevated);
+        content: "";
+        transform: rotate(45deg);
+      }
+
+      .tip-head {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 12px;
+        margin-bottom: 12px;
+      }
+
+      .tip-title {
+        display: grid;
+        gap: 2px;
+        min-width: 0;
+      }
+
+      .tip-title strong {
+        overflow: hidden;
+        color: var(--text-primary);
+        font-size: 13px;
+        font-weight: 600;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .tip-title span {
+        color: var(--text-muted);
+        font-size: 12px;
+      }
+
+      .chip {
+        display: inline-flex;
+        flex: 0 0 auto;
+        align-items: center;
+        height: 20px;
+        padding: 0 6px;
+        border: 1px solid var(--border);
+        border-radius: 4px;
+        color: var(--text-muted);
+        font-size: 12px;
+        line-height: 1;
+      }
+
+      .chip.success {
+        border-color: color-mix(in srgb, var(--success) 42%, var(--border));
+        background: var(--success-soft);
+        color: var(--success);
+      }
+
+      .chip.danger {
+        border-color: color-mix(in srgb, var(--danger) 42%, var(--border));
+        background: var(--danger-soft);
+        color: var(--danger);
+      }
+
+      .window-list {
+        display: grid;
+        gap: 10px;
+      }
+
+      .window-row {
+        display: grid;
+        gap: 5px;
+      }
+
+      .window-row__top {
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        gap: 12px;
+      }
+
+      .window-row__top span {
+        color: var(--text-secondary);
+        font-size: 12px;
+      }
+
+      .window-row__top strong {
+        color: var(--text-primary);
+        font-size: 12px;
+        font-variant-numeric: tabular-nums;
+      }
+
+      .window-row__top strong.danger {
+        color: var(--danger);
+      }
+
+      .window-row__top strong.warning {
+        color: var(--warning);
+      }
+
+      .window-row__meta {
+        color: var(--text-muted);
+        font-size: 12px;
+        font-variant-numeric: tabular-nums;
+      }
+
+      .tip-foot {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        margin-top: 12px;
+        padding-top: 10px;
+        border-top: 1px solid var(--divider);
+        color: var(--text-muted);
+        font-size: 12px;
+      }
+
+      .tip-section-title {
+        margin: 12px 0 8px;
+        color: var(--text-muted);
+        font-size: 12px;
+        font-weight: 600;
+      }
+
+      .tip-balance {
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        gap: 12px;
+        padding: 10px;
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        background: var(--bg-surface);
+      }
+
+      .tip-balance span {
+        color: var(--text-muted);
+        font-size: 12px;
+      }
+
+      .tip-balance strong {
+        color: var(--text-primary);
+        font-size: 14px;
+        font-variant-numeric: tabular-nums;
+      }
+
+      .tip-focus {
+        padding: 12px;
+        border: 1px solid color-mix(in srgb, var(--danger) 32%, var(--border));
+        border-radius: 8px;
+        background: var(--danger-soft);
+      }
+
+      .tip-focus__label {
+        color: var(--text-muted);
+        font-size: 12px;
+      }
+
+      .tip-focus__value {
+        margin: 2px 0 8px;
+        color: var(--danger);
+        font-size: 26px;
+        font-weight: 700;
+        font-variant-numeric: tabular-nums;
+        line-height: 1.1;
+      }
+
+      .tip-focus__meta {
+        margin-top: 8px;
+        color: var(--text-secondary);
+        font-size: 12px;
+      }
+
+      .other-windows {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        margin-top: 10px;
+      }
+
+      .other-windows .chip {
+        height: 22px;
+        color: var(--text-secondary);
+      }
+
+      .tip-table {
+        width: 100%;
+        border-collapse: collapse;
+      }
+
+      .tip-table th,
+      .tip-table td {
+        padding: 7px 4px;
+        border-bottom: 1px solid var(--divider);
+        text-align: left;
+        font-size: 12px;
+      }
+
+      .tip-table th {
+        color: var(--text-muted);
+        font-weight: 500;
+      }
+
+      .tip-table td {
+        color: var(--text-secondary);
+        font-variant-numeric: tabular-nums;
+      }
+
+      .tip-table td:nth-child(2),
+      .tip-table td:nth-child(3) {
+        text-align: right;
+      }
+
+      .tip-table td.danger {
+        color: var(--danger);
+        font-weight: 600;
+      }
+
+      .tooltip-option__foot {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px 18px;
+        padding: 10px 18px;
+        border-top: 1px solid var(--divider);
+        background: var(--bg-header);
+        color: var(--text-muted);
+        font-size: 12px;
+      }
+
+      .tooltip-option__foot strong {
+        color: var(--text-secondary);
+        font-weight: 600;
+      }
+
+      .state-grid {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 12px;
+        margin-top: 14px;
+      }
+
+      .state-card {
+        padding: 14px;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-md);
+        background: var(--bg-elevated);
+      }
+
+      .state-card h3 {
+        margin: 8px 0 4px;
+        font-size: 13px;
+      }
+
+      .state-card p {
+        margin: 0;
+        color: var(--text-muted);
+        font-size: 12px;
+      }
+
+      .decision {
+        margin-top: 22px;
+        padding: 20px;
+        border: 1px solid color-mix(in srgb, var(--primary) 38%, var(--border));
+        border-radius: var(--radius-lg);
+        background:
+          linear-gradient(135deg, var(--primary-soft), transparent 64%),
+          var(--bg-elevated);
+      }
+
+      .decision h2 {
+        margin: 0 0 8px;
+        font-size: 16px;
+      }
+
+      .decision p {
+        margin: 8px 0 0;
+        color: var(--text-secondary);
+        font-size: 14px;
+      }
+
+      .decision strong {
+        color: var(--text-primary);
+      }
+
+      @media (max-width: 1040px) {
+        .tooltip-grid {
+          grid-template-columns: 1fr;
+        }
+
+        .state-grid {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+      }
+
+      @media (max-width: 900px) {
+        body {
+          min-width: 0;
+        }
+
+        .page {
+          padding: 20px 16px 48px;
+        }
+
+        .page-head {
+          display: block;
+        }
+
+        .theme-toggle {
+          margin-top: 14px;
+        }
+
+        .state-grid {
+          grid-template-columns: 1fr;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="page">
+      <header class="page-head">
+        <div>
+          <div class="eyebrow">Prelay · Provider list</div>
+          <h1>额度列顺序与浮层方案</h1>
+          <p>
+            按你的意见：移除协议列，剩余额度放在状态前面；浮层单独设计成四种信息结构。
+            下面的数据用当前 Command Code、OpenCode Go、DeepSeek、GoToken 和 Kimi 的真实读数形态。
+          </p>
+        </div>
+        <button class="theme-toggle" id="themeToggle" type="button">
+          切换亮色
+        </button>
+      </header>
+
+      <section class="section">
+        <div class="section-head">
+          <div>
+            <h2>列顺序</h2>
+            <p>
+              当前：名称 → 协议 → 状态 → 剩余额度 → 创建人 → 操作。协议列保留，
+              创建人放在剩余额度之后；协议仍可在编辑/详情里维护。
+            </p>
+          </div>
+        </div>
+        <div class="order-card">
+          <div class="table-shell">
+            <table class="provider-table">
+              <thead>
+                <tr>
+                  <th class="col-name">名称</th>
+                  <th class="col-owner">创建人</th>
+                  <th class="col-quota">剩余额度</th>
+                  <th class="col-status">状态</th>
+                  <th class="col-actions">操作</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>
+                    <div class="provider-name">
+                      <strong>GoToken 余额</strong>
+                      <small>https://gotoken.cc</small>
+                    </div>
+                  </td>
+                  <td>
+                    <div class="owner">
+                      <span class="avatar">杨</span>
+                      <span>杨新冉</span>
+                    </div>
+                  </td>
+                  <td>
+                    <div class="quota">
+                      <span class="quota__lead"><span class="quota__dash"></span></span>
+                      <span class="quota__status">未接入</span>
+                    </div>
+                  </td>
+                  <td><span class="status-tag">924 ms</span></td>
+                  <td><div class="row-actions"><span class="icon-button">•••</span></div></td>
+                </tr>
+                <tr>
+                  <td>
+                    <div class="provider-name">
+                      <strong>DeepSeek 开放平台</strong>
+                      <small>https://api.deepseek.com/v1</small>
+                    </div>
+                  </td>
+                  <td>
+                    <div class="owner">
+                      <span class="avatar">杨</span>
+                      <span>杨新冉</span>
+                    </div>
+                  </td>
+                  <td>
+                    <div class="quota">
+                      <span class="quota__lead"><span class="quota__coin">¥</span></span>
+                      <span class="quota__main">
+                        <span class="quota__label">余额</span>
+                        <span class="quota__amount">¥6.94</span>
+                      </span>
+                    </div>
+                  </td>
+                  <td><span class="status-tag">117 ms</span></td>
+                  <td><div class="row-actions"><span class="icon-button">•••</span></div></td>
+                </tr>
+                <tr>
+                  <td>
+                    <div class="provider-name">
+                      <strong>Command Code</strong>
+                      <small>https://api.commandcode.ai/provider/v1</small>
+                    </div>
+                  </td>
+                  <td>
+                    <div class="owner">
+                      <span class="avatar">杨</span>
+                      <span>杨新冉</span>
+                    </div>
+                  </td>
+                  <td>
+                    <div class="quota">
+                      <span class="quota__lead">
+                        <span class="rings">
+                          <span class="ring" style="--p:100;--ring-color:var(--primary);--ring-track:color-mix(in srgb,var(--primary) 18%,var(--bg-surface))"></span>
+                          <span class="ring" style="--p:100;--ring-color:var(--primary);--ring-track:color-mix(in srgb,var(--primary) 18%,var(--bg-surface))"></span>
+                          <span class="ring" style="--p:0;--ring-color:var(--danger);--ring-track:color-mix(in srgb,var(--danger) 30%,var(--bg-surface))"></span>
+                        </span>
+                      </span>
+                      <span class="quota__main">
+                        <span class="quota__window">月</span>
+                        <span class="quota__value danger">0%</span>
+                      </span>
+                      <span class="quota__balance">余额 $0.06</span>
+                    </div>
+                  </td>
+                  <td><span class="status-tag">2576 ms</span></td>
+                  <td><div class="row-actions"><span class="icon-button">•••</span></div></td>
+                </tr>
+                <tr>
+                  <td>
+                    <div class="provider-name">
+                      <strong>OpenCode Go</strong>
+                      <small>https://opencode.ai/inference/go/openai/v1</small>
+                    </div>
+                  </td>
+                  <td>
+                    <div class="owner">
+                      <span class="avatar">杨</span>
+                      <span>杨新冉</span>
+                    </div>
+                  </td>
+                  <td>
+                    <div class="quota">
+                      <span class="quota__lead">
+                        <span class="rings">
+                          <span class="ring" style="--p:98;--ring-color:var(--primary);--ring-track:color-mix(in srgb,var(--primary) 18%,var(--bg-surface))"></span>
+                          <span class="ring" style="--p:33;--ring-color:var(--warning);--ring-track:color-mix(in srgb,var(--warning) 18%,var(--bg-surface))"></span>
+                          <span class="ring" style="--p:33;--ring-color:var(--warning);--ring-track:color-mix(in srgb,var(--warning) 18%,var(--bg-surface))"></span>
+                        </span>
+                      </span>
+                      <span class="quota__main">
+                        <span class="quota__window">7天</span>
+                        <span class="quota__value warning">33%</span>
+                      </span>
+                    </div>
+                  </td>
+                  <td><span class="status-tag">224 ms</span></td>
+                  <td><div class="row-actions"><span class="icon-button">•••</span></div></td>
+                </tr>
+                <tr>
+                  <td>
+                    <div class="provider-name">
+                      <strong>Kimi Code</strong>
+                      <small>https://api.kimi.com/coding/v1</small>
+                    </div>
+                  </td>
+                  <td>
+                    <div class="owner">
+                      <span class="avatar">杨</span>
+                      <span>杨新冉</span>
+                    </div>
+                  </td>
+                  <td>
+                    <div class="quota">
+                      <span class="quota__lead">
+                        <span class="rings">
+                          <span class="ring" style="--p:64;--ring-color:var(--primary);--ring-track:color-mix(in srgb,var(--primary) 18%,var(--bg-surface))"></span>
+                          <span class="ring" style="--p:82;--ring-color:var(--primary);--ring-track:color-mix(in srgb,var(--primary) 18%,var(--bg-surface))"></span>
+                          <span class="ring ring--disabled"></span>
+                        </span>
+                      </span>
+                      <span class="quota__main">
+                        <span class="quota__window">5小时</span>
+                        <span class="quota__value">64%</span>
+                      </span>
+                    </div>
+                  </td>
+                  <td><span class="status-tag">186 ms</span></td>
+                  <td><div class="row-actions"><span class="icon-button">•••</span></div></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="order-note">
+            <span><strong>移除协议列：</strong>列表只保留识别、额度、连接状态和操作；协议在编辑表单/详情中查看。</span>
+            <span><strong>额度在状态前：</strong>先看“还剩多少”，再看“通不通”。</span>
+            <span><strong>窗口不足 3 个：</strong>固定保留 3 个环位，缺失环灰置虚线。</span>
+          </div>
+        </div>
+      </section>
+
+      <section class="section">
+        <div class="section-head">
+          <div>
+            <h2>额度浮层</h2>
+            <p>
+              四种信息结构，都用 Command Code 同一组数据：5 小时 100%、7 天 100%、月 0%、余额 $0.06、11/21 重置。
+              百分比统一表示剩余。
+            </p>
+          </div>
+        </div>
+
+        <div class="tooltip-grid">
+          <article class="tooltip-option">
+            <header class="tooltip-option__head">
+              <div>
+                <div class="tooltip-option__title">
+                  <h3>A · 摘要卡</h3>
+                  <span class="badge recommended">已选</span>
+                  <span class="badge">紧凑</span>
+                </div>
+                <p>每个窗口一行，进度条 + 可用金额 + 重置时间；最省高度。</p>
+              </div>
+            </header>
+            <div class="tooltip-stage">
+              <div class="anchor-cell">
+                <span class="rings">
+                  <span class="ring" style="--p:100;--ring-color:var(--primary);--ring-track:color-mix(in srgb,var(--primary) 18%,var(--bg-surface))"></span>
+                  <span class="ring" style="--p:100;--ring-color:var(--primary);--ring-track:color-mix(in srgb,var(--primary) 18%,var(--bg-surface))"></span>
+                  <span class="ring" style="--p:0;--ring-color:var(--danger);--ring-track:color-mix(in srgb,var(--danger) 30%,var(--bg-surface))"></span>
+                </span>
+                <span class="quota__main">
+                  <span class="quota__window">月</span>
+                  <span class="quota__value danger">0%</span>
+                </span>
+                <span class="quota__balance">余额 $0.06</span>
+              </div>
+              <div class="tooltip-card">
+                <div class="tip-head">
+                  <div class="tip-title">
+                    <strong>Command Code</strong>
+                    <span>个人 · GOAT</span>
+                  </div>
+                  <span class="chip success">正常</span>
+                </div>
+                <div class="window-list">
+                  <div class="window-row">
+                    <div class="window-row__top"><span>5 小时</span><strong>100%</strong></div>
+                    <div class="bar" style="--p:100;--bar-color:var(--primary);--bar-track:color-mix(in srgb,var(--primary) 18%,var(--bg-surface))"><i></i></div>
+                    <div class="window-row__meta">剩 $14.00 / $14.00 · 2h 12m 后重置</div>
+                  </div>
+                  <div class="window-row">
+                    <div class="window-row__top"><span>7 天</span><strong>100%</strong></div>
+                    <div class="bar" style="--p:100;--bar-color:var(--primary);--bar-track:color-mix(in srgb,var(--primary) 18%,var(--bg-surface))"><i></i></div>
+                    <div class="window-row__meta">剩 $35.00 / $35.00 · 5d 20h 后重置</div>
+                  </div>
+                  <div class="window-row">
+                    <div class="window-row__top"><span>月</span><strong class="danger">0%</strong></div>
+                    <div class="bar" style="--p:0;--bar-color:var(--danger);--bar-track:color-mix(in srgb,var(--danger) 30%,var(--bg-surface))"><i></i></div>
+                    <div class="window-row__meta">剩 $0.06 / $70.00 · 11/21 重置</div>
+                  </div>
+                </div>
+                <div class="tip-foot"><span>余额 $0.06</span><span>更新 20:31</span></div>
+              </div>
+            </div>
+            <footer class="tooltip-option__foot">
+              <span><strong>适合：</strong>浮层空间有限，三个窗口都需要扫一眼。</span>
+              <span><strong>代价：</strong>信息密度高，金额和重置时间并列时略挤。</span>
+            </footer>
+          </article>
+
+          <article class="tooltip-option">
+            <header class="tooltip-option__head">
+              <div>
+                <div class="tooltip-option__title">
+                  <h3>B · 分组卡</h3>
+                  <span class="badge">备选</span>
+                </div>
+                <p>“套餐窗口”和“余额与状态”分组，窗口、余额、数据状态各有归属。</p>
+              </div>
+            </header>
+            <div class="tooltip-stage">
+              <div class="anchor-cell">
+                <span class="rings">
+                  <span class="ring" style="--p:100;--ring-color:var(--primary);--ring-track:color-mix(in srgb,var(--primary) 18%,var(--bg-surface))"></span>
+                  <span class="ring" style="--p:100;--ring-color:var(--primary);--ring-track:color-mix(in srgb,var(--primary) 18%,var(--bg-surface))"></span>
+                  <span class="ring" style="--p:0;--ring-color:var(--danger);--ring-track:color-mix(in srgb,var(--danger) 30%,var(--bg-surface))"></span>
+                </span>
+                <span class="quota__main">
+                  <span class="quota__window">月</span>
+                  <span class="quota__value danger">0%</span>
+                </span>
+                <span class="quota__balance">余额 $0.06</span>
+              </div>
+              <div class="tooltip-card">
+                <div class="tip-head">
+                  <div class="tip-title">
+                    <strong>Command Code</strong>
+                    <span>个人 · GOAT</span>
+                  </div>
+                  <span class="chip success">正常</span>
+                </div>
+                <div class="tip-section-title">套餐窗口</div>
+                <div class="window-list">
+                  <div class="window-row">
+                    <div class="window-row__top"><span>5 小时</span><strong>100%</strong></div>
+                    <div class="bar" style="--p:100;--bar-color:var(--primary);--bar-track:color-mix(in srgb,var(--primary) 18%,var(--bg-surface))"><i></i></div>
+                    <div class="window-row__meta">剩 $14.00 · 2h 12m 后重置</div>
+                  </div>
+                  <div class="window-row">
+                    <div class="window-row__top"><span>7 天</span><strong>100%</strong></div>
+                    <div class="bar" style="--p:100;--bar-color:var(--primary);--bar-track:color-mix(in srgb,var(--primary) 18%,var(--bg-surface))"><i></i></div>
+                    <div class="window-row__meta">剩 $35.00 · 5d 20h 后重置</div>
+                  </div>
+                  <div class="window-row">
+                    <div class="window-row__top"><span>月</span><strong class="danger">0%</strong></div>
+                    <div class="bar" style="--p:0;--bar-color:var(--danger);--bar-track:color-mix(in srgb,var(--danger) 30%,var(--bg-surface))"><i></i></div>
+                    <div class="window-row__meta">剩 $0.06 / $70.00 · 11/21 重置</div>
+                  </div>
+                </div>
+                <div class="tip-section-title">余额与状态</div>
+                <div class="tip-balance"><span>可用余额</span><strong>$0.06</strong></div>
+                <div class="tip-foot"><span>数据正常</span><span>20:31 更新</span></div>
+              </div>
+            </div>
+            <footer class="tooltip-option__foot">
+              <span><strong>适合：</strong>用户打开浮层就是为了看明细；分组最清楚。</span>
+              <span><strong>代价：</strong>高度比 A 多一行分区标题。</span>
+            </footer>
+          </article>
+
+          <article class="tooltip-option">
+            <header class="tooltip-option__head">
+              <div>
+                <div class="tooltip-option__title">
+                  <h3>C · 聚焦卡</h3>
+                  <span class="badge">最紧优先</span>
+                </div>
+                <p>先把最紧窗口放大，其他窗口退成小标签。回答“现在最危险的是哪个”。</p>
+              </div>
+            </header>
+            <div class="tooltip-stage">
+              <div class="anchor-cell">
+                <span class="rings">
+                  <span class="ring" style="--p:100;--ring-color:var(--primary);--ring-track:color-mix(in srgb,var(--primary) 18%,var(--bg-surface))"></span>
+                  <span class="ring" style="--p:100;--ring-color:var(--primary);--ring-track:color-mix(in srgb,var(--primary) 18%,var(--bg-surface))"></span>
+                  <span class="ring" style="--p:0;--ring-color:var(--danger);--ring-track:color-mix(in srgb,var(--danger) 30%,var(--bg-surface))"></span>
+                </span>
+                <span class="quota__main">
+                  <span class="quota__window">月</span>
+                  <span class="quota__value danger">0%</span>
+                </span>
+                <span class="quota__balance">余额 $0.06</span>
+              </div>
+              <div class="tooltip-card">
+                <div class="tip-head">
+                  <div class="tip-title">
+                    <strong>Command Code</strong>
+                    <span>个人 · GOAT</span>
+                  </div>
+                  <span class="chip success">正常</span>
+                </div>
+                <div class="tip-focus">
+                  <div class="tip-focus__label">最紧窗口 · 月</div>
+                  <div class="tip-focus__value">0%</div>
+                  <div class="bar" style="--p:0;--bar-color:var(--danger);--bar-track:color-mix(in srgb,var(--danger) 30%,var(--bg-surface))"><i></i></div>
+                  <div class="tip-focus__meta">剩 $0.06 / $70.00 · 11/21 重置</div>
+                </div>
+                <div class="tip-section-title">其他窗口</div>
+                <div class="other-windows">
+                  <span class="chip">5 小时 100%</span>
+                  <span class="chip">7 天 100%</span>
+                </div>
+                <div class="tip-foot"><span>余额 $0.06</span><span>更新 20:31</span></div>
+              </div>
+            </div>
+            <footer class="tooltip-option__foot">
+              <span><strong>适合：</strong>快速判断“现在还能不能用”，不被其他窗口分散。</span>
+              <span><strong>代价：</strong>其他窗口的金额和重置时间被降级。</span>
+            </footer>
+          </article>
+
+          <article class="tooltip-option">
+            <header class="tooltip-option__head">
+              <div>
+                <div class="tooltip-option__title">
+                  <h3>D · 表格式</h3>
+                  <span class="badge">高密度</span>
+                </div>
+                <p>窗口、剩余、可用金额、重置时间列对齐。信息最完整，视觉噪音最低。</p>
+              </div>
+            </header>
+            <div class="tooltip-stage">
+              <div class="anchor-cell">
+                <span class="rings">
+                  <span class="ring" style="--p:100;--ring-color:var(--primary);--ring-track:color-mix(in srgb,var(--primary) 18%,var(--bg-surface))"></span>
+                  <span class="ring" style="--p:100;--ring-color:var(--primary);--ring-track:color-mix(in srgb,var(--primary) 18%,var(--bg-surface))"></span>
+                  <span class="ring" style="--p:0;--ring-color:var(--danger);--ring-track:color-mix(in srgb,var(--danger) 30%,var(--bg-surface))"></span>
+                </span>
+                <span class="quota__main">
+                  <span class="quota__window">月</span>
+                  <span class="quota__value danger">0%</span>
+                </span>
+                <span class="quota__balance">余额 $0.06</span>
+              </div>
+              <div class="tooltip-card">
+                <div class="tip-head">
+                  <div class="tip-title">
+                    <strong>Command Code</strong>
+                    <span>个人 · GOAT</span>
+                  </div>
+                  <span class="chip success">正常</span>
+                </div>
+                <table class="tip-table">
+                  <thead>
+                    <tr><th>窗口</th><th>剩余</th><th>可用</th><th>重置</th></tr>
+                  </thead>
+                  <tbody>
+                    <tr><td>5 小时</td><td>100%</td><td>$14.00</td><td>2h 12m</td></tr>
+                    <tr><td>7 天</td><td>100%</td><td>$35.00</td><td>5d 20h</td></tr>
+                    <tr><td>月</td><td class="danger">0%</td><td class="danger">$0.06</td><td>11/21</td></tr>
+                  </tbody>
+                </table>
+                <div class="tip-foot"><span>余额 $0.06</span><span>20:31 更新</span></div>
+              </div>
+            </div>
+            <footer class="tooltip-option__foot">
+              <span><strong>适合：</strong>桌面端、窗口多、需要逐项核对的用户。</span>
+              <span><strong>代价：</strong>没有进度条，额度比例不如 A/B 直观。</span>
+            </footer>
+          </article>
+        </div>
+      </section>
+
+      <section class="section">
+        <div class="section-head">
+          <div>
+            <h2>四种方案都要覆盖的状态</h2>
+            <p>浮层不是只给正常数据设计的；状态文案和动作必须一起确定。</p>
+          </div>
+        </div>
+        <div class="state-grid">
+          <div class="state-card">
+            <span class="chip">未接入</span>
+            <h3>显示原因，不显示空窗口</h3>
+            <p>标题 + “该供应商没有接入额度接口”；不出现 5 小时/7 天/月的空行。</p>
+          </div>
+          <div class="state-card">
+            <span class="chip danger">查询失败</span>
+            <h3>错误码 + 可读消息</h3>
+            <p>保留上次成功读数时加“旧读数”chip；没有旧读数就只显示错误。</p>
+          </div>
+          <div class="state-card">
+            <span class="chip">旧读数</span>
+            <h3>值和读取时间一起出现</h3>
+            <p>不能只写“旧”；必须说明“显示的是上次成功读数”。</p>
+          </div>
+          <div class="state-card">
+            <span class="chip">共享限额</span>
+            <h3>标题带“共享”</h3>
+            <p>窗口按日/周/月显示，余额可缺省；不与个人套餐混淆。</p>
+          </div>
+          <div class="state-card">
+            <span class="chip">查询中</span>
+            <h3>Spinner + skeleton</h3>
+            <p>不裸露“查询中”文字；前导槽放 Spinner，值区放 56×10 skeleton，跟正常单元格同一骨架。</p>
+          </div>
+        </div>
+      </section>
+
+      <section class="decision">
+        <h2>建议</h2>
+        <p>
+          <strong>列表列顺序：</strong>名称 → 协议 → 状态 → 剩余额度 → 创建人 → 操作。
+          协议列保留，创建人在额度之后；Kimi 这种只有两个窗口的供应商固定保留第三个灰置环。
+        </p>
+        <p>
+          <strong>浮层选 A 摘要卡。</strong>每个窗口一行，进度条、可用金额、重置时间都在一行组里；
+          B 分组卡作为备选，C 适合只看最紧窗口，D 适合高密度桌面用户。
+        </p>
+        <p>
+          你选一个浮层方案；选定后我再把列顺序、协议列移除和浮层一起落到实际组件。
+        </p>
+      </section>
+    </div>
+
+    <script>
+      const root = document.documentElement;
+      const toggle = document.getElementById("themeToggle");
+      toggle.addEventListener("click", () => {
+        const isLight = root.dataset.theme === "light";
+        root.dataset.theme = isLight ? "dark" : "light";
+        toggle.textContent = isLight ? "切换亮色" : "切换暗色";
+      });
+
+      const protocolSets = [
+        ["Chat Completions", "Responses", "Image"],
+        ["Chat Completions", "Responses"],
+        ["Chat Completions", "Responses"],
+        ["Chat Completions", "Responses"],
+        ["Chat Completions", "Responses"],
+      ];
+      const protocolClass = (protocol) =>
+        protocol === "Responses"
+          ? "responses"
+          : protocol === "Image"
+            ? "image"
+            : "chat";
+
+      document.querySelectorAll(".provider-table tr").forEach((row, index) => {
+        const cells = [...row.children];
+        if (cells.length !== 5) return;
+        const isHeader = row.parentElement?.tagName === "THEAD";
+        const protocolCell = document.createElement(isHeader ? "th" : "td");
+        if (isHeader) {
+          protocolCell.className = "col-protocols";
+          protocolCell.textContent = "协议";
+        } else {
+          protocolCell.innerHTML = `<div class="tags">${protocolSets[index - 1]
+            .map(
+              (protocol) =>
+                `<span class="tag ${protocolClass(protocol)}">${protocol}</span>`,
+            )
+            .join("")}</div>`;
+        }
+        const [name, owner, quota, status, actions] = cells;
+        row.append(name, protocolCell, status, quota, owner, actions);
+      });
+    </script>
+  </body>
+</html>

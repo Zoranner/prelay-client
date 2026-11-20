@@ -133,7 +133,7 @@ test("供应商列表展示创建人和额度列，不再展示可见范围", ()
   expect(providerListSource).toContain('key: "owner"');
   expect(providerListSource).toContain('key: "quota"');
   expect(providerListSource).toContain("owner_display_name");
-  expect(providerListSource).toContain('title: "额度"');
+  expect(providerListSource).toContain('title: "剩余额度"');
   expect(providerListSource).toContain("ProviderQuotaCell");
   expect(providerListSource).toContain("identityAvatarSrc");
   expect(providerListSource).not.toContain('key: "visibility"');

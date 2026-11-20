@@ -37,11 +37,11 @@ const emit = defineEmits<{
 }>();
 
 const columns = [
-  { key: "name", title: "名称", width: 220, ellipsis: true },
+  { key: "name", title: "名称", width: 200, ellipsis: true },
   { key: "protocols", title: "协议", minWidth: 260, ellipsis: true },
-  { key: "status", title: "状态", width: 116 },
+  { key: "status", title: "状态", width: 100 },
+  { key: "quota", title: "剩余额度", width: 180 },
   { key: "owner", title: "创建人", width: 128, ellipsis: true },
-  { key: "quota", title: "额度", width: 140 },
   {
     key: "actions",
     title: "操作",
@@ -90,6 +90,30 @@ const rows = computed<ProviderRow[]>(() =>
         <small :title="row.base_url">{{ row.base_url }}</small>
       </div>
     </template>
+    <template #cell-protocols="{ row }">
+      <div class="protocols">
+        <Tag
+          v-for="protocol in providerProtocolOptions(row)"
+          :key="protocol"
+          size="small"
+          :palette="protocolTagPalette(protocol)"
+        >
+          {{ protocolLabel(protocol) }}
+        </Tag>
+      </div>
+    </template>
+    <template #cell-status="{ row }">
+      <Tag :semantic="row.ping.semantic" size="small">
+        {{ row.ping.label }}
+      </Tag>
+    </template>
+    <template #cell-quota="{ row }">
+      <ProviderQuotaCell
+        :quota="row.quota"
+        :loading="quotaLoading"
+        :provider-name="row.name || row.provider_type"
+      />
+    </template>
     <template #cell-owner="{ row }">
       <div class="owner-entry">
         <Avatar
@@ -103,26 +127,6 @@ const rows = computed<ProviderRow[]>(() =>
           {{ row.owner_display_name }}
         </span>
       </div>
-    </template>
-    <template #cell-protocols="{ row }">
-      <div class="protocols">
-        <Tag
-          v-for="protocol in providerProtocolOptions(row)"
-          :key="protocol"
-          size="small"
-          :palette="protocolTagPalette(protocol)"
-        >
-          {{ protocolLabel(protocol) }}
-        </Tag>
-      </div>
-    </template>
-    <template #cell-quota="{ row }">
-      <ProviderQuotaCell :quota="row.quota" :loading="quotaLoading" />
-    </template>
-    <template #cell-status="{ row }">
-      <Tag :semantic="row.ping.semantic" size="small">
-        {{ row.ping.label }}
-      </Tag>
     </template>
     <template #cell-actions="{ row }">
       <div class="actions">
