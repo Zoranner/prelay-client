@@ -48,16 +48,7 @@ pub async fn install_extension(
     validate_package_bundle(&request.package, &bundle)?;
     let outcome = install_prepared_bundle(home, &bundle, &request.clients, request.overwrite)?;
     Ok(ExtensionInstallResult {
-        message: if bundle.skipped.is_empty() {
-            format!("已安装{}。", bundle.name)
-        } else {
-            format!(
-                "已安装{}，跳过 {} 个未匹配文件。",
-                bundle.name,
-                bundle.skipped.len()
-            )
-        },
-        skipped: bundle.skipped,
+        message: format!("已安装{}。", bundle.name),
         review: outcome.review,
         warning: outcome.trust_warning,
     })

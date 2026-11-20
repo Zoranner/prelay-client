@@ -110,7 +110,6 @@ pub async fn update_all_extensions(
     if catalog.packages.is_empty() {
         return Ok(super::model::ExtensionInstallResult {
             message: "没有可更新扩展。".to_string(),
-            skipped: Vec::new(),
             review: Vec::new(),
             warning: None,
         });
@@ -134,7 +133,6 @@ pub async fn update_all_extensions(
     }
     Ok(super::model::ExtensionInstallResult {
         message: format!("已更新 {updated} 个扩展。"),
-        skipped: Vec::new(),
         review: Vec::new(),
         warning: (!warnings.is_empty()).then(|| warnings.join(" ")),
     })

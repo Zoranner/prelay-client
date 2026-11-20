@@ -51,8 +51,6 @@ pub struct ExtensionInstallRequest {
 pub struct ExtensionInstallResult {
     pub message: String,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub skipped: Vec<String>,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub review: Vec<HookReviewItem>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub warning: Option<String>,

@@ -45,7 +45,6 @@ fn bundle_with_identity(
             updated_at: "2026-11-05T00:00:00Z".to_string(),
         },
         artifacts,
-        skipped: Vec::new(),
     }
 }
 
