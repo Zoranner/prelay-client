@@ -76,13 +76,14 @@ function setReset(value: string | number | boolean) {
   display: grid;
   width: 100%;
   grid-template-columns:
-    auto minmax(120px, 1fr) auto minmax(120px, 1fr) auto
-    minmax(120px, 1fr);
+    auto minmax(96px, 1fr) auto minmax(96px, 1fr) auto
+    minmax(96px, 1fr);
   align-items: center;
   gap: var(--spacing-sm);
   color: var(--st-text-secondary);
   font-size: 13px;
   line-height: 1.5;
+  white-space: nowrap;
 }
 
 .rule-editor--disabled {
