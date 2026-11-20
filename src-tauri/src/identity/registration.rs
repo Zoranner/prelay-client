@@ -13,9 +13,24 @@ use crate::{
 };
 
 pub(crate) struct AuthenticatedApi<'a> {
-    _credential_lifecycle_guard: tokio::sync::MutexGuard<'a, ()>,
+    _credential_lifecycle_lease: CredentialLifecycleLease<'a>,
     _file_credential_lifecycle_guard: FileCredentialLifecycleGuard,
     client: ApiClient<'a>,
+}
+
+enum CredentialLifecycleLease<'a> {
+    Shared {
+        _guard: tokio::sync::RwLockReadGuard<'a, ()>,
+    },
+    Exclusive {
+        _guard: tokio::sync::RwLockWriteGuard<'a, ()>,
+    },
+}
+
+#[derive(Clone, Copy)]
+enum CredentialLifecycleMode {
+    Shared,
+    Exclusive,
 }
 
 impl<'a> Deref for AuthenticatedApi<'a> {
@@ -48,26 +63,120 @@ async fn authenticated_api_with_identity<'a>(
     identity: &WindowsIdentity,
     relay_url: &str,
 ) -> Result<AuthenticatedApi<'a>, ClientError> {
-    let credential_lifecycle_guard = state.credential_lifecycle_gate.lock().await;
-    let file_credential_lifecycle_guard = state
-        .credentials
-        .acquire_lifecycle_lock()
-        .await
-        .map_err(|error| ClientError::new("credential_store_error", error))?;
-    let client =
-        ApiClient::new(relay_url, &state.credentials)?.with_display_name(&identity.display_name);
+    let mode = credential_lifecycle_mode(state)?;
+    authenticated_api_with_identity_mode(state, identity, relay_url, mode, false).await
+}
+
+async fn authenticated_api_with_identity_mode<'a>(
+    state: &'a NativeState,
+    identity: &WindowsIdentity,
+    relay_url: &str,
+    mode: CredentialLifecycleMode,
+    refresh_registration: bool,
+) -> Result<AuthenticatedApi<'a>, ClientError> {
+    let (credential_lifecycle_lease, file_credential_lifecycle_guard) =
+        acquire_credential_lifecycle_lease(state, mode).await?;
+    if refresh_registration {
+        state.registration_gate.clear().await;
+    }
+    let client = api_client(state, identity, relay_url)?;
     client
         .ensure_registered_once(identity, &state.registration_gate)
         .await?;
     Ok(AuthenticatedApi {
-        _credential_lifecycle_guard: credential_lifecycle_guard,
+        _credential_lifecycle_lease: credential_lifecycle_lease,
         _file_credential_lifecycle_guard: file_credential_lifecycle_guard,
         client,
     })
 }
 
+pub(crate) async fn authenticated_api_with_identity_exclusive<'a>(
+    state: &'a NativeState,
+    identity: &WindowsIdentity,
+    relay_url: &str,
+) -> Result<AuthenticatedApi<'a>, ClientError> {
+    authenticated_api_with_identity_mode(
+        state,
+        identity,
+        relay_url,
+        CredentialLifecycleMode::Exclusive,
+        true,
+    )
+    .await
+}
+
+async fn authenticated_api_exclusive(
+    state: &NativeState,
+) -> Result<AuthenticatedApi<'_>, ClientError> {
+    let identity = state
+        .identity
+        .identity()
+        .map_err(|error| ClientError::new("internal", error))?;
+    let relay_url = state
+        .relay_settings
+        .load()
+        .map_err(|error| ClientError::new("relay_settings_error", error))?
+        .ok_or_else(|| {
+            ClientError::new("relay_url_not_configured", "relay URL is not configured")
+        })?;
+    authenticated_api_with_identity_exclusive(state, &identity, &relay_url).await
+}
+
+fn credential_lifecycle_mode(state: &NativeState) -> Result<CredentialLifecycleMode, ClientError> {
+    let has_credential = state
+        .credentials
+        .load()
+        .map_err(|error| ClientError::new("credential_store_error", error))?
+        .is_some_and(|record| !record.current.trim().is_empty());
+    Ok(if has_credential {
+        CredentialLifecycleMode::Shared
+    } else {
+        CredentialLifecycleMode::Exclusive
+    })
+}
+
+async fn acquire_credential_lifecycle_lease<'a>(
+    state: &'a NativeState,
+    mode: CredentialLifecycleMode,
+) -> Result<(CredentialLifecycleLease<'a>, FileCredentialLifecycleGuard), ClientError> {
+    match mode {
+        CredentialLifecycleMode::Shared => {
+            let guard = state.credential_lifecycle_gate.read().await;
+            let file_guard = state
+                .credentials
+                .acquire_shared_lifecycle_lock()
+                .await
+                .map_err(|error| ClientError::new("credential_store_error", error))?;
+            Ok((
+                CredentialLifecycleLease::Shared { _guard: guard },
+                file_guard,
+            ))
+        }
+        CredentialLifecycleMode::Exclusive => {
+            let guard = state.credential_lifecycle_gate.write().await;
+            let file_guard = state
+                .credentials
+                .acquire_exclusive_lifecycle_lock()
+                .await
+                .map_err(|error| ClientError::new("credential_store_error", error))?;
+            Ok((
+                CredentialLifecycleLease::Exclusive { _guard: guard },
+                file_guard,
+            ))
+        }
+    }
+}
+
+fn api_client<'a>(
+    state: &'a NativeState,
+    identity: &WindowsIdentity,
+    relay_url: &str,
+) -> Result<ApiClient<'a>, ClientError> {
+    Ok(ApiClient::new(relay_url, &state.credentials)?.with_display_name(&identity.display_name))
+}
+
 pub async fn rotate_credential(state: &NativeState) -> Result<(), ClientError> {
-    let client = authenticated_api(state).await?;
+    let client = authenticated_api_exclusive(state).await?;
     let current_credential = state
         .credentials
         .load()
@@ -108,66 +217,68 @@ mod tests {
         io::{Read, Write},
         net::TcpListener,
         sync::{mpsc, Arc},
+        time::Duration,
     };
 
-    use tokio::sync::{oneshot, Notify};
+    use tokio::sync::oneshot;
 
     use super::authenticated_api_with_identity;
-    use crate::{identity::windows::WindowsIdentity, NativeState};
+    use crate::{
+        identity::{credentials::CredentialStore, windows::WindowsIdentity},
+        NativeState,
+    };
     use tempfile::tempdir;
 
     #[test]
-    fn authenticated_api_holds_the_file_lifecycle_lock_until_the_client_is_dropped() {
+    fn authenticated_api_allows_concurrent_readers_and_holds_write_until_they_drop() {
         tauri::async_runtime::block_on(async {
             let directory = tempdir().unwrap();
-            let first_state = Arc::new(NativeState::for_app_data_dir(directory.path().into()));
-            let second_state = Arc::new(NativeState::for_app_data_dir(directory.path().into()));
+            let state = Arc::new(NativeState::for_app_data_dir(directory.path().into()));
+            state.credentials.save_initial("credential-a").unwrap();
             let identity = WindowsIdentity {
                 machine_id: "machine-a".into(),
                 account_sid: "S-1-5-21-100".into(),
                 display_name: "Ada".into(),
             };
             let (base_url, registration_events, server) = registration_server();
-            let (first_ready, first_ready_rx) = oneshot::channel();
-            let release_first = Arc::new(Notify::new());
-
-            let first = tauri::async_runtime::spawn({
-                let state = first_state.clone();
-                let identity = identity.clone();
-                let base_url = base_url.clone();
-                let release_first = release_first.clone();
-                async move {
-                    let api = authenticated_api_with_identity(&state, &identity, &base_url)
-                        .await
-                        .unwrap();
-                    first_ready.send(()).unwrap();
-                    release_first.notified().await;
-                    drop(api);
-                }
-            });
-            first_ready_rx.await.unwrap();
+            let first = authenticated_api_with_identity(&state, &identity, &base_url)
+                .await
+                .unwrap();
             assert_eq!(registration_events.recv().unwrap(), "registration");
 
-            let second = tauri::async_runtime::spawn({
-                let state = second_state.clone();
-                let identity = identity.clone();
-                let base_url = base_url.clone();
-                async move {
-                    let _api = authenticated_api_with_identity(&state, &identity, &base_url)
-                        .await
-                        .unwrap();
-                }
+            let second = tokio::time::timeout(
+                Duration::from_millis(250),
+                authenticated_api_with_identity(&state, &identity, &base_url),
+            )
+            .await
+            .expect("a second reader must not wait for the first reader")
+            .unwrap();
+
+            let (writer_acquired, mut writer_acquired_rx) = oneshot::channel();
+            let writer_state = state.clone();
+            let writer = tauri::async_runtime::spawn(async move {
+                let _guard = writer_state.credential_lifecycle_gate.write().await;
+                writer_acquired.send(()).unwrap();
             });
             tokio::task::yield_now().await;
 
             assert!(matches!(
-                registration_events.try_recv(),
-                Err(mpsc::TryRecvError::Empty)
+                writer_acquired_rx.try_recv(),
+                Err(tokio::sync::oneshot::error::TryRecvError::Empty)
             ));
-            release_first.notify_one();
-            first.await.unwrap();
-            second.await.unwrap();
-            assert_eq!(registration_events.recv().unwrap(), "registration");
+            drop(first);
+            tokio::task::yield_now().await;
+            assert!(matches!(
+                writer_acquired_rx.try_recv(),
+                Err(tokio::sync::oneshot::error::TryRecvError::Empty)
+            ));
+            drop(second);
+            writer.await.unwrap();
+            writer_acquired_rx.await.unwrap();
+            assert!(matches!(
+                registration_events.try_recv(),
+                Err(mpsc::TryRecvError::Empty | mpsc::TryRecvError::Disconnected)
+            ));
             server.join().unwrap();
         });
     }
@@ -181,18 +292,16 @@ mod tests {
         let address = listener.local_addr().unwrap();
         let (events_tx, events_rx) = mpsc::channel();
         let server = std::thread::spawn(move || {
-            for _ in 0..2 {
-                let (mut stream, _) = listener.accept().unwrap();
-                let request = read_http_request(&mut stream);
-                assert!(request.starts_with("POST /api/identities HTTP/1.1"));
-                events_tx.send("registration").unwrap();
-                let body = r#"{"identity_id":"identity-a","created":false}"#;
-                let response = format!(
-                    "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}",
-                    body.len()
-                );
-                stream.write_all(response.as_bytes()).unwrap();
-            }
+            let (mut stream, _) = listener.accept().unwrap();
+            let request = read_http_request(&mut stream);
+            assert!(request.starts_with("POST /api/identities HTTP/1.1"));
+            events_tx.send("registration").unwrap();
+            let body = r#"{"identity_id":"identity-a","created":false}"#;
+            let response = format!(
+                "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}",
+                body.len()
+            );
+            stream.write_all(response.as_bytes()).unwrap();
         });
         (format!("http://{address}"), events_rx, server)
     }

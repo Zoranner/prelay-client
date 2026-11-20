@@ -23,8 +23,10 @@ pub async fn list_extensions(
     state: &NativeState,
     catalog_kind: CatalogKind,
 ) -> Result<ExtensionCatalogSnapshot, ClientError> {
-    let client = authenticated_api(state).await?;
-    let summaries = load_summaries(&client, catalog_kind).await?;
+    let summaries = {
+        let client = authenticated_api(state).await?;
+        load_summaries(&client, catalog_kind).await?
+    };
     let mut packages = summaries
         .into_iter()
         .map(|summary| ExtensionPackage {
@@ -115,16 +117,18 @@ pub async fn update_all_extensions(
         });
     }
 
-    let client = authenticated_api(state).await?;
     let updated = catalog.packages.len();
     let mut warnings = Vec::new();
     for package in catalog.packages {
-        let bundle: ExtensionInstallBundle = client
-            .get(&format!(
-                "/api/extensions/{}/versions/{}/install",
-                package.name, package.version
-            ))
-            .await?;
+        let bundle: ExtensionInstallBundle = {
+            let client = authenticated_api(state).await?;
+            client
+                .get(&format!(
+                    "/api/extensions/{}/versions/{}/install",
+                    package.name, package.version
+                ))
+                .await?
+        };
         validate_package_bundle(&package, &bundle)?;
         let outcome = install_prepared_bundle(home, &bundle, &package.installed_clients, false)?;
         if let Some(warning) = outcome.trust_warning {

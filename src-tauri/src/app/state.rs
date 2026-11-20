@@ -12,7 +12,7 @@ pub struct NativeState {
     pub relay_settings: FileRelaySettingsStore,
     pub agent_endpoint_links: AgentEndpointLinksStore,
     pub registration_gate: RegistrationGate,
-    pub credential_lifecycle_gate: tokio::sync::Mutex<()>,
+    pub credential_lifecycle_gate: tokio::sync::RwLock<()>,
 }
 
 impl NativeState {
@@ -34,7 +34,7 @@ impl NativeState {
                     .join("agent-endpoint-links.json"),
             ),
             registration_gate: RegistrationGate::default(),
-            credential_lifecycle_gate: tokio::sync::Mutex::new(()),
+            credential_lifecycle_gate: tokio::sync::RwLock::new(()),
         }
     }
 }

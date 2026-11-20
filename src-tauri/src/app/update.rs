@@ -99,12 +99,14 @@ async fn download_client_update(
         &update.file_name,
     )?;
     if !installer_path.is_file() {
-        let client = authenticated_api(state).await?;
         let download_path = format!(
             "/api/client-update/download?platform={}&architecture={}",
             target.platform, target.architecture
         );
-        let bytes = client.get_bytes(&download_path).await?;
+        let bytes = {
+            let client = authenticated_api(state).await?;
+            client.get_bytes(&download_path).await?
+        };
         write_installer(&installer_path, &bytes)
             .map_err(|error| ClientError::new("client_update_storage_error", error.to_string()))?;
     }

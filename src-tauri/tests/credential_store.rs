@@ -24,7 +24,7 @@ fn file_store_lifecycle_lock_child_process() {
         return;
     };
     let store = FileCredentialStore::at(credential_path);
-    let guard = tauri::async_runtime::block_on(store.acquire_lifecycle_lock()).unwrap();
+    let guard = tauri::async_runtime::block_on(store.acquire_exclusive_lifecycle_lock()).unwrap();
 
     println!("{LIFECYCLE_LOCK_CHILD_READY}");
     std::io::stdout().flush().unwrap();
@@ -117,7 +117,7 @@ fn file_store_lifecycle_lock_waits_until_the_other_store_releases_it() {
         let credential_path = directory.path().join("device-credential.json");
         let first = FileCredentialStore::at(&credential_path);
         let second = FileCredentialStore::at(&credential_path);
-        let first_guard = first.acquire_lifecycle_lock().await.unwrap();
+        let first_guard = first.acquire_exclusive_lifecycle_lock().await.unwrap();
         let second_attempted = Arc::new(Notify::new());
         let (second_acquired, mut second_acquired_rx) = oneshot::channel();
 
@@ -125,7 +125,7 @@ fn file_store_lifecycle_lock_waits_until_the_other_store_releases_it() {
             let second_attempted = second_attempted.clone();
             async move {
                 second_attempted.notify_one();
-                let guard = second.acquire_lifecycle_lock().await.unwrap();
+                let guard = second.acquire_exclusive_lifecycle_lock().await.unwrap();
                 second_acquired.send(()).unwrap();
                 drop(guard);
             }
@@ -140,6 +140,45 @@ fn file_store_lifecycle_lock_waits_until_the_other_store_releases_it() {
         drop(first_guard);
         second_task.await.unwrap();
         second_acquired_rx.await.unwrap();
+    });
+}
+
+#[test]
+fn file_store_allows_shared_lifecycle_locks_and_blocks_exclusive_until_all_release() {
+    tauri::async_runtime::block_on(async {
+        let directory = tempdir().unwrap();
+        let credential_path = directory.path().join("device-credential.json");
+        let first = FileCredentialStore::at(&credential_path);
+        let second = FileCredentialStore::at(&credential_path);
+        let exclusive_store = FileCredentialStore::at(&credential_path);
+        let first_guard = first.acquire_shared_lifecycle_lock().await.unwrap();
+        let second_guard = second.acquire_shared_lifecycle_lock().await.unwrap();
+        let (exclusive_acquired, mut exclusive_acquired_rx) = oneshot::channel();
+
+        let exclusive_task = tauri::async_runtime::spawn(async move {
+            let guard = exclusive_store
+                .acquire_exclusive_lifecycle_lock()
+                .await
+                .unwrap();
+            exclusive_acquired.send(()).unwrap();
+            drop(guard);
+        });
+        tokio::task::yield_now().await;
+
+        assert!(matches!(
+            exclusive_acquired_rx.try_recv(),
+            Err(tokio::sync::oneshot::error::TryRecvError::Empty)
+        ));
+        drop(first_guard);
+        tokio::task::yield_now().await;
+        assert!(matches!(
+            exclusive_acquired_rx.try_recv(),
+            Err(tokio::sync::oneshot::error::TryRecvError::Empty)
+        ));
+        drop(second_guard);
+
+        exclusive_task.await.unwrap();
+        exclusive_acquired_rx.await.unwrap();
     });
 }
 
@@ -193,7 +232,7 @@ fn file_store_lifecycle_lock_waits_for_an_independent_process_to_release_it() {
         let task_started = second_attempted.clone();
         tauri::async_runtime::spawn(async move {
             task_started.notify_one();
-            let guard = second.acquire_lifecycle_lock().await.unwrap();
+            let guard = second.acquire_exclusive_lifecycle_lock().await.unwrap();
             second_acquired.send(()).unwrap();
             drop(guard);
         });

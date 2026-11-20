@@ -2,13 +2,13 @@ use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, State};
 
 use crate::{
-    identity::windows::IdentitySource,
+    identity::{registration::authenticated_api_with_identity_exclusive, windows::IdentitySource},
     preferences::{
         autostart,
         desktop::{DesktopPreferences, DesktopPreferencesStore, ThemeMode},
     },
     relay::{
-        client::{normalize_relay_url, ApiClient, ClientError},
+        client::{normalize_relay_url, ClientError},
         settings::RelaySettingsStore,
     },
     NativeState,
@@ -124,17 +124,7 @@ pub async fn connect_and_save_relay_settings(
         .identity
         .identity()
         .map_err(|error| ClientError::new("internal", error))?;
-    let _credential_lifecycle_guard = state.credential_lifecycle_gate.lock().await;
-    let _file_credential_lifecycle_guard = state
-        .credentials
-        .acquire_lifecycle_lock()
-        .await
-        .map_err(|error| ClientError::new("credential_store_error", error))?;
-    let client =
-        ApiClient::new(&relay_url, &state.credentials)?.with_display_name(&identity.display_name);
-    client
-        .ensure_registered_once(&identity, &state.registration_gate)
-        .await?;
+    let client = authenticated_api_with_identity_exclusive(state, &identity, &relay_url).await?;
     let _: serde_json::Value = client.get("/api/providers").await?;
     state
         .relay_settings

@@ -38,13 +38,15 @@ pub async fn install_extension(
     state: &NativeState,
     request: &ExtensionInstallRequest,
 ) -> Result<ExtensionInstallResult, ClientError> {
-    let client = authenticated_api(state).await?;
-    let bundle: ExtensionInstallBundle = client
-        .get(&format!(
-            "/api/extensions/{}/versions/{}/install",
-            request.package.name, request.package.version
-        ))
-        .await?;
+    let bundle: ExtensionInstallBundle = {
+        let client = authenticated_api(state).await?;
+        client
+            .get(&format!(
+                "/api/extensions/{}/versions/{}/install",
+                request.package.name, request.package.version
+            ))
+            .await?
+    };
     validate_package_bundle(&request.package, &bundle)?;
     let outcome = install_prepared_bundle(home, &bundle, &request.clients, request.overwrite)?;
     Ok(ExtensionInstallResult {
@@ -68,13 +70,15 @@ pub async fn read_mcp_install_manifest(
             "只有包含 MCP 制品的扩展可以读取安装配置。",
         ));
     }
-    let client = authenticated_api(state).await?;
-    let bundle: ExtensionInstallBundle = client
-        .get(&format!(
-            "/api/extensions/{}/versions/{}/install",
-            package.name, package.version
-        ))
-        .await?;
+    let bundle: ExtensionInstallBundle = {
+        let client = authenticated_api(state).await?;
+        client
+            .get(&format!(
+                "/api/extensions/{}/versions/{}/install",
+                package.name, package.version
+            ))
+            .await?
+    };
     validate_package_bundle(package, &bundle)?;
     let artifact = bundle
         .artifacts

@@ -43,6 +43,12 @@ pub struct FileCredentialLifecycleGuard {
     file: File,
 }
 
+#[derive(Clone, Copy)]
+enum LifecycleLockMode {
+    Shared,
+    Exclusive,
+}
+
 impl Drop for FileCredentialLifecycleGuard {
     fn drop(&mut self) {
         let _ = FileExt::unlock(&self.file);
@@ -90,7 +96,24 @@ impl FileCredentialStore {
         }
     }
 
-    pub async fn acquire_lifecycle_lock(&self) -> Result<FileCredentialLifecycleGuard, String> {
+    pub async fn acquire_shared_lifecycle_lock(
+        &self,
+    ) -> Result<FileCredentialLifecycleGuard, String> {
+        self.acquire_lifecycle_lock_with_mode(LifecycleLockMode::Shared)
+            .await
+    }
+
+    pub async fn acquire_exclusive_lifecycle_lock(
+        &self,
+    ) -> Result<FileCredentialLifecycleGuard, String> {
+        self.acquire_lifecycle_lock_with_mode(LifecycleLockMode::Exclusive)
+            .await
+    }
+
+    async fn acquire_lifecycle_lock_with_mode(
+        &self,
+        mode: LifecycleLockMode,
+    ) -> Result<FileCredentialLifecycleGuard, String> {
         self.ensure_parent_dir()?;
         let file = OpenOptions::new()
             .create(true)
@@ -101,7 +124,11 @@ impl FileCredentialStore {
             .map_err(store_error)?;
 
         loop {
-            match file.try_lock_exclusive() {
+            let lock_result = match mode {
+                LifecycleLockMode::Shared => FileExt::try_lock_shared(&file),
+                LifecycleLockMode::Exclusive => FileExt::try_lock_exclusive(&file),
+            };
+            match lock_result {
                 Ok(()) => return Ok(FileCredentialLifecycleGuard { file }),
                 Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {
                     tokio::time::sleep(Duration::from_millis(25)).await;
