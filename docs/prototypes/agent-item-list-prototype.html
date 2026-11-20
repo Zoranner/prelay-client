@@ -1047,12 +1047,6 @@
         return transport === "http" ? "HTTP · 远程" : "stdio · 本地进程";
       }
 
-      function artifactSummary(plugin) {
-        return plugin.artifacts
-          .map((artifact) => `${artifact.label} ${artifact.items.length}`)
-          .join(" · ");
-      }
-
       function groupedHooks() {
         const groups = [];
         for (const hook of data.hook) {
@@ -1139,10 +1133,7 @@
                   path: plugin.location,
                   error: plugin.error,
                   source: plugin.source,
-                  facts: [
-                    `<span class="version-pill">${esc(plugin.version)}</span>`,
-                    artifactSummary(plugin),
-                  ],
+                  facts: [`<span class="version-pill">${esc(plugin.version)}</span>`],
                   detail: pluginDetail(plugin),
                   removeLabel: `卸载 ${plugin.name}`,
                 }),

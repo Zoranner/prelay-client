@@ -16,12 +16,6 @@ defineProps<{
 const emit = defineEmits<{
   uninstall: [item: AgentItem];
 }>();
-
-function artifactSummary(item: AgentItem) {
-  return item.artifacts
-    .map((group) => `${agentItemKindLabel(group.kind)} ${group.items.length}`)
-    .join(" · ");
-}
 </script>
 
 <template>
@@ -36,11 +30,10 @@ function artifactSummary(item: AgentItem) {
         :pending="pending"
         @uninstall="emit('uninstall', $event)"
       >
-        <template v-if="item.version || item.artifacts.length" #facts>
-          <span v-if="item.version" class="agent-meta-badge">
+        <template v-if="item.version" #facts>
+          <span class="agent-meta-badge">
             {{ item.version }}
           </span>
-          <span v-if="item.artifacts.length">{{ artifactSummary(item) }}</span>
         </template>
         <template v-if="item.artifacts.length" #detail>
           <div class="agent-artifact-lines">
