@@ -145,10 +145,10 @@ fn install_rule_bundle(
         let key = normalize_path(&target);
         let previous = rules_state.targets.get(&key).cloned();
         if let Some(entry) = &previous {
-            if entry.package != bundle.name {
+            if entry.package != bundle.name && !overwrite {
                 return Err(ClientError::new(
                     "extension_target_exists",
-                    "规则目标已由另一个扩展包管理。",
+                    "规则目标已由另一个扩展包管理，确认后可覆盖安装。",
                 ));
             }
         } else if target.exists() && !overwrite {

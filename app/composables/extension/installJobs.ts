@@ -30,6 +30,10 @@ function isMcpExtension(extension: ExtensionCatalogPackage) {
   return extension.artifacts.some((artifact) => artifact.kind === "mcp");
 }
 
+function isRuleExtension(extension: ExtensionCatalogPackage) {
+  return extension.catalogKind === "rule";
+}
+
 export function useExtensionInstallJobs() {
   const jobs = useState<Record<string, InstallJob>>(
     "extension-install-jobs",
@@ -67,6 +71,16 @@ export function useExtensionInstallJobs() {
   }
 
   async function confirmOverwrite(extension: ExtensionCatalogPackage) {
+    if (isRuleExtension(extension)) {
+      return confirmAction({
+        title: "覆盖本机全局规则",
+        message: "本机已有全局规则内容，是否覆盖安装？",
+        description:
+          "覆盖会用当前规则包内容替换本机全局规则文档，现有内容不会保留。",
+        confirmText: "覆盖",
+        danger: true,
+      });
+    }
     return confirmAction({
       title: isMcpExtension(extension) ? "覆盖已有 MCP 配置" : "覆盖已有技能",
       message: isMcpExtension(extension)

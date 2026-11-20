@@ -203,11 +203,11 @@ fn rule_status(
         let Some(entry) = state.rule_entry(&target) else {
             continue;
         };
-        if entry.state != PluginState::Installed {
-            action = ExtensionInstallAction::Partial;
+        // 目标由另一个规则包管理时，本包未安装；安装会覆盖该目标。
+        if entry.package != package.name {
             continue;
         }
-        if entry.package != package.name {
+        if entry.state != PluginState::Installed {
             action = ExtensionInstallAction::Partial;
             continue;
         }
@@ -226,4 +226,67 @@ fn rule_status(
         action = ExtensionInstallAction::Installed;
     }
     Ok((action, installed))
+}
+
+#[cfg(test)]
+mod tests {
+    use std::fs;
+
+    use prelay_protocol::CatalogKind;
+    use tempfile::tempdir;
+
+    use super::*;
+    use crate::{
+        agents::AgentClient,
+        extensions::{
+            host_state::{hash_bytes, normalize_path, write_rules, RuleEntry, RuleState},
+            model::{ExtensionInstallAction, ExtensionPackage},
+        },
+    };
+
+    fn rule_package(name: &str) -> ExtensionPackage {
+        ExtensionPackage {
+            name: name.to_string(),
+            repository: "https://example.com/rules.git".to_string(),
+            commit_sha: "abc".to_string(),
+            version: "v1.0.0".to_string(),
+            catalog_kind: CatalogKind::Rule,
+            artifacts: Vec::new(),
+            install_action: ExtensionInstallAction::Install,
+            installed_clients: Vec::new(),
+        }
+    }
+
+    #[test]
+    fn another_rule_package_is_not_installed_or_partial() {
+        let directory = tempdir().unwrap();
+        let home = directory.path();
+        let target = home.join(".codex").join("AGENTS.md");
+        fs::create_dir_all(target.parent().unwrap()).unwrap();
+        fs::write(&target, "# Alpha\n").unwrap();
+        let mut rules = RuleState::default();
+        rules.targets.insert(
+            normalize_path(&target),
+            RuleEntry {
+                package: "alpha".to_string(),
+                version: "v1.0.0".to_string(),
+                commit_sha: "abc".to_string(),
+                content_hash: hash_bytes(b"# Alpha\n"),
+                state: PluginState::Installed,
+            },
+        );
+        write_rules(home, ExtensionHost::Codex, &rules).unwrap();
+        let state = HostState::load(home, ExtensionHost::Codex).unwrap();
+        let clients = [AgentClient::CodexCli];
+
+        let (action, installed) =
+            rule_status(home, &state, &clients, &rule_package("beta")).unwrap();
+        assert_eq!(action, ExtensionInstallAction::Install);
+        assert!(installed.is_empty());
+
+        let (action, installed) =
+            rule_status(home, &state, &clients, &rule_package("alpha")).unwrap();
+        assert_eq!(action, ExtensionInstallAction::Installed);
+        assert_eq!(installed, clients.to_vec());
+    }
 }

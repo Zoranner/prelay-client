@@ -53,11 +53,13 @@ function artifactLabels(artifacts: ExtensionArtifactSummary[]) {
 function installAction(row: ExtensionCatalogPackage) {
   if (row.installAction === "update")
     return { icon: "ph:arrow-circle-down", label: "更新" };
+  const installIcon =
+    row.catalogKind === "rule" ? "ph:arrow-square-in" : "ph:download-simple";
   if (row.installAction === "partial")
-    return { icon: "ph:download-simple", label: "补装" };
+    return { icon: installIcon, label: "补装" };
   if (row.installAction === "installed")
     return { icon: "ph:check", label: "已安装" };
-  return { icon: "ph:download-simple", label: "安装" };
+  return { icon: installIcon, label: "安装" };
 }
 
 function installButtonAppearance(row: ExtensionCatalogPackage) {
