@@ -12,7 +12,7 @@ use std::{
 
 use super::support::{
     assert_header_value, identity, one_response_server, registration_server,
-    retry_registration_server, two_registration_response_server, two_response_server,
+    retry_registration_server, two_response_server,
 };
 
 #[test]
@@ -148,18 +148,22 @@ fn failed_registration_retries_with_the_persisted_credential() {
 }
 
 #[test]
-fn registration_gate_serializes_calls_without_caching_registration_state() {
-    let (base_url, server) = two_registration_response_server();
+fn registration_gate_caches_successful_registration() {
+    let (base_url, server) = one_response_server(
+        "200 OK",
+        r#"{"identity_id":"identity-a","created":false}"#,
+        |_| {},
+    );
     let store = MemoryCredentialStore::with_record("persisted-device-secret", None);
     let gate = RegistrationGate::default();
     let client = ApiClient::new(base_url, &store).expect("create client");
 
     tauri::async_runtime::block_on(client.ensure_registered_once(&identity(), &gate))
         .expect("first registration confirmation succeeds");
-    tauri::async_runtime::block_on(client.ensure_registered_once(&identity(), &gate))
-        .expect("second registration confirmation succeeds");
+    server.join().expect("join test relay");
 
-    assert_eq!(server.join().expect("join test relay"), 2);
+    tauri::async_runtime::block_on(client.ensure_registered_once(&identity(), &gate))
+        .expect("cached registration skips the network");
 }
 
 #[test]
@@ -298,9 +302,16 @@ fn server_failure_preserves_pending_credential_for_later_recovery() {
 }
 
 #[test]
-fn concurrent_registration_confirmation_is_serialized_without_being_cached() {
-    let (base_url, server) = two_registration_response_server();
-    let store = Arc::new(MemoryCredentialStore::default());
+fn concurrent_registration_calls_share_one_registration() {
+    let (base_url, server) = one_response_server(
+        "200 OK",
+        r#"{"identity_id":"identity-a","created":false}"#,
+        |_| {},
+    );
+    let store = Arc::new(MemoryCredentialStore::with_record(
+        "persisted-device-secret",
+        None,
+    ));
     let gate = Arc::new(RegistrationGate::default());
     let barrier = Arc::new(Barrier::new(3));
 
@@ -327,14 +338,5 @@ fn concurrent_registration_confirmation_is_serialized_without_being_cached() {
             .expect("join registration worker")
             .expect("concurrent registration succeeds");
     }
-    assert_eq!(server.join().expect("join test relay"), 2);
-    assert!(
-        store
-            .load()
-            .expect("load credential")
-            .expect("client credential is persisted")
-            .current
-            .len()
-            >= 43
-    );
+    server.join().expect("join test relay");
 }

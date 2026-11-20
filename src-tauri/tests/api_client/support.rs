@@ -114,28 +114,6 @@ pub(super) fn registration_server(
     (format!("http://{address}"), server)
 }
 
-pub(super) fn two_registration_response_server() -> (String, thread::JoinHandle<usize>) {
-    let listener = TcpListener::bind("127.0.0.1:0").expect("bind test relay");
-    let address = listener.local_addr().expect("read test relay address");
-    let server = thread::spawn(move || {
-        for _ in 0..2 {
-            let (mut stream, _) = listener.accept().expect("accept registration request");
-            let request = read_http_request(&mut stream);
-            assert!(request.starts_with("POST /api/identities HTTP/1.1"));
-            let body = r#"{"identity_id":"identity-a","created":false}"#;
-            let response = format!(
-                "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}",
-                body.len()
-            );
-            stream
-                .write_all(response.as_bytes())
-                .expect("write registration response");
-        }
-        2
-    });
-    (format!("http://{address}"), server)
-}
-
 pub(super) fn two_response_server(
     responses: [(&'static str, &'static str); 2],
     assert_requests: impl FnOnce(&[String]) + Send + 'static,

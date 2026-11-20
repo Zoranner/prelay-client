@@ -2,13 +2,30 @@ use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine as _};
 use prelay_protocol::{CreateIdentityRequest, CreateIdentityResponse};
 use rand::RngCore;
 use reqwest::Method;
+use sha2::{Digest, Sha256};
 
 use crate::identity::{credentials::CredentialRecord, windows::WindowsIdentity};
 
 use super::{error::credential_store_error, ApiClient, ClientError};
 
+#[derive(Clone, Debug, Eq, PartialEq)]
+struct RegistrationKey {
+    relay_url: String,
+    machine_id: String,
+    account_sid: String,
+    credential_digest: String,
+}
+
 #[derive(Default)]
-pub struct RegistrationGate(pub(super) tokio::sync::Mutex<()>);
+pub struct RegistrationGate {
+    registered: tokio::sync::Mutex<Option<RegistrationKey>>,
+}
+
+impl RegistrationGate {
+    pub(crate) async fn clear(&self) {
+        *self.registered.lock().await = None;
+    }
+}
 
 impl<'a> ApiClient<'a> {
     pub async fn ensure_registered(&self, identity: &WindowsIdentity) -> Result<(), ClientError> {
@@ -51,8 +68,37 @@ impl<'a> ApiClient<'a> {
         identity: &WindowsIdentity,
         gate: &RegistrationGate,
     ) -> Result<(), ClientError> {
-        let _guard = gate.0.lock().await;
-        self.ensure_registered(identity).await
+        let mut registered = gate.registered.lock().await;
+        let key = self.registration_key(identity)?;
+        if key
+            .as_ref()
+            .is_some_and(|key| registered.as_ref() == Some(key))
+        {
+            return Ok(());
+        }
+
+        self.ensure_registered(identity).await?;
+        *registered = self.registration_key(identity)?;
+        Ok(())
+    }
+
+    fn registration_key(
+        &self,
+        identity: &WindowsIdentity,
+    ) -> Result<Option<RegistrationKey>, ClientError> {
+        let Some(record) = self
+            .credential_store
+            .load()
+            .map_err(credential_store_error)?
+        else {
+            return Ok(None);
+        };
+        Ok(Some(RegistrationKey {
+            relay_url: self.base_url.clone(),
+            machine_id: identity.machine_id.clone(),
+            account_sid: identity.account_sid.clone(),
+            credential_digest: credential_digest(record.preferred()),
+        }))
     }
 
     async fn register_identity(
@@ -75,6 +121,13 @@ impl<'a> ApiClient<'a> {
             .await?;
         Ok(())
     }
+}
+
+fn credential_digest(credential: &str) -> String {
+    Sha256::digest(credential.as_bytes())
+        .iter()
+        .map(|byte| format!("{byte:02x}"))
+        .collect()
 }
 
 impl CredentialRecord {
