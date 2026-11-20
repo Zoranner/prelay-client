@@ -1,7 +1,12 @@
 <script setup lang="ts">
 import { Button, Popover, Select } from "@stellar/ui";
 
-type ProviderOption = { label: string; value: string };
+type ProviderOption = {
+  icon?: string;
+  iconClass?: string;
+  label: string;
+  value: string;
+};
 type UpstreamOption = { label: string; value: string };
 
 defineProps<{
@@ -72,6 +77,26 @@ const emit = defineEmits<{
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: var(--spacing-md);
 }
+
+:global([role="option"] .endpoint-provider-share-icon) {
+  order: 1;
+  color: var(--st-text-muted);
+  transform: translateY(1px);
+}
+
+:global([role="option"][aria-selected="true"] .endpoint-provider-share-icon) {
+  color: var(--st-text-accent);
+}
+
+:global(.endpoint-provider-share-icon ~ div) {
+  flex: 0 1 auto;
+}
+
+:global(.endpoint-provider-share-icon ~ :not(div)) {
+  order: 2;
+  margin-left: auto;
+}
+
 @media (max-width: 640px) {
   .model-popover {
     grid-template-columns: 1fr;

@@ -43,16 +43,34 @@ test("接入点页面提供模型映射和 Token 重置", () => {
   expect(endpointPage).not.toContain("if (!confirm(`删除接入点“${item.name}”");
 });
 
-test("接入点 Provider 选项包含共享来源和创建人信息", () => {
+test("接入点用右侧图标标记共享供应商", () => {
   const endpointModels = readFileSync(
     new URL("../app/utils/model/endpoints.ts", import.meta.url),
     "utf8",
   );
-  expect(endpointModels).toContain("owner_display_name");
-  expect(endpointModels).toContain("providerSourceLabel");
-  expect(endpointModels).toContain("共享自");
+  expect(endpointModels).toContain("isSharedProvider");
+  expect(endpointModels).toContain("ph:share-network");
+  expect(endpointModels).toContain("endpoint-provider-share-icon");
+  expect(endpointModels).not.toContain("共享自");
+  expect(endpointModels).not.toContain("只读");
+  expect(endpointForm).toContain("isSharedProvider");
   expect(endpointForm).not.toContain("共享自");
-  expect(endpointForm).toContain("providerSourceLabel");
+  expect(endpointForm).not.toContain("只读");
+  expect(endpointPicker).toContain("endpoint-provider-share-icon");
+  expect(endpointPicker).toContain("order: 1");
+  expect(endpointPicker).toContain("~ div");
+  expect(endpointPicker).toContain("flex: 0 1 auto");
+  expect(endpointPicker).toContain("~ :not(div)");
+  expect(endpointPicker).toContain("margin-left: auto");
+  expect(endpointPicker).toContain('aria-selected="true"');
+  expect(endpointPicker).toContain("--st-text-accent");
+  expect(endpointPicker).toContain("translateY(1px)");
+  expect(endpointModelRow).toContain("ph:share-network");
+  expect(endpointModelRow).toContain('title="共享供应商"');
+  expect(endpointModelRow).toContain("vertical-align: middle");
+  expect(endpointModelRow.indexOf("{{ model }}")).toBeLessThan(
+    endpointModelRow.indexOf("ph:share-network"),
+  );
   expect(endpointForm).toContain("providerOptions");
   expect(endpointPage).toContain(
     ':current-identity-id="bootstrap?.identity_id"',

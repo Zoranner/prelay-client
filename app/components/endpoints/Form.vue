@@ -9,11 +9,11 @@ import {
   endpointMappingProblems,
   endpointModelsForProvider,
   groupEndpointModels,
+  isSharedProvider,
   moveEndpointMapping,
   modelGroupName,
   normalizeEndpointModelIdentities,
   providerOptionLabel,
-  providerSourceLabel,
   type EndpointModelGroup,
   type EndpointModelLike,
 } from "~/utils/model/endpoints";
@@ -333,8 +333,8 @@ function submit() {
               `${mapping.model.provider_id}-${mapping.model.upstream_model}-${mapping.index}`
             "
             :provider="providerForModel(mapping.model)?.name ?? '已删除供应商'"
-            :source="
-              providerSourceLabel(
+            :shared="
+              isSharedProvider(
                 providerForModel(mapping.model),
                 currentIdentityId,
               )

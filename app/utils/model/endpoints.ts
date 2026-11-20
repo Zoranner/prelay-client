@@ -20,34 +20,37 @@ export type EndpointProviderModelOption = {
 };
 
 export type EndpointProviderOption = {
+  icon?: string;
+  iconClass?: string;
   label: string;
   value: string;
 };
 
-type ProviderOwnership = Pick<
-  Provider,
-  "owner_identity_id" | "owner_display_name"
->;
+type ProviderOwnership = Pick<Provider, "owner_identity_id">;
 
-export function providerSourceLabel(
+export function isSharedProvider(
   provider: ProviderOwnership | undefined,
   identityId: string | null | undefined,
-): string {
-  if (!provider || !identityId || isOwnProvider(provider, identityId))
-    return "";
-  return `共享自 ${provider.owner_display_name || "其他用户"} · 只读`;
+): boolean {
+  return Boolean(
+    provider && identityId && !isOwnProvider(provider, identityId),
+  );
 }
 
 export function providerOptionLabel(
   provider: Pick<Provider, "id" | "name"> & ProviderOwnership,
   identityId: string | null | undefined,
-) {
-  const name = provider.name || provider.id;
-  const source = providerSourceLabel(provider, identityId);
+): EndpointProviderOption {
   return {
-    label: source ? `${name}（${source}）` : name,
+    label: provider.name || provider.id,
     value: provider.id,
-  } satisfies EndpointProviderOption;
+    ...(isSharedProvider(provider, identityId)
+      ? {
+          icon: "ph:share-network",
+          iconClass: "endpoint-provider-share-icon",
+        }
+      : {}),
+  };
 }
 
 export function endpointModelsForProvider(provider: Provider) {

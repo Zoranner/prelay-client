@@ -6,8 +6,10 @@ import {
   endpointMappingProblems,
   endpointModelsForProvider,
   groupEndpointModels,
+  isSharedProvider,
   moveEndpointMapping,
   normalizeEndpointModelIdentities,
+  providerOptionLabel,
 } from "../app/utils/model/endpoints";
 import { modelCatalogEntry, setModelCatalog } from "../app/stores/modelCatalog";
 import { readFileSync } from "node:fs";
@@ -240,18 +242,42 @@ test("接入点归组优先使用服务端模型显示名", () => {
   expect(group.displayName).toBe("服务端显示名");
 });
 
-test("共享 Provider 选项保留原始 ID，来源文案由单一函数生成", () => {
+test("共享 Provider 选项保留原始 ID，名称不再拼接共享说明", () => {
   const source = readFileSync(
     new URL("../app/utils/model/endpoints.ts", import.meta.url),
     "utf8",
   );
 
   expect(source).toContain("export function providerOptionLabel");
-  expect(source).toContain("owner_display_name");
-  expect(source).toContain("export function providerSourceLabel");
-  expect(source).toContain("providerSourceLabel(provider, identityId)");
+  expect(source).toContain("export function isSharedProvider");
+  expect(source).toContain("ph:share-network");
+  expect(source).toContain("endpoint-provider-share-icon");
+  expect(source).not.toContain("owner_display_name");
+  expect(source).not.toContain("共享自");
+  expect(source).not.toContain("只读");
   expect(source).not.toContain("read_only");
   expect(source).toContain("provider.id");
+});
+
+test("共享供应商名称保持简短，共享状态由右侧图标表达", () => {
+  const provider = {
+    id: "provider-shared",
+    name: "DeepSeek 开放平台",
+    owner_identity_id: "owner-1",
+  };
+
+  expect(isSharedProvider(provider, "viewer-1")).toBe(true);
+  expect(isSharedProvider(provider, "owner-1")).toBe(false);
+  expect(providerOptionLabel(provider, "viewer-1")).toEqual({
+    label: "DeepSeek 开放平台",
+    value: "provider-shared",
+    icon: "ph:share-network",
+    iconClass: "endpoint-provider-share-icon",
+  });
+  expect(providerOptionLabel(provider, "owner-1")).toEqual({
+    label: "DeepSeek 开放平台",
+    value: "provider-shared",
+  });
 });
 
 test("接入点新增候选按对外模型 ID 排除已绑定模型，忽略供应商上游名差异", () => {

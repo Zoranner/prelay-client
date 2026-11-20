@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Button, Tag } from "@stellar/ui";
+import { Button, Icon, Tag } from "@stellar/ui";
 import {
   endpointMappingIssueHint,
   endpointMappingIssueLabel,
@@ -8,7 +8,7 @@ import {
 
 defineProps<{
   provider: string;
-  source: string;
+  shared?: boolean;
   model: string;
   issue?: EndpointMappingIssue | null;
   canMoveUp: boolean;
@@ -27,7 +27,17 @@ const emit = defineEmits<{
       class="model-row__label"
       :title="issue ? endpointMappingIssueHint(issue) : undefined"
     >
-      <small>{{ provider }} {{ source }} / {{ model }}</small>
+      <small>
+        {{ provider }} / {{ model }}
+        <span
+          v-if="shared"
+          class="model-row__shared"
+          aria-label="共享供应商"
+          title="共享供应商"
+        >
+          <Icon icon="ph:share-network" size="14" />
+        </span>
+      </small>
       <Tag v-if="issue" semantic="error" size="small" icon="ph:warning-circle">
         {{ endpointMappingIssueLabel(issue) }}
       </Tag>
@@ -81,6 +91,13 @@ const emit = defineEmits<{
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.model-row__shared {
+  display: inline-flex;
+  margin-left: var(--spacing-xs);
+  color: var(--st-text-muted);
+  vertical-align: middle;
 }
 
 .model-row__actions {
