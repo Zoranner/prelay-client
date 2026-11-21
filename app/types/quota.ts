@@ -34,17 +34,18 @@ export interface ProviderSharingInput {
   quota: ShareQuotaWindow[] | null;
 }
 
+export type QuotaWindowKind = "custom" | "rolling" | "day" | "week" | "month";
+export type QuotaUnit = "tokens" | "usd" | "credits" | "requests";
+
 export interface QuotaWindow {
-  label: string;
+  kind: QuotaWindowKind;
   span_secs?: number | null;
   used_percent: number;
   resets_at?: string | null;
+  remaining?: number | null;
+  limit?: number | null;
+  unit?: QuotaUnit | null;
   display?: string | null;
-  amount?: string | null;
-  limit?: string | null;
-  unit?: string | null;
-  aside: boolean;
-  pool?: string | null;
 }
 
 export interface QuotaBalancePart {
@@ -53,7 +54,6 @@ export interface QuotaBalancePart {
 }
 
 export interface QuotaBalance {
-  text: string;
   parts: QuotaBalancePart[];
   available: boolean;
 }

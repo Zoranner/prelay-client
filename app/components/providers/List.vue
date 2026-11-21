@@ -5,6 +5,7 @@ import { Avatar, Button, Table, Tag } from "@stellar/ui";
 import type { Provider } from "~/types/relay";
 import type { ProviderQuotaResponse } from "~/types/quota";
 import ProviderQuotaCell from "~/components/providers/quota/QuotaCell.vue";
+import ProviderSharedQuotaCell from "~/components/providers/quota/SharedQuotaCell.vue";
 import { identityAvatarSrc } from "~/utils/ui/avatar";
 import { providerProtocolOptions } from "~/utils/provider/capabilities";
 import { protocolLabel, protocolTagPalette } from "~/utils/provider/templates";
@@ -112,7 +113,14 @@ const rows = computed<ProviderRow[]>(() =>
       </Tag>
     </template>
     <template #cell-quota="{ row }">
+      <ProviderSharedQuotaCell
+        v-if="row.quota?.mode === 'shared_limited'"
+        :quota="row.quota"
+        :loading="quotaLoading"
+        :provider-name="row.name || row.provider_type"
+      />
       <ProviderQuotaCell
+        v-else
         :quota="row.quota"
         :loading="quotaLoading"
         :provider-name="row.name || row.provider_type"

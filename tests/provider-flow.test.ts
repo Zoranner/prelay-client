@@ -184,10 +184,10 @@ test("共享抽屉用一句话编辑额度规则", () => {
   expect(providerSharingDrawerSource).toContain("RuleEditor");
   expect(ruleEditor).toContain("每天");
   expect(ruleEditor).toContain("亿");
-  expect(ruleEditor).toContain("resetOptions");
-  expect(rule).toContain('label: "按周累积"');
-  expect(rule).toContain('label: "每周清零"');
-  expect(rule).toContain("minimumResetFor");
+  expect(ruleEditor).not.toContain("清零");
+  expect(rule).toContain('label: "周内累积"');
+  expect(rule).toContain('label: "月内累积"');
+  expect(rule).not.toContain("按日累积");
   expect(providerSharingDrawerSource).toContain("save-sharing");
   expect(providerSharingDrawerSource).not.toContain("providers_usage_get");
 });

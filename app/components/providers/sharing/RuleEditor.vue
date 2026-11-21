@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { Input, Select } from "@stellar/ui";
-import type { AccumulateCycle, QuotaRule, ResetCycle } from "./rule";
-import { accumulateOptions, minimumResetFor, resetOptionsFor } from "./rule";
+import type { AccumulateCycle, QuotaRule } from "./rule";
+import { accumulateOptions } from "./rule";
 
 defineOptions({ name: "ProviderQuotaRuleEditor" });
 
@@ -10,10 +10,6 @@ const props = defineProps<{
   disabled?: boolean;
 }>();
 const emit = defineEmits<{ "update:modelValue": [value: QuotaRule] }>();
-
-const resetOptions = computed(() =>
-  resetOptionsFor(props.modelValue.accumulate),
-);
 
 function update(patch: Partial<QuotaRule>) {
   emit("update:modelValue", { ...props.modelValue, ...patch });
@@ -24,19 +20,7 @@ function setAmount(value: string | number) {
 }
 
 function setAccumulate(value: string | number | boolean) {
-  const accumulate = String(value) as AccumulateCycle;
-  const minimum = minimumResetFor(accumulate);
-  const reset =
-    resetOptionsFor(accumulate).find(
-      (option) => option.value === props.modelValue.reset,
-    )?.disabled === true
-      ? minimum
-      : props.modelValue.reset;
-  update({ accumulate, reset });
-}
-
-function setReset(value: string | number | boolean) {
-  update({ reset: String(value) as ResetCycle });
+  update({ accumulate: String(value) as AccumulateCycle });
 }
 </script>
 
@@ -53,20 +37,13 @@ function setReset(value: string | number | boolean) {
       @update:model-value="setAmount"
     />
     <span class="rule-editor__unit">亿</span>
+    <span class="rule-editor__unit">，</span>
     <Select
       class="rule-editor__chip"
       :model-value="modelValue.accumulate"
       :options="accumulateOptions"
       :disabled="disabled"
       @update:model-value="setAccumulate"
-    />
-    ，
-    <Select
-      class="rule-editor__chip"
-      :model-value="modelValue.reset"
-      :options="resetOptions"
-      :disabled="disabled"
-      @update:model-value="setReset"
     />
   </div>
 </template>
@@ -75,9 +52,7 @@ function setReset(value: string | number | boolean) {
 .rule-editor {
   display: grid;
   width: 100%;
-  grid-template-columns:
-    auto minmax(96px, 1fr) auto minmax(96px, 1fr) auto
-    minmax(96px, 1fr);
+  grid-template-columns: auto minmax(96px, 1fr) auto auto minmax(96px, 1fr);
   align-items: center;
   gap: var(--spacing-sm);
   color: var(--st-text-secondary);
