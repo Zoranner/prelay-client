@@ -98,7 +98,6 @@ export interface ProviderProtocolBaseUrls {
 }
 
 export interface ProviderCapabilities {
-  upstream_protocols?: string[] | null;
   protocol_base_urls?: ProviderProtocolBaseUrls | null;
   tool_calls?: boolean | null;
   reasoning?: boolean | null;

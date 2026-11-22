@@ -31,7 +31,6 @@ const provider = (overrides: Partial<Provider> = {}): Provider => ({
   credential: { api_key: "sk-provider-key", api_key_masked: "sk-***" },
   upstream_protocols: ["responses"],
   capabilities: {
-    upstream_protocols: ["responses"],
     protocol_base_urls: {
       responses: "https://responses.example.com/v1",
       openai: null,
