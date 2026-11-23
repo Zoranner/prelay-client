@@ -58,7 +58,8 @@ type ProviderPingState = {
 
 const currentIdentityId = computed(() => bootstrap.value?.identity_id ?? "");
 
-// 目录条目已弃用或下架：现有模型继续可用，但不能再编辑或分享，只能删除。
+// 目录条目已弃用：现有模型继续可用，但不能再编辑或分享，只能删除。
+// 目录数据缺失时也按不可编辑处理，避免旧缓存下误改。
 const editingRetired = computed(
   () =>
     Boolean(editingProvider.value) &&

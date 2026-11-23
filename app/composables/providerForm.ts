@@ -307,7 +307,7 @@ export function useProviderForm(options: ProviderFormOptions) {
       return null;
     }
     if (retiredProvider.value) {
-      notifications.error("该供应商的目录条目已下架，只能删除。", {
+      notifications.error("该供应商的目录条目已弃用，只能删除。", {
         title: "无法保存供应商配置",
       });
       return null;
