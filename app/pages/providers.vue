@@ -58,13 +58,14 @@ type ProviderPingState = {
 
 const currentIdentityId = computed(() => bootstrap.value?.identity_id ?? "");
 
-// 目录条目已下架：现有模型继续可用，但不能再编辑，只能删除。
+// 目录条目已弃用或下架：现有模型继续可用，但不能再编辑或分享，只能删除。
 const editingRetired = computed(
   () =>
     Boolean(editingProvider.value) &&
-    !catalogProviders.value.some(
-      (provider) => provider.id === editingProvider.value?.provider_type,
-    ),
+    (editingProvider.value?.deprecated === true ||
+      !catalogProviders.value.some(
+        (provider) => provider.id === editingProvider.value?.provider_type,
+      )),
 );
 
 async function loadProviders() {

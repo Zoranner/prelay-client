@@ -10,6 +10,7 @@ export type ProviderTemplate = {
   languageModels: string[];
   imageGenerationModels: string[];
   models: string[];
+  deprecated: boolean;
   custom?: boolean;
 };
 
@@ -48,6 +49,7 @@ export function catalogProviderTemplate(
     languageModels: provider.language_models,
     imageGenerationModels: provider.image_generation_models,
     models: [...provider.language_models, ...provider.image_generation_models],
+    deprecated: provider.deprecated,
   };
 }
 

@@ -57,10 +57,16 @@ const allProtocols: UpstreamProtocol[] = [
 export function useProviderForm(options: ProviderFormOptions) {
   const { status: catalogStatus } = useModelCatalog();
   const providerTemplateOptions = computed(() =>
-    providerTemplates(options.catalogProviders()).map((option) => ({
-      label: option.label,
-      value: option.value,
-    })),
+    providerTemplates(options.catalogProviders())
+      .filter(
+        (option) =>
+          !option.deprecated ||
+          option.providerType === options.provider()?.provider_type,
+      )
+      .map((option) => ({
+        label: option.label,
+        value: option.value,
+      })),
   );
   const providerTemplate = ref("");
   const name = ref("");
@@ -193,7 +199,9 @@ export function useProviderForm(options: ProviderFormOptions) {
           provider.provider_type,
           options.catalogProviders(),
         )
-      : providerTemplates(options.catalogProviders())[0];
+      : providerTemplates(options.catalogProviders()).find(
+          (item) => !item.deprecated,
+        );
     providerTemplate.value = template?.value ?? "";
     name.value = provider?.name ?? template?.label ?? "";
     providerType.value =

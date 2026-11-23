@@ -24,6 +24,7 @@ export interface CatalogProvider {
   auth_scheme: CatalogProviderAuthScheme;
   base_url: string;
   protocols: CatalogProviderProtocol[];
+  deprecated: boolean;
   protocol_base_urls: CatalogProviderProtocolBaseUrl[];
   language_models: string[];
   image_generation_models: string[];
@@ -123,6 +124,7 @@ export interface Provider {
   id: string;
   name: string;
   provider_type: string;
+  deprecated: boolean;
   base_url: string;
   capabilities: ProviderCapabilities;
   upstream_protocols: string[];
