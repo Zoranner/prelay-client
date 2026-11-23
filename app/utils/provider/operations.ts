@@ -6,7 +6,6 @@ export interface ProviderOperationResult {
   latency_ms: number | null;
   first_token_ms: number | null;
   error: string | null;
-  models: string[] | null;
 }
 
 export interface ProviderOperationFeedback {
@@ -18,7 +17,6 @@ export interface ProviderOperationFeedback {
 export function getProviderOperationFeedback(
   result: ProviderOperationResult,
 ): ProviderOperationFeedback {
-  const models = result.models?.filter(Boolean) ?? [];
   const metrics = [
     typeof result.latency_ms === "number"
       ? `延迟 ${result.latency_ms} ms`
@@ -40,12 +38,9 @@ export function getProviderOperationFeedback(
 
   return {
     success: true,
-    message:
-      models.length > 0
-        ? `发现模型：${models.join("、")}`
-        : result.protocol
-          ? `${protocol === "-" ? result.protocol : protocol} 协议测试完成。`
-          : "操作完成。",
+    message: result.protocol
+      ? `${protocol === "-" ? result.protocol : protocol} 协议测试完成。`
+      : "操作完成。",
     metrics: metrics.join("；") || null,
   };
 }
