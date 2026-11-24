@@ -119,25 +119,11 @@ function slotsFor(
   return slots;
 }
 
-function planLabel(plan: string) {
-  const id = plan.toLowerCase();
-  if (id.includes("goat")) return "GOAT";
-  if (id.includes("ultra")) return "Ultra";
-  if (id.includes("max-20x")) return "Max 20×";
-  if (id.includes("max-10x")) return "Max 10×";
-  if (id.includes("individual-max")) return "Max";
-  if (id.includes("individual-pro")) return "Pro";
-  if (id.includes("individual-go")) return "Go";
-  if (id.includes("teams-pro") || id.includes("team-pro")) return "Team Pro";
-  return plan;
-}
-
 function profileLabel(response: ProviderQuotaResponse) {
   const mode = response.mode === "own" ? "个人" : "共享";
-  const parts = [mode];
-  if (response.quota.plan) parts.push(planLabel(response.quota.plan));
-  else if (response.owner_display_name) parts.push(response.owner_display_name);
-  return parts.join(" · ");
+  return response.owner_display_name
+    ? `${mode} · ${response.owner_display_name}`
+    : mode;
 }
 
 function statusFor(response: ProviderQuotaResponse) {

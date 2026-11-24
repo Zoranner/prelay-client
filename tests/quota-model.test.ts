@@ -107,6 +107,15 @@ test("视图模型统一 plan、shared、balance 和 status", () => {
   expect(plan.slots).toHaveLength(3);
   expect(plan.tooltip.balance).toBeNull();
   expect(plan.tooltip.rows[0]?.meta).toBe("重置时间未知");
+  expect(plan.tooltip.profile).toBe("个人 · owner");
+
+  const planWithName = buildQuotaView(
+    response("own", {
+      plan: "individual-goat",
+      windows: [window({})],
+    }),
+  );
+  expect(planWithName.tooltip.profile).toBe("个人 · owner");
 
   const idle = buildQuotaView(
     response("own", {
@@ -148,7 +157,7 @@ test("视图模型统一 plan、shared、balance 和 status", () => {
   expect(shared.slots[1].configured).toBe(true);
   expect(shared.primary.label).toBe("当天");
   expect(shared.primary.value).toBe("100");
-  expect(shared.tooltip.profile).toContain("共享");
+  expect(shared.tooltip.profile).toBe("共享 · owner");
 
   const balance = buildQuotaView(
     response("own", {
