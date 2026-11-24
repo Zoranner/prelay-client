@@ -10,11 +10,17 @@ const formLogic = read("../app/composables/providerForm.ts");
 const pageSource = read("../app/pages/providers.vue");
 const templatesSource = read("../app/utils/provider/templates.ts");
 
-test("供应商列表展示弃用状态并禁用编辑分享", () => {
+test("供应商列表用删除线展示弃用状态并允许打开只读配置", () => {
   expect(listSource).toContain("row.deprecated");
-  expect(listSource).toContain(">已弃用</Tag");
-  const disabled = ':disabled="!row.isOwn || row.deprecated"';
-  expect(listSource.split(disabled).length - 1).toBe(2);
+  expect(listSource).toContain("provider-name-text--retired");
+  expect(listSource).not.toContain(">已弃用</Tag");
+  expect(listSource).toMatch(
+    /:disabled="!row\.isOwn"\s+aria-label="编辑供应商"/,
+  );
+  expect(listSource).toMatch(
+    /:disabled="!row\.isOwn \|\| row\.deprecated"\s+aria-label="共享供应商"/,
+  );
+  expect(pageSource).toContain("!editingRetired");
 });
 
 test("新建供应商不再提供弃用类型", () => {

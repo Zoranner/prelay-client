@@ -94,9 +94,11 @@ const rows = computed<ProviderRow[]>(() =>
     <template #cell-name="{ row }">
       <div class="provider-name">
         <span class="provider-name-line">
-          <span class="provider-name-text">{{
-            row.name || row.provider_type
-          }}</span>
+          <span
+            class="provider-name-text"
+            :class="{ 'provider-name-text--retired': row.deprecated }"
+            >{{ row.name || row.provider_type }}</span
+          >
           <span
             v-if="row.isShared"
             class="provider-share"
@@ -105,9 +107,6 @@ const rows = computed<ProviderRow[]>(() =>
           >
             <Icon icon="ph:share-network" size="14" />
           </span>
-          <Tag v-if="row.deprecated" size="small" semantic="warning"
-            >已弃用</Tag
-          >
         </span>
         <small :title="row.base_url">{{ row.base_url }}</small>
       </div>
@@ -181,7 +180,7 @@ const rows = computed<ProviderRow[]>(() =>
           square
           size="small"
           icon="ph:pencil-simple"
-          :disabled="!row.isOwn || row.deprecated"
+          :disabled="!row.isOwn"
           aria-label="编辑供应商"
           title="编辑供应商"
           @click.stop="emit('edit', row)"
@@ -221,6 +220,11 @@ const rows = computed<ProviderRow[]>(() =>
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.provider-name-text--retired {
+  color: var(--st-text-muted);
+  text-decoration: line-through;
 }
 
 .provider-share {
