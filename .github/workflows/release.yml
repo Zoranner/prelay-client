@@ -174,10 +174,7 @@ jobs:
         uses: softprops/action-gh-release@v3
         with:
           name: Prelay Client ${{ needs.prepare.outputs.version }}
-          body: |
-            Desktop packages: Windows MSI and NSIS.
-            包含供应商弃用状态展示和文案调整
-            移除模型发现相关文案
+          body: "Desktop packages: Windows MSI and NSIS."
           files: |
             artifacts/**/*.msi
             artifacts/**/*.exe
