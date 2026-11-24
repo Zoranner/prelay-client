@@ -7,3 +7,12 @@ export function isOwnProvider(
 ): boolean {
   return Boolean(identityId) && provider?.owner_identity_id === identityId;
 }
+
+export function isSharedProvider(
+  provider: Pick<Provider, "owner_identity_id"> | null | undefined,
+  identityId: string | null | undefined,
+): boolean {
+  return (
+    Boolean(provider && identityId) && !isOwnProvider(provider, identityId)
+  );
+}

@@ -1,7 +1,9 @@
 import type { EndpointModel, Provider } from "~/types/relay";
 import type { CatalogModelResponse } from "~/types/relay";
 import { modelCatalogEntry, modelCatalogLabel } from "~/stores/modelCatalog";
-import { isOwnProvider } from "~/utils/provider/ownership";
+import { isSharedProvider } from "~/utils/provider/ownership";
+
+export { isSharedProvider };
 
 // 接入点模型按目录模型 id 归组，供应商上游名由服务端按目录映射解析后落在 upstream_model。
 export type EndpointModelGroup = {
@@ -27,15 +29,6 @@ export type EndpointProviderOption = {
 };
 
 type ProviderOwnership = Pick<Provider, "owner_identity_id">;
-
-export function isSharedProvider(
-  provider: ProviderOwnership | undefined,
-  identityId: string | null | undefined,
-): boolean {
-  return Boolean(
-    provider && identityId && !isOwnProvider(provider, identityId),
-  );
-}
 
 export function providerOptionLabel(
   provider: Pick<Provider, "id" | "name"> & ProviderOwnership,

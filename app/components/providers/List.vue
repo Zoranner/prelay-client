@@ -1,7 +1,7 @@
 <script setup lang="ts">
 defineOptions({ name: "ProviderList" });
 
-import { Avatar, Button, Table, Tag } from "@stellar/ui";
+import { Avatar, Button, Icon, Table, Tag } from "@stellar/ui";
 import type { Provider } from "~/types/relay";
 import type { ProviderQuotaResponse } from "~/types/quota";
 import ProviderQuotaCell from "~/components/providers/quota/QuotaCell.vue";
@@ -9,11 +9,12 @@ import ProviderSharedQuotaCell from "~/components/providers/quota/SharedQuotaCel
 import { identityAvatarSrc } from "~/utils/ui/avatar";
 import { providerProtocolOptions } from "~/utils/provider/capabilities";
 import { protocolLabel, protocolTagPalette } from "~/utils/provider/templates";
-import { isOwnProvider } from "~/utils/provider/ownership";
+import { isOwnProvider, isSharedProvider } from "~/utils/provider/ownership";
 
 type ProviderRow = Provider &
   Record<string, unknown> & {
     isOwn: boolean;
+    isShared: boolean;
     ping: ReturnType<typeof pingStatus>;
     quota: ProviderQuotaResponse | null;
   };
@@ -72,6 +73,7 @@ const rows = computed<ProviderRow[]>(() =>
   props.providers.map((provider) => ({
     ...provider,
     isOwn: isOwnProvider(provider, props.currentIdentityId),
+    isShared: isSharedProvider(provider, props.currentIdentityId),
     ping: pingStatus(provider.id),
     quota: props.quotaByProvider[provider.id] ?? null,
   })),
@@ -95,6 +97,14 @@ const rows = computed<ProviderRow[]>(() =>
           <span class="provider-name-text">{{
             row.name || row.provider_type
           }}</span>
+          <span
+            v-if="row.isShared"
+            class="provider-share"
+            aria-label="共享供应商"
+            title="共享供应商"
+          >
+            <Icon icon="ph:share-network" size="14" />
+          </span>
           <Tag v-if="row.deprecated" size="small" semantic="warning"
             >已弃用</Tag
           >
@@ -211,6 +221,13 @@ const rows = computed<ProviderRow[]>(() =>
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.provider-share {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  color: var(--st-text-muted);
 }
 
 .cell-ellipsis {

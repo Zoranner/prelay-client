@@ -20,6 +20,18 @@ const sharingComposable = readFileSync(
   new URL("../app/composables/providerSharing.ts", import.meta.url),
   "utf8",
 );
+const providerList = readFileSync(
+  new URL("../app/components/providers/List.vue", import.meta.url),
+  "utf8",
+);
+
+test("供应商列表在名称旁标记共享供应商", () => {
+  expect(providerList).toContain("isSharedProvider");
+  expect(providerList).toContain("provider-share");
+  expect(providerList.indexOf("provider-name-text")).toBeLessThan(
+    providerList.indexOf("provider-share"),
+  );
+});
 
 test("共享抽屉用三态范围和用户措辞，标题与按钮不重复上下文", () => {
   expect(drawer).toContain('title="共享设置"');

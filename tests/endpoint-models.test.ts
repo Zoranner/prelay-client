@@ -249,7 +249,7 @@ test("共享 Provider 选项保留原始 ID，名称不再拼接共享说明", (
   );
 
   expect(source).toContain("export function providerOptionLabel");
-  expect(source).toContain("export function isSharedProvider");
+  expect(source).toContain("export { isSharedProvider }");
   expect(source).toContain("ph:share-network");
   expect(source).toContain("endpoint-provider-share-icon");
   expect(source).not.toContain("owner_display_name");
