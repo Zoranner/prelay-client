@@ -105,6 +105,20 @@ function progressSemantic(tone: QuotaTone) {
           </span>
         </div>
 
+        <div
+          v-if="contentView.tooltip.balance"
+          class="quota-tooltip__balance"
+          :class="{
+            'quota-tooltip__balance--divided':
+              contentView.tooltip.rows.length > 0,
+          }"
+        >
+          <span>{{ contentView.tooltip.balance.label }}</span>
+          <strong :class="percentClass(contentView.tooltip.balance.tone)">
+            {{ contentView.tooltip.balance.value }}
+          </strong>
+        </div>
+
         <div v-if="contentView.tooltip.rows.length" class="quota-tooltip__list">
           <div
             v-for="row in contentView.tooltip.rows"
@@ -137,12 +151,6 @@ function progressSemantic(tone: QuotaTone) {
           }"
         >
           {{ contentView.tooltip.message }}
-        </p>
-        <p
-          v-else-if="!contentView.tooltip.rows.length"
-          class="quota-tooltip__message"
-        >
-          暂无额度读数
         </p>
         <p v-if="contentView.stale" class="quota-tooltip__message">
           显示的是上次成功读数

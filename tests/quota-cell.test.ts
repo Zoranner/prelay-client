@@ -21,6 +21,9 @@ test("额度列按套餐、余额和未接入紧凑展示", () => {
   expect(cell).toContain("quota-cell__balance");
   expect(cell).toContain("quota-cell__status--chip");
   expect(cell).toContain("quota-tooltip__status");
+  expect(cell).toContain("quota-tooltip__balance");
+  expect(cell).toContain("quota-tooltip__balance--divided");
+  expect(cell).toContain("tooltip.balance");
   expect(cell).toContain("contentView.tooltip.rows");
   expect(cell).toContain("statusTone");
   expect(cell).toContain("stale");

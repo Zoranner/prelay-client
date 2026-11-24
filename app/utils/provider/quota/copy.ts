@@ -13,7 +13,13 @@ function currencySymbol(currency: string) {
 
 export function formatBalance(parts: QuotaBalancePart[]) {
   return parts
-    .map((part) => `${currencySymbol(part.currency)}${part.amount}`)
+    .map((part) => {
+      const amount = part.amount.trim();
+      const negative = amount.startsWith("-");
+      return `${negative ? "-" : ""}${currencySymbol(part.currency)}${
+        negative ? amount.slice(1) : amount
+      }`;
+    })
     .join(" · ");
 }
 
@@ -45,10 +51,10 @@ export function windowCopy(window: QuotaWindow, mode: ProviderQuotaMode) {
   if (window.kind === "rolling") return formatSpan(window.span_secs);
   if (window.kind === "day") return mode === "shared_limited" ? "当天" : "1 天";
   if (window.kind === "week") {
-    return mode === "shared_limited" ? "本周累计" : "7 天";
+    return mode === "shared_limited" ? "本周" : "周";
   }
   if (window.kind === "month") {
-    return mode === "shared_limited" ? "本月累计" : "月";
+    return mode === "shared_limited" ? "本月" : "月";
   }
   return "额度";
 }

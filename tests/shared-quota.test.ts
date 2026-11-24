@@ -16,13 +16,13 @@ test("共享限额使用独立单元格展示周期与剩余 tokens", () => {
   expect(shared).toContain("ProviderSharedQuotaCell");
   expect(shared).toContain("buildQuotaView");
   expect(shared).toContain("QuotaRings");
-  expect(view).toContain("共享限额");
+  expect(view).toContain("共享");
   expect(shared).toContain("sharedView.primary.label");
   expect(shared).toContain("sharedView.tooltip.rows");
   expect(shared).toContain("剩 {{ row.value }}");
   expect(copy).toContain('"当天"');
-  expect(copy).toContain('"本周累计"');
-  expect(copy).toContain('"本月累计"');
+  expect(copy).toContain('"本周"');
+  expect(copy).toContain('"本月"');
   expect(shared).toContain("ProgressBar");
   expect(shared).toContain("Tooltip");
   expect(shared).toContain("QuotaRings");

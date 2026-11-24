@@ -211,6 +211,30 @@
   color: var(--st-text-muted);
 }
 
+.quota-tooltip__balance {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.quota-tooltip__balance--divided {
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--st-border);
+}
+
+.quota-tooltip__balance span {
+  color: var(--st-text-secondary);
+  font-size: 12px;
+}
+
+.quota-tooltip__balance strong {
+  color: var(--st-text-primary);
+  font-size: 12px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
 .quota-tooltip__list {
   display: grid;
   gap: 10px;

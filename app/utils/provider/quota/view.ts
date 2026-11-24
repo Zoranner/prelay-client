@@ -43,6 +43,7 @@ export interface QuotaTooltip {
   profile: string;
   status: string;
   statusTone: "success" | "muted" | "danger";
+  balance: QuotaText | null;
   rows: QuotaRow[];
   message: string | null;
   footer: string[];
@@ -132,12 +133,7 @@ function planLabel(plan: string) {
 }
 
 function profileLabel(response: ProviderQuotaResponse) {
-  const mode =
-    response.mode === "shared_limited"
-      ? "共享限额"
-      : response.mode === "shared_unlimited"
-        ? "共享"
-        : "个人";
+  const mode = response.mode === "own" ? "个人" : "共享";
   const parts = [mode];
   if (response.quota.plan) parts.push(planLabel(response.quota.plan));
   else if (response.owner_display_name) parts.push(response.owner_display_name);
@@ -161,9 +157,7 @@ function statusFor(response: ProviderQuotaResponse) {
 
 function planRow(window: QuotaWindow, mode: ProviderQuotaResponse["mode"]) {
   const percent = remainingPercent(window);
-  const meta = [window.display, formatCountdown(window.resets_at)]
-    .filter(Boolean)
-    .join(" · ");
+  const meta = [window.display, resetCopy(window)].filter(Boolean).join(" · ");
   return {
     key: windowKey(window),
     label: windowCopy(window, mode),
@@ -191,9 +185,14 @@ function sharedRow(window: QuotaWindow) {
     label: windowCopy(window, "shared_limited"),
     value: sharedValue(window),
     percent,
-    meta: [meta, formatCountdown(window.resets_at)].filter(Boolean).join(" · "),
+    meta: [meta, resetCopy(window)].filter(Boolean).join(" · "),
     tone: toneFor(percent),
   } satisfies QuotaRow;
+}
+
+function resetCopy(window: QuotaWindow) {
+  if (window.resets_at) return formatCountdown(window.resets_at);
+  return window.used_percent <= 0 ? "本窗口暂无用量" : "重置时间未知";
 }
 
 function tooltip(
@@ -201,12 +200,14 @@ function tooltip(
   rows: QuotaRow[],
   footer: string[],
   message: string | null = null,
+  balance: QuotaText | null = null,
 ): QuotaTooltip {
   const status = statusFor(response);
   return {
     profile: profileLabel(response),
     status: status.label,
     statusTone: status.tone,
+    balance,
     rows,
     message,
     footer,
@@ -216,7 +217,7 @@ function tooltip(
 export function buildQuotaView(response: ProviderQuotaResponse): QuotaView {
   const quota = response.quota;
   const windows = quota.windows ?? [];
-  const updated = formatUpdatedAt(response.updated_at);
+  const updated = formatUpdatedAt(quota.read_at ?? response.updated_at);
   const stale = quota.stale === true;
 
   if (response.mode === "shared_limited") {
@@ -234,7 +235,7 @@ export function buildQuotaView(response: ProviderQuotaResponse): QuotaView {
             value: sharedValue(summary),
             tone: toneFor(remainingPercent(summary)),
           }
-        : { label: "共享限额", value: "", tone: "muted" },
+        : { label: "共享", value: "", tone: "muted" },
       stale,
       tooltip: tooltip(response, rows, [updated]),
     };
@@ -250,7 +251,7 @@ export function buildQuotaView(response: ProviderQuotaResponse): QuotaView {
             label: "余额",
             value: formatBalance(quota.balance.parts),
             tone: quota.balance.available
-              ? ("muted" as const)
+              ? ("primary" as const)
               : ("danger" as const),
           }
         : undefined;
@@ -269,29 +270,30 @@ export function buildQuotaView(response: ProviderQuotaResponse): QuotaView {
       tooltip: tooltip(
         response,
         rows,
-        [secondary ? `余额 ${secondary.value}` : "无余额", updated],
+        [updated],
         quota.error ? errorCopy(quota.error.code) : null,
+        secondary ?? null,
       ),
     };
   }
 
   if (quota.balance && quota.balance.parts.length) {
     const value = formatBalance(quota.balance.parts);
+    const available = quota.balance.available;
     return {
       variant: "balance",
       balance: quota.balance,
       primary: {
         label: "余额",
         value,
-        tone: quota.balance.available ? "primary" : "danger",
+        tone: available ? "primary" : "danger",
       },
       stale,
-      tooltip: tooltip(
-        response,
-        [],
-        [updated],
-        quota.balance.available ? null : "余额不可用",
-      ),
+      tooltip: tooltip(response, [], [updated], null, {
+        label: "余额",
+        value,
+        tone: available ? "primary" : "danger",
+      }),
     };
   }
 
@@ -310,6 +312,6 @@ export function buildQuotaView(response: ProviderQuotaResponse): QuotaView {
             : "muted",
     },
     stale,
-    tooltip: tooltip(response, [], [updated], code ? null : "暂无额度读数"),
+    tooltip: tooltip(response, [], [updated]),
   };
 }

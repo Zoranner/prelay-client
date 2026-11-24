@@ -7,12 +7,11 @@ export function formatPercent(value: number) {
   return `${percent >= 99.5 ? 100 : Math.round(percent)}%`;
 }
 
-export function formatCountdown(value: string | null | undefined) {
-  if (!value) return "重置未知";
+export function formatCountdown(value: string) {
   const diff = new Date(value).getTime() - Date.now();
   if (!Number.isFinite(diff) || diff <= 0) return "即将重置";
   const minutes = Math.ceil(diff / 60_000);
-  if (minutes < 60) return `${minutes} 分钟后重置`;
+  if (minutes < 60) return `${minutes}m 后重置`;
   const hours = Math.floor(minutes / 60);
   if (hours < 24) {
     const rest = minutes % 60;
@@ -24,8 +23,8 @@ export function formatCountdown(value: string | null | undefined) {
 }
 
 export function formatUpdatedAt(value: string | null | undefined) {
-  if (!value) return "更新时间未知";
-  return `更新 ${new Date(value).toLocaleTimeString("zh-CN", {
+  if (!value) return "最后更新时间未知";
+  return `最后更新 ${new Date(value).toLocaleTimeString("zh-CN", {
     hour: "2-digit",
     minute: "2-digit",
   })}`;
