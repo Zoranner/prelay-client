@@ -27,8 +27,8 @@ const emit = defineEmits<{
       class="model-row__label"
       :title="issue ? endpointMappingIssueHint(issue) : undefined"
     >
-      <small>
-        {{ provider }} / {{ model }}
+      <span class="model-row__name">
+        <small>{{ provider }} / {{ model }}</small>
         <span
           v-if="shared"
           class="model-row__shared"
@@ -37,7 +37,7 @@ const emit = defineEmits<{
         >
           <Icon icon="ph:share-network" size="14" />
         </span>
-      </small>
+      </span>
       <Tag v-if="issue" semantic="error" size="small" icon="ph:warning-circle">
         {{ endpointMappingIssueLabel(issue) }}
       </Tag>
@@ -85,6 +85,13 @@ const emit = defineEmits<{
   gap: var(--spacing-sm);
 }
 
+.model-row__name {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: var(--spacing-xs);
+}
+
 .model-row small {
   color: var(--st-text-secondary);
   min-width: 0;
@@ -95,9 +102,8 @@ const emit = defineEmits<{
 
 .model-row__shared {
   display: inline-flex;
-  margin-left: var(--spacing-xs);
+  flex: 0 0 auto;
   color: var(--st-text-muted);
-  vertical-align: middle;
 }
 
 .model-row__actions {

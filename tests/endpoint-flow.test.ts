@@ -67,7 +67,8 @@ test("接入点用右侧图标标记共享供应商", () => {
   expect(endpointPicker).toContain("translateY(1px)");
   expect(endpointModelRow).toContain("ph:share-network");
   expect(endpointModelRow).toContain('title="共享供应商"');
-  expect(endpointModelRow).toContain("vertical-align: middle");
+  expect(endpointModelRow).toContain("model-row__name");
+  expect(endpointModelRow).toContain("align-items: center");
   expect(endpointModelRow.indexOf("{{ model }}")).toBeLessThan(
     endpointModelRow.indexOf("ph:share-network"),
   );
