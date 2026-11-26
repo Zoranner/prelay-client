@@ -42,8 +42,17 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          rm bun.lock
-          bun install
+          # The committed lockfile resolves through the internal Nexus mirror,
+          # which hosted runners cannot reach. Rewrite its registry base (host
+          # and Nexus repository prefix) in this workspace; package paths,
+          # versions and integrity hashes stay intact.
+          # @stellar/ui keeps its git.kimo.ink registry from .npmrc.
+          sed -i 's#http://pkg\.rd\.kim/repository/npm-group/#https://registry.npmjs.org/#g' bun.lock
+          if grep -q 'pkg\.rd\.kim' bun.lock; then
+            echo "bun.lock still references the internal npm mirror" >&2
+            exit 1
+          fi
+          bun install --frozen-lockfile
 
       - name: Typecheck frontend
         shell: bash
@@ -81,19 +90,33 @@ jobs:
         with:
           submodules: recursive
 
+      - uses: dtolnay/rust-toolchain@stable
+
       - id: version
         name: Validate release version
         shell: bash
         run: |
           set -euo pipefail
+          if [[ ! "$GITHUB_REF_NAME" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "release tag must match vX.Y.Z: $GITHUB_REF_NAME" >&2
+            exit 1
+          fi
           tag_version="${GITHUB_REF_NAME#v}"
-          [[ "$tag_version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]
-          package_version="$(jq -r '.version' package.json)"
-          native_version="$(awk -F '"' '/^version = / { print $2; exit }' src-tauri/Cargo.toml)"
-          tauri_version="$(jq -r '.version' src-tauri/tauri.conf.json)"
-          test "$tag_version" = "$package_version"
-          test "$tag_version" = "$native_version"
-          test "$tag_version" = "$tauri_version"
+          package_version="$(jq -er '.version' package.json)"
+          native_version="$(cargo metadata --manifest-path src-tauri/Cargo.toml --no-deps --format-version 1 | jq -er '.packages[] | select(.name == "prelay-client") | .version')"
+          tauri_version="$(jq -er '.version' src-tauri/tauri.conf.json)"
+          if [ "$tag_version" != "$package_version" ]; then
+            echo "package.json version $package_version does not match tag $tag_version" >&2
+            exit 1
+          fi
+          if [ "$tag_version" != "$native_version" ]; then
+            echo "src-tauri/Cargo.toml version $native_version does not match tag $tag_version" >&2
+            exit 1
+          fi
+          if [ "$tag_version" != "$tauri_version" ]; then
+            echo "src-tauri/tauri.conf.json version $tauri_version does not match tag $tag_version" >&2
+            exit 1
+          fi
           echo "version=$tag_version" >> "$GITHUB_OUTPUT"
 
   build-desktop:
@@ -143,12 +166,26 @@ jobs:
       #       libxdo-dev \
       #       patchelf
 
+      - name: Install frontend dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          # The committed lockfile resolves through the internal Nexus mirror,
+          # which hosted runners cannot reach. Rewrite its registry base (host
+          # and Nexus repository prefix) in this workspace; package paths,
+          # versions and integrity hashes stay intact.
+          # @stellar/ui keeps its git.kimo.ink registry from .npmrc.
+          sed -i 's#http://pkg\.rd\.kim/repository/npm-group/#https://registry.npmjs.org/#g' bun.lock
+          if grep -q 'pkg\.rd\.kim' bun.lock; then
+            echo "bun.lock still references the internal npm mirror" >&2
+            exit 1
+          fi
+          bun install --frozen-lockfile
+
       - name: Build desktop client
         shell: bash
         run: |
           set -euo pipefail
-          rm bun.lock
-          bun install
           bun run tauri build --bundles "${{ matrix.bundles }}"
 
       - name: Upload desktop client artifacts
