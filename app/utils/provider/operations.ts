@@ -1,3 +1,4 @@
+import { errorText } from "~/utils/errors";
 import { protocolLabel } from "~/utils/provider/templates";
 
 export interface ProviderOperationResult {
@@ -5,6 +6,7 @@ export interface ProviderOperationResult {
   protocol: string | null;
   latency_ms: number | null;
   first_token_ms: number | null;
+  error_code?: string | null;
   error: string | null;
 }
 
@@ -29,7 +31,12 @@ export function getProviderOperationFeedback(
   if (!result.ok) {
     return {
       success: false,
-      message: result.error?.trim() || "操作失败。",
+      message: result.error_code
+        ? errorText({
+            code: result.error_code,
+            message: result.error?.trim() ?? "",
+          })
+        : "协议测试失败。",
       metrics: metrics.join("；") || null,
     };
   }

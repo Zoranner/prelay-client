@@ -119,16 +119,19 @@ mod tests {
 
 pub(crate) async fn response_error(response: reqwest::Response) -> ClientError {
     let status = response.status();
-    let (server_code, server_message) = if status.is_client_error() {
-        response
-            .json::<ServerErrorEnvelope>()
-            .await
-            .ok()
-            .map(|body| body.error.into_parts())
-            .unwrap_or_default()
-    } else {
-        (None, None)
-    };
+    let parsed = response
+        .json::<ServerErrorEnvelope>()
+        .await
+        .ok()
+        .map(|body| body.error.into_parts());
+    compose_error(status, parsed)
+}
+
+fn compose_error(
+    status: StatusCode,
+    parsed: Option<(Option<String>, Option<String>)>,
+) -> ClientError {
+    let (server_code, server_message) = parsed.unwrap_or_default();
     let code = server_code.unwrap_or_else(|| status_code(status).to_owned());
     let message = server_message.unwrap_or_else(|| {
         if code == "identity_already_registered" {
@@ -145,8 +148,11 @@ pub(crate) async fn response_error(response: reqwest::Response) -> ClientError {
 fn status_code(status: StatusCode) -> &'static str {
     match status {
         StatusCode::UNAUTHORIZED => "invalid_credential",
+        StatusCode::FORBIDDEN => "forbidden",
         StatusCode::NOT_FOUND => "not_found",
         StatusCode::BAD_REQUEST | StatusCode::UNPROCESSABLE_ENTITY => "validation_failed",
+        StatusCode::TOO_MANY_REQUESTS => "rate_limited",
+        status if status.is_server_error() => "server_error",
         _ => "internal",
     }
 }
@@ -179,7 +185,7 @@ impl ServerErrorBody {
 
 #[cfg(test)]
 mod envelope_tests {
-    use super::ServerErrorEnvelope;
+    use super::{compose_error, status_code, ServerErrorEnvelope};
 
     #[test]
     fn reads_the_management_error_envelope_with_its_code() {
@@ -226,5 +232,35 @@ mod envelope_tests {
             envelope.error.into_parts(),
             (None, Some("上游请求失败: 403 Forbidden".to_string()))
         );
+    }
+
+    #[test]
+    fn keeps_a_stable_code_from_a_5xx_envelope() {
+        let error = compose_error(
+            reqwest::StatusCode::SERVICE_UNAVAILABLE,
+            Some((
+                Some("provider_route_unavailable".to_string()),
+                Some("no route is available".to_string()),
+            )),
+        );
+
+        assert_eq!(error.code(), "provider_route_unavailable");
+        assert_eq!(error.message, "no route is available");
+    }
+
+    #[test]
+    fn falls_back_to_status_codes_without_an_envelope() {
+        assert_eq!(status_code(reqwest::StatusCode::FORBIDDEN), "forbidden");
+        assert_eq!(
+            status_code(reqwest::StatusCode::TOO_MANY_REQUESTS),
+            "rate_limited"
+        );
+
+        let error = compose_error(reqwest::StatusCode::BAD_GATEWAY, None);
+
+        assert_eq!(error.code(), "server_error");
+        assert!(error
+            .message
+            .starts_with("management API returned HTTP 502"));
     }
 }

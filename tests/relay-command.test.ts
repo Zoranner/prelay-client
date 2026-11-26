@@ -1,6 +1,6 @@
 import { expect, mock, test } from "bun:test";
 
-import { errorReason, errorText, toRelayError } from "../app/utils/errors";
+import { errorText, toRelayError } from "../app/utils/errors";
 
 type Deferred<T> = {
   promise: Promise<T>;
@@ -34,7 +34,6 @@ mock.module("@stellar/ui", () => ({
 }));
 
 mock.module("~/utils/errors", () => ({
-  errorReason,
   errorText,
   toRelayError,
 }));
@@ -78,7 +77,7 @@ test("管理 API 不可达时公开全局阻断状态", async () => {
   expect(notifications).toEqual([]);
 });
 
-test("校验失败的通知直接展示服务端给出的具体原因", async () => {
+test("校验失败的通知使用客户端固定文案", async () => {
   requests.length = 0;
   notifications.length = 0;
   const relay = useRelayCommand();
@@ -86,15 +85,13 @@ test("校验失败的通知直接展示服务端给出的具体原因", async ()
 
   requests[0]?.reject({
     code: "validation_failed",
-    message:
-      "模型 gpt-6-luna 不在供应商“GoToken 套餐”的模型清单里，请先移除或改选后再保存",
+    message: "endpoint model is not enabled by the provider: model=gpt-6-luna",
   });
 
   await expect(request).rejects.toMatchObject({ code: "validation_failed" });
   expect(notifications).toEqual([
     {
-      message:
-        "模型 gpt-6-luna 不在供应商“GoToken 套餐”的模型清单里，请先移除或改选后再保存",
+      message: "请求内容不合法。",
       title: "管理服务请求失败",
     },
   ]);

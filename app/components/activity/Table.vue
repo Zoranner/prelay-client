@@ -12,6 +12,7 @@ import {
   Tag,
 } from "@stellar/ui";
 import { protocolLabel, protocolTagPalette } from "~/utils/provider/templates";
+import { activityErrorText } from "~/utils/errors";
 import { modelCatalogLabel } from "~/stores/modelCatalog";
 
 type RequestTableRow = Activity & Record<string, unknown>;
@@ -276,13 +277,23 @@ function updateLimit(value: string | number | boolean | null) {
           <dd>{{ selectedError.http_status ?? "-" }}</dd>
         </div>
         <div>
-          <dt>错误码</dt>
-          <dd>{{ selectedError.error_code ?? "-" }}</dd>
+          <dt>错误</dt>
+          <dd>
+            {{
+              activityErrorText(selectedError.error_code) ??
+              selectedError.error_code ??
+              "上游请求失败"
+            }}
+          </dd>
         </div>
-        <div>
-          <dt>错误说明</dt>
+        <div v-if="selectedError.error_code">
+          <dt>错误码</dt>
+          <dd>{{ selectedError.error_code }}</dd>
+        </div>
+        <div v-if="selectedError.error_message">
+          <dt>诊断详情</dt>
           <dd class="activity-error-detail__message">
-            {{ selectedError.error_message ?? "上游未提供错误说明" }}
+            {{ selectedError.error_message }}
           </dd>
         </div>
       </dl>

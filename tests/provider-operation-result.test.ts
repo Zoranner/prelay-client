@@ -12,14 +12,28 @@ test("上游 200 但 ok 为 false 时将供应商操作显示为失败，并保�
   const feedback = getProviderOperationFeedback({
     ok: false,
     protocol: "openai",
-    error: "上游认证失败",
+    error_code: "upstream_connect_failed",
+    error: "upstream connect failed",
     latency_ms: 840,
     first_token_ms: 380,
   });
 
   expect(feedback.success).toBe(false);
-  expect(feedback.message).toBe("上游认证失败");
+  expect(feedback.message).toBe("无法连接上游服务。");
   expect(feedback.metrics).toBe("延迟 840 ms；首 Token 380 ms");
+});
+
+test("供应商操作失败没有码时使用固定文案", () => {
+  const feedback = getProviderOperationFeedback({
+    ok: false,
+    protocol: "openai",
+    error: "upstream returned status=500",
+    latency_ms: 120,
+    first_token_ms: null,
+  });
+
+  expect(feedback.success).toBe(false);
+  expect(feedback.message).toBe("协议测试失败。");
 });
 
 test("协议测试成功时使用服务端返回的协议字段", () => {
@@ -46,6 +60,7 @@ test("Nuxt 供应商操作 DTO 只声明 Tauri 实际返回的字段", () => {
   expect(source).not.toContain("message?: string | null;");
   expect(source).toContain("latency_ms: number | null;");
   expect(source).toContain("first_token_ms: number | null;");
+  expect(source).toContain("error_code?: string | null;");
   expect(source).toContain("error: string | null;");
   expect(source).not.toContain("models");
 });

@@ -2,8 +2,7 @@ import { expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
 
 import {
-  errorDetail,
-  errorReason,
+  activityErrorText,
   errorText,
   toRelayError,
 } from "../app/utils/errors";
@@ -21,6 +20,11 @@ test("管理 API 错误码使用中文文案", () => {
     "provider_not_visible",
     "provider_not_usable",
     "provider_sharing_not_allowed",
+    "provider_upstream_unavailable",
+    "provider_model_retired",
+    "provider_type_unsupported",
+    "endpoint_model_duplicate",
+    "endpoint_model_not_in_provider_models",
     "extension_catalog_unavailable",
     "client_update_unavailable",
   ]) {
@@ -53,6 +57,13 @@ test("客户端本地错误码使用中文文案", () => {
     "client_update_not_downloaded",
     "client_update_unsupported_platform",
     "invalid_client_update",
+    "forbidden",
+    "rate_limited",
+    "server_error",
+    "upstream_connect_timeout",
+    "upstream_connect_failed",
+    "upstream_test_failed",
+    "upstream_status",
   ]) {
     const text = errorText({ code, message: "local diagnostic" });
 
@@ -61,11 +72,10 @@ test("客户端本地错误码使用中文文案", () => {
   }
 });
 
-test("未识别的错误码回退到原始消息并作为详情展示", () => {
+test("未识别的错误码回退到原始消息", () => {
   const error = { code: "code_from_a_newer_server", message: "future failure" };
 
   expect(errorText(error)).toBe("future failure");
-  expect(errorDetail(error)).toBe("future failure");
 });
 
 test("已知错误码不再暴露原始诊断", () => {
@@ -75,32 +85,24 @@ test("已知错误码不再暴露原始诊断", () => {
   };
 
   expect(errorText(error)).toContain("无法连接");
-  expect(errorDetail(error)).toBeNull();
+  expect(errorText(error)).not.toContain("reqwest");
 });
 
-test("校验失败把服务端给出的具体原因交回界面", () => {
-  const reason =
-    "模型 gpt-6-luna 不在供应商“GoToken 套餐”的模型清单里，请先移除或改选后再保存";
+test("校验失败只显示客户端固定文案，不再回显服务端句子", () => {
+  const error = {
+    code: "validation_failed",
+    message: "模型 gpt-6-luna 不在供应商“GoToken 套餐”的模型清单里，请先移除",
+  };
 
-  expect(errorReason({ code: "validation_failed", message: reason })).toBe(
-    reason,
-  );
-  expect(errorReason({ code: "validation_failed", message: "   " })).toBeNull();
-  expect(
-    errorReason({ code: "validation_failed", message: "请求内容不合法。" }),
-  ).toBeNull();
-  expect(
-    errorReason({ code: "internal", message: "Internal server error" }),
-  ).toBeNull();
-  expect(
-    errorReason({ code: "network_error", message: "reqwest::Error" }),
-  ).toBeNull();
+  expect(errorText(error)).toBe("请求内容不合法。");
+  expect(errorText(error)).not.toContain("gpt-6-luna");
 });
 
-test("管理命令通知优先展示具体原因", () => {
+test("管理命令通知只使用文案层", () => {
   expect(source("composables/command/relay.ts")).toContain(
-    "errorReason(relayError) ?? errorText(relayError)",
+    "notifications.error(errorText(relayError)",
   );
+  expect(source("composables/command/relay.ts")).not.toContain("errorReason");
 });
 
 test("旧版 HTTP 兜底消息仍转换为中文", () => {
@@ -116,13 +118,39 @@ test("没有消息的未知错误给出兜底文案", () => {
   expect(errorText({ code: "unknown", message: "" })).toBe("发生了未知错误。");
 });
 
-test("错误字符串仍按已知错误码识别", () => {
+test("旧版错误字符串只按行首已知码识别", () => {
   expect(
     toRelayError("network_error: unable to reach the relay management API"),
   ).toEqual({
     code: "network_error",
     message: "network_error: unable to reach the relay management API",
   });
+
+  expect(toRelayError("request failed: not_found in cache")).toEqual({
+    code: "unknown",
+    message: "request failed: not_found in cache",
+  });
+});
+
+test("活动记录错误码清单与客户端文案一一对应", () => {
+  for (const code of [
+    "upstream_status",
+    "upstream_connect",
+    "upstream_response_head_timeout",
+    "upstream_invalid_response",
+    "upstream_body",
+    "upstream_error",
+    "empty_stream",
+    "stream_error",
+    "downstream_disconnect",
+    "activity_rollout_incomplete",
+    "activity_interrupted",
+  ]) {
+    expect(activityErrorText(code)).toBeTruthy();
+  }
+
+  expect(activityErrorText("code_from_a_newer_server")).toBeNull();
+  expect(activityErrorText(null)).toBeNull();
 });
 
 test("界面展示错误时统一使用文案层", () => {
@@ -139,5 +167,8 @@ test("界面展示错误时统一使用文案层", () => {
   );
   expect(source("composables/extension/installJobs.ts")).toContain(
     "errorText(",
+  );
+  expect(source("components/activity/Table.vue")).toContain(
+    "activityErrorText(",
   );
 });

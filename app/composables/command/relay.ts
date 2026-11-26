@@ -2,12 +2,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { computed, readonly, ref, type ComputedRef, type Ref } from "vue";
 import { useNotification } from "@stellar/ui";
 
-import {
-  errorReason,
-  errorText,
-  toRelayError,
-  type RelayError,
-} from "~/utils/errors";
+import { errorText, toRelayError, type RelayError } from "~/utils/errors";
 
 export type RelayCommand =
   | "bootstrap"
@@ -83,7 +78,7 @@ export function useRelayCommand(): CommandState & {
         managementApiError.value = relayError;
       } else {
         // 连接级错误由全局阻断层或设置页就地反馈，避免通知与遮罩重复。
-        notifications.error(errorReason(relayError) ?? errorText(relayError), {
+        notifications.error(errorText(relayError), {
           title: "管理服务请求失败",
         });
       }
