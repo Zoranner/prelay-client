@@ -17,13 +17,11 @@ import type {
   ProviderShareUser,
   ProviderSharing,
   ProviderSharingInput,
-  ShareQuotaWindow,
-  ShareQuotaWindowKind,
 } from "~/types/quota";
-import type { EditableShare, EditableWindow, ShareMode } from "./types";
+import type { EditableShare, ShareMode } from "./types";
 import RuleEditor from "./RuleEditor.vue";
 import UserTransfer from "./UserTransfer.vue";
-import { ruleFromWindows, windowsFromRule } from "./rule";
+import { quotaFromRule, ruleFromQuota } from "./rule";
 import type { QuotaRule } from "./rule";
 
 const visible = defineModel<boolean>("visible", { default: false });
@@ -45,8 +43,7 @@ const { confirm: confirmAction } = useConfirm();
 const users = ref<EditableShare[]>([]);
 const visibility = ref<ProviderVisibility>("private");
 const quotaMode = ref<ShareMode>("unlimited");
-const quotaRule = ref<QuotaRule>(ruleFromWindows(emptyWindows()));
-const quotaWindows = ref<EditableWindow[]>(emptyWindows());
+const quotaRule = ref<QuotaRule>(ruleFromQuota(null));
 const savedSnapshot = ref("");
 
 const visibilityOptions = [
@@ -59,12 +56,6 @@ const modeOptions = [
   { label: "不限额", value: "unlimited" },
   { label: "限额", value: "limited" },
 ];
-const windowNames: Record<EditableWindow["kind"], string> = {
-  day: "日",
-  week: "周",
-  month: "月",
-};
-
 function compareUsers(left: EditableShare, right: EditableShare) {
   return (
     left.display_name.localeCompare(right.display_name, "zh-CN", {
@@ -108,50 +99,17 @@ watch(
       users.value = [];
       visibility.value = "private";
       quotaMode.value = "unlimited";
-      quotaWindows.value = emptyWindows();
-      quotaRule.value = ruleFromWindows(quotaWindows.value);
+      quotaRule.value = ruleFromQuota(null);
       return;
     }
     visibility.value = sharing.visibility;
     users.value = sharing.users.map(toEditableUser);
-    quotaMode.value = sharing.quota?.length ? "limited" : "unlimited";
-    quotaWindows.value = windowsFromQuota(sharing.quota);
-    quotaRule.value = ruleFromWindows(quotaWindows.value);
+    quotaMode.value = sharing.quota ? "limited" : "unlimited";
+    quotaRule.value = ruleFromQuota(sharing.quota);
     savedSnapshot.value = snapshot();
   },
   { immediate: true },
 );
-
-function defaultWindow(kind: EditableWindow["kind"]): EditableWindow {
-  return {
-    kind,
-    enabled: kind === "day",
-    limit: "",
-    accumulate: false,
-    reset_time: "00:00",
-    reset_weekday: 1,
-    reset_day: 1,
-  };
-}
-
-function emptyWindows() {
-  return [defaultWindow("day"), defaultWindow("week"), defaultWindow("month")];
-}
-
-function windowsFromQuota(quota: ShareQuotaWindow[] | null) {
-  const windows = emptyWindows();
-  for (const rule of quota ?? []) {
-    const window = windows.find((candidate) => candidate.kind === rule.window);
-    if (!window) continue;
-    window.enabled = true;
-    window.limit = String(rule.limit);
-    window.accumulate = rule.accumulate;
-    window.reset_time = rule.reset_time;
-    if (rule.reset_weekday != null) window.reset_weekday = rule.reset_weekday;
-    if (rule.reset_day != null) window.reset_day = rule.reset_day;
-  }
-  return windows;
-}
 
 function toEditableUser(user: ProviderShareUser): EditableShare {
   return { identity_id: user.identity_id, display_name: user.display_name };
@@ -204,48 +162,11 @@ function removeUsers(identityIds: string[]) {
 
 function applyRule(rule: QuotaRule) {
   quotaRule.value = rule;
-  quotaWindows.value = windowsFromRule(rule, quotaWindows.value);
 }
 
 function updateQuotaMode(value: string | number | boolean) {
   if (typeof value !== "string") return;
   quotaMode.value = value === "limited" ? "limited" : "unlimited";
-}
-
-function toQuotaRule(window: EditableWindow): ShareQuotaWindow | null {
-  const limit = Number(window.limit);
-  if (!Number.isInteger(limit) || limit <= 0) {
-    notifications.error(`${windowNames[window.kind]}额度必须是正整数。`);
-    return null;
-  }
-  if (!/^\d{2}:\d{2}$/.test(window.reset_time)) {
-    notifications.error(`${windowNames[window.kind]}清零时间必须是 HH:MM。`);
-    return null;
-  }
-  const resetWeekday = Number(window.reset_weekday);
-  const resetDay = Number(window.reset_day);
-  if (
-    window.kind === "week" &&
-    (!Number.isInteger(resetWeekday) || resetWeekday < 1 || resetWeekday > 7)
-  ) {
-    notifications.error("周额度清零星期必须在周一到周日之间。");
-    return null;
-  }
-  if (
-    window.kind === "month" &&
-    (!Number.isInteger(resetDay) || resetDay < 1 || resetDay > 28)
-  ) {
-    notifications.error("月额度清零日期必须在 1 到 28 之间。");
-    return null;
-  }
-  return {
-    window: window.kind as ShareQuotaWindowKind,
-    limit,
-    accumulate: window.accumulate,
-    reset_time: window.reset_time,
-    reset_weekday: window.kind === "week" ? resetWeekday : null,
-    reset_day: window.kind === "month" ? resetDay : null,
-  };
 }
 
 function saveSharing() {
@@ -262,15 +183,12 @@ function saveSharing() {
     quota: null,
   };
   if (visibility.value !== "private" && quotaMode.value === "limited") {
-    const quota = quotaWindows.value
-      .filter((window) => window.enabled)
-      .map(toQuotaRule);
-    if (quota.some((rule) => rule === null)) return;
-    if (!quota.length) {
-      notifications.error("限额共享至少启用一个窗口。");
+    const quota = quotaFromRule(quotaRule.value);
+    if (!quota) {
+      notifications.error("每天的共享额度必须大于 0。");
       return;
     }
-    input.quota = quota as ShareQuotaWindow[];
+    input.quota = quota;
   }
   emit("save-sharing", input);
 }

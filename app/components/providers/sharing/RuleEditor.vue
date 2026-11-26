@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { Input, Select } from "@stellar/ui";
-import type { AccumulateCycle, QuotaRule } from "./rule";
+import type { ShareQuotaAccumulate } from "~/types/quota";
+import type { QuotaRule } from "./rule";
 import { accumulateOptions } from "./rule";
 
 defineOptions({ name: "ProviderQuotaRuleEditor" });
@@ -20,7 +21,7 @@ function setAmount(value: string | number) {
 }
 
 function setAccumulate(value: string | number | boolean) {
-  update({ accumulate: String(value) as AccumulateCycle });
+  update({ accumulate: String(value) as ShareQuotaAccumulate });
 }
 </script>
 

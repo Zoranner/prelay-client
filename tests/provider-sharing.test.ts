@@ -1,6 +1,11 @@
 import { expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
 
+import {
+  quotaFromRule,
+  ruleFromQuota,
+} from "../app/components/providers/sharing/rule";
+
 const drawer = readFileSync(
   new URL("../app/components/providers/sharing/Drawer.vue", import.meta.url),
   "utf8",
@@ -93,7 +98,7 @@ test("共享额度是供应商级的一套规则，不按用户分别保存", ()
     quotaTypes.indexOf("export interface ProviderShareUser {"),
   );
   expect(userInput).not.toContain("quota");
-  expect(quotaTypes).toContain("quota: ShareQuotaWindow[] | null");
+  expect(quotaTypes).toContain("quota: ShareQuotaRule | null");
   expect(drawer.match(/<RuleEditor/g)).toHaveLength(1);
   expect(drawer).toContain('visibility.value === "selected"');
   expect(drawer).toContain(
@@ -111,4 +116,17 @@ test("共享额度是供应商级的一套规则，不按用户分别保存", ()
 test("关闭有未保存修改的共享设置需要确认", () => {
   expect(drawer).toContain("const dirty = computed");
   expect(drawer).toContain("放弃共享设置");
+});
+
+test("共享额度回填后保存不改变 token 数", () => {
+  const small = ruleFromQuota({ amount: 1000, accumulate: "none" });
+  expect(small.amount).toBe("0.00001");
+  expect(quotaFromRule(small)).toEqual({ amount: 1000, accumulate: "none" });
+
+  const odd = ruleFromQuota({ amount: 12_345_678, accumulate: "week" });
+  expect(odd.amount).toBe("0.12345678");
+  expect(quotaFromRule(odd)).toEqual({
+    amount: 12_345_678,
+    accumulate: "week",
+  });
 });

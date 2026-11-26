@@ -147,7 +147,7 @@ test("供应商前端只有一个读模型，列表与编辑共用", () => {
   expect(relay).toContain("export interface ProviderUsageUser");
   expect(relay).toContain("export interface IdentityDirectoryEntry");
   expect(quota).toContain("export interface ProviderSharing");
-  expect(quota).toContain("export interface ShareQuotaWindow");
+  expect(quota).toContain("export interface ShareQuotaRule");
   expect(quota).toContain("export interface ProviderQuotaResponse");
 
   expect(relay.match(/export interface Provider \{/g)?.length).toBe(1);

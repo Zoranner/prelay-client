@@ -1,16 +1,13 @@
 import type { ProviderVisibility } from "./relay";
 
-export type ShareQuotaWindowKind = "day" | "week" | "month";
+export type ShareQuotaAccumulate = "none" | "week" | "month";
 
 export type ProviderQuotaMode = "own" | "shared_unlimited" | "shared_limited";
 
-export interface ShareQuotaWindow {
-  window: ShareQuotaWindowKind;
-  limit: number;
-  accumulate: boolean;
-  reset_time: string;
-  reset_weekday: number | null;
-  reset_day: number | null;
+export interface ShareQuotaRule {
+  /** 每天注入的 token 额度。 */
+  amount: number;
+  accumulate: ShareQuotaAccumulate;
 }
 
 export interface ProviderShareUserInput {
@@ -25,13 +22,13 @@ export interface ProviderShareUser {
 export interface ProviderSharing {
   visibility: ProviderVisibility;
   users: ProviderShareUser[];
-  quota: ShareQuotaWindow[] | null;
+  quota: ShareQuotaRule | null;
 }
 
 export interface ProviderSharingInput {
   visibility: ProviderVisibility;
   users: ProviderShareUserInput[];
-  quota: ShareQuotaWindow[] | null;
+  quota: ShareQuotaRule | null;
 }
 
 export type QuotaWindowKind = "custom" | "rolling" | "day" | "week" | "month";
