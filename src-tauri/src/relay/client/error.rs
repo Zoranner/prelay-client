@@ -133,7 +133,12 @@ fn compose_error(
 ) -> ClientError {
     let (server_code, server_message) = parsed.unwrap_or_default();
     let code = server_code.unwrap_or_else(|| status_code(status).to_owned());
-    let message = server_message.unwrap_or_else(|| {
+    let message = if code == "internal" {
+        None
+    } else {
+        server_message
+    }
+    .unwrap_or_else(|| {
         if code == "identity_already_registered" {
             "this Windows identity is already registered and cannot be restored automatically"
                 .into()
