@@ -105,7 +105,7 @@ fn reads_a_version_from_a_command_that_finishes_within_five_seconds() {
     let command = directory.path().join("slow-version.cmd");
     write(
         &command,
-        "@powershell.exe -NoProfile -Command \"Start-Sleep -Milliseconds 2800\"\r\n@echo agent 1.2.3\r\n",
+        "@ping -n 4 127.0.0.1 >nul\r\n@echo agent 1.2.3\r\n",
     );
 
     let started_at = Instant::now();
