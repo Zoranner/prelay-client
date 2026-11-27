@@ -291,7 +291,7 @@ fn refuses_to_replace_an_unmanaged_skill_without_overwrite() {
 }
 
 #[test]
-fn refuses_to_uninstall_an_mcp_modified_by_the_user() {
+fn uninstalls_an_mcp_modified_by_the_user() {
     let directory = tempdir().unwrap();
     let home = directory.path();
     let manifest = json!({
@@ -318,13 +318,12 @@ fn refuses_to_uninstall_an_mcp_modified_by_the_user() {
     let config = fs::read_to_string(&config_path).unwrap();
     fs::write(&config_path, config.replace("uvx", "other")).unwrap();
 
-    let error = uninstall_plugin_for_client(home, AgentClient::CodexCli, "demo").unwrap_err();
-    assert_eq!(error.code(), "local_extensions_conflict");
+    uninstall_plugin_for_client(home, AgentClient::CodexCli, "demo").unwrap();
     assert!(HostState::load(home, ExtensionHost::Codex)
         .unwrap()
         .plugin("demo")
-        .is_some());
-    assert!(fs::read_to_string(&config_path)
+        .is_none());
+    assert!(!fs::read_to_string(&config_path)
         .unwrap()
         .contains("[mcp_servers.filesystem]"));
 }

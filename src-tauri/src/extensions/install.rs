@@ -25,7 +25,7 @@ use crate::{
 mod apply;
 mod cleanup;
 mod validate;
-use cleanup::{preflight_obsolete, remove_obsolete};
+use cleanup::remove_obsolete;
 pub(crate) use validate::{validate_bundle, validate_package_bundle};
 
 #[derive(Debug, Default)]
@@ -275,9 +275,6 @@ fn install_plugin_bundle(
             overwrite,
             state,
         )?;
-    }
-    if let Some(previous) = &previous {
-        preflight_obsolete(home, previous, &planned)?;
     }
     let installing = PluginRecord {
         schema_version: host_state::PLUGIN_SCHEMA_VERSION,

@@ -4,35 +4,9 @@ use crate::relay::client::ClientError;
 
 use super::super::{
     hooks,
-    host_state::{ArtifactHealth, PluginArtifact, PluginRecord},
+    host_state::{PluginArtifact, PluginRecord},
     mcp, skills,
 };
-
-pub(super) fn preflight_obsolete(
-    home: &Path,
-    previous: &PluginRecord,
-    planned: &[PluginArtifact],
-) -> Result<(), ClientError> {
-    for artifact in &previous.artifacts {
-        if artifact_is_kept(artifact, planned) {
-            continue;
-        }
-        if let PluginArtifact::Mcp {
-            server_name,
-            manifest_hash,
-            ..
-        } = artifact
-        {
-            if mcp::health(home, server_name, manifest_hash)? == ArtifactHealth::Modified {
-                return Err(ClientError::new(
-                    "local_extensions_conflict",
-                    format!("MCP 服务 {server_name} 已被修改，未更新扩展包。"),
-                ));
-            }
-        }
-    }
-    Ok(())
-}
 
 pub(super) fn remove_obsolete(
     home: &Path,

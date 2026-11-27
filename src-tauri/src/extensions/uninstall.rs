@@ -29,7 +29,6 @@ pub(crate) fn uninstall_plugin_for_client(
         .any(|artifact| matches!(artifact, PluginArtifact::Hook { .. }))
         .then(|| super::hooks::codex_trust_entries(home, &state))
         .transpose()?;
-    preflight(home, &record)?;
 
     let mut removing = record.clone();
     removing.state = PluginState::Removing;
@@ -65,27 +64,6 @@ pub(crate) fn uninstall_plugin_for_client(
         }
     }
     cleanup_package_root(home, &record.name, &record.commit_sha)?;
-    Ok(())
-}
-
-fn preflight(home: &Path, record: &super::host_state::PluginRecord) -> Result<(), ClientError> {
-    for artifact in &record.artifacts {
-        if let PluginArtifact::Mcp {
-            server_name,
-            manifest_hash,
-            ..
-        } = artifact
-        {
-            if mcp::health(home, server_name, manifest_hash)?
-                == super::host_state::ArtifactHealth::Modified
-            {
-                return Err(ClientError::new(
-                    "local_extensions_conflict",
-                    format!("MCP 服务 {server_name} 已被修改，未卸载扩展包。"),
-                ));
-            }
-        }
-    }
     Ok(())
 }
 
