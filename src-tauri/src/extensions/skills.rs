@@ -11,6 +11,7 @@ use crate::relay::client::ClientError;
 use super::{
     atomic_write, decode_extension_file,
     host_state::{normalize_path, ArtifactHealth, HostState, PluginArtifact},
+    ownership::{self, Owner},
     storage_error, SKILLS_PREFIX,
 };
 
@@ -144,48 +145,15 @@ fn ensure_available(
     overwrite: bool,
     state: &HostState,
 ) -> Result<(), ClientError> {
-    let target = normalize_path(target_root);
-    for plugin in state.active_plugins() {
-        if plugin.name == package {
-            continue;
-        }
-        for artifact in &plugin.artifacts {
-            if let PluginArtifact::Skill {
-                target: artifact_target,
-                names,
-            } = artifact
-            {
-                if artifact_target == &target && names.iter().any(|name| roots.contains(name)) {
-                    return Err(ClientError::new(
-                        "extension_target_exists",
-                        "技能目录已由另一个扩展包管理。",
-                    ));
+    for root in roots {
+        match ownership::skill_owner(state, package, target_root, root) {
+            Owner::Owned => {}
+            Owner::Other(name) => return Err(ownership::owned_elsewhere(name)),
+            Owner::None => {
+                if !overwrite && target_root.join(root).exists() {
+                    return Err(ownership::unmanaged_exists());
                 }
             }
-        }
-    }
-    if overwrite {
-        return Ok(());
-    }
-    let owned = state
-        .plugin(package)
-        .into_iter()
-        .flat_map(|plugin| plugin.artifacts.iter())
-        .filter_map(|artifact| match artifact {
-            PluginArtifact::Skill {
-                target: artifact_target,
-                names,
-            } if artifact_target == &target => Some(names.iter().cloned()),
-            _ => None,
-        })
-        .flatten()
-        .collect::<BTreeSet<_>>();
-    for root in roots {
-        if target_root.join(root).exists() && !owned.contains(root) {
-            return Err(ClientError::new(
-                "extension_target_exists",
-                "技能目录已存在，确认后可覆盖安装。",
-            ));
         }
     }
     Ok(())

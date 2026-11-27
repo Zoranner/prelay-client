@@ -11,6 +11,7 @@ use super::{
         ExtensionInstallRequest, ExtensionInstallResult, ExtensionPackage, HookReviewItem,
         McpInstallPreview,
     },
+    ownership::{self, Owner},
     rules, skills,
 };
 
@@ -116,7 +117,7 @@ pub(crate) fn install_prepared_bundle(
         .iter()
         .any(|artifact| artifact.kind == ExtensionKind::Rule)
     {
-        install_rule_bundle(home, host, clients, bundle, overwrite)?;
+        install_rule_bundle(home, host, clients, bundle, overwrite, &state)?;
         return Ok(PreparedInstall::default());
     }
     let (review, trust_warning) =
@@ -133,29 +134,26 @@ fn install_rule_bundle(
     clients: &[AgentClient],
     bundle: &ExtensionInstallBundle,
     overwrite: bool,
+    state: &HostState,
 ) -> Result<(), ClientError> {
     let artifact = &bundle.artifacts[0];
     let file = artifact
         .files
         .first()
         .ok_or_else(|| ClientError::new("invalid_response", "规则制品为空。"))?;
-    let mut rules_state = HostState::load_locked(home, host)?.rules;
+    let mut rules_state = state.rules.clone();
     let mut plans = Vec::new();
     for target in agent_rule_targets(clients, home) {
         let key = normalize_path(&target);
         let previous = rules_state.targets.get(&key).cloned();
-        if let Some(entry) = &previous {
-            if entry.package != bundle.name && !overwrite {
-                return Err(ClientError::new(
-                    "extension_target_exists",
-                    "规则目标已由另一个扩展包管理，确认后可覆盖安装。",
-                ));
+        match ownership::rule_owner(state, &bundle.name, &target) {
+            Owner::Owned => {}
+            Owner::Other(name) => return Err(ownership::owned_elsewhere(name)),
+            Owner::None => {
+                if target.exists() && !overwrite {
+                    return Err(ownership::unmanaged_exists());
+                }
             }
-        } else if target.exists() && !overwrite {
-            return Err(ClientError::new(
-                "extension_target_exists",
-                "规则目标已存在，确认后可覆盖安装。",
-            ));
         }
         let (content, planned) = rules::plan_rule(
             &bundle.name,

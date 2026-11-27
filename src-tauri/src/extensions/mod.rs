@@ -6,6 +6,7 @@ pub(crate) mod install;
 pub(crate) mod mcp;
 pub(crate) mod mcp_manifest;
 pub(crate) mod model;
+pub(crate) mod ownership;
 pub(crate) mod rules;
 pub(crate) mod skills;
 pub(crate) mod support;

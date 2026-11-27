@@ -13,6 +13,7 @@ use crate::{
 use super::{
     host_state::{ArtifactHealth, HostState, PluginArtifact},
     mcp_manifest::{app_directory, expand_manifest},
+    ownership::{self, Owner},
 };
 
 #[derive(Clone, Debug)]
@@ -39,34 +40,14 @@ pub(crate) fn preflight_mcp_install(
         .map_err(|error| ClientError::new("local_extensions_error", error))?;
     let exists = codex_mcp_server_exists(home, &expanded.name)
         .map_err(|error| ClientError::new("local_extensions_error", error))?;
-    let owned = state.plugin(package).is_some_and(|plugin| {
-        plugin.artifacts.iter().any(|artifact| {
-            matches!(
-                artifact,
-                PluginArtifact::Mcp { server_name, .. } if server_name == &expanded.name
-            )
-        })
-    });
-    let owned_by_other = state.active_plugins().any(|plugin| {
-        plugin.name != package
-            && plugin.artifacts.iter().any(|artifact| {
-                matches!(
-                    artifact,
-                    PluginArtifact::Mcp { server_name, .. } if server_name == &expanded.name
-                )
-            })
-    });
-    if owned_by_other {
-        return Err(ClientError::new(
-            "extension_target_exists",
-            "MCP 服务名已由另一个扩展包管理。",
-        ));
-    }
-    if exists && !owned && !overwrite {
-        return Err(ClientError::new(
-            "extension_target_exists",
-            "MCP 服务名已存在，确认后可覆盖安装。",
-        ));
+    match ownership::mcp_owner(state, package, &expanded.name) {
+        Owner::Owned => {}
+        Owner::Other(name) => return Err(ownership::owned_elsewhere(name)),
+        Owner::None => {
+            if exists && !overwrite {
+                return Err(ownership::unmanaged_exists());
+            }
+        }
     }
     Ok(McpInstall {
         server_name: expanded.name,

@@ -15,6 +15,7 @@ use super::{
     atomic_write,
     host_state::{ArtifactHealth, HostState, PluginArtifact},
     model::HookReviewItem,
+    ownership::{self, Owner},
 };
 
 mod merge;
@@ -133,40 +134,19 @@ pub(crate) fn preflight_hook_install(
     if incoming.is_empty() {
         return Ok(());
     }
-    let previous = state
-        .plugin(package)
-        .into_iter()
-        .flat_map(|plugin| plugin.hooks())
-        .filter_map(|artifact| match artifact {
-            PluginArtifact::Hook { handler_hash, .. } => Some(handler_hash.clone()),
-            _ => None,
-        })
-        .collect::<BTreeSet<_>>();
-    let owned_by_other = state
-        .active_plugins()
-        .filter(|plugin| plugin.name != package)
-        .flat_map(|plugin| plugin.hooks())
-        .filter_map(|artifact| match artifact {
-            PluginArtifact::Hook { handler_hash, .. } => Some(handler_hash.clone()),
-            _ => None,
-        })
-        .collect::<BTreeSet<_>>();
     let existing = self::handlers(home)?
         .into_iter()
         .map(|handler| handler.hash)
         .collect::<BTreeSet<_>>();
     for handler in incoming {
-        if owned_by_other.contains(&handler.hash) {
-            return Err(ClientError::new(
-                "extension_target_exists",
-                "Hook 已由另一个扩展包管理。",
-            ));
-        }
-        if !overwrite && existing.contains(&handler.hash) && !previous.contains(&handler.hash) {
-            return Err(ClientError::new(
-                "extension_target_exists",
-                "Hook 已存在，确认后可覆盖安装。",
-            ));
+        match ownership::hook_owner(state, package, &handler.hash) {
+            Owner::Owned => {}
+            Owner::Other(name) => return Err(ownership::owned_elsewhere(name)),
+            Owner::None => {
+                if !overwrite && existing.contains(&handler.hash) {
+                    return Err(ownership::unmanaged_exists());
+                }
+            }
         }
     }
     Ok(())

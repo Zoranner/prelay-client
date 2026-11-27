@@ -56,6 +56,29 @@ fn file(path: &str, content: &str) -> ExtensionFile {
     }
 }
 
+fn skill_artifact(name: &str) -> ExtensionArtifact {
+    ExtensionArtifact {
+        kind: ExtensionKind::Skill,
+        files: vec![file(&format!("skills/{name}/SKILL.md"), "# Managed\n")],
+    }
+}
+
+#[test]
+fn refuses_to_take_over_another_packages_skill_even_with_overwrite() {
+    let directory = tempdir().unwrap();
+    let home = directory.path();
+    let first = bundle("first", vec![skill_artifact("foo")]);
+    install_prepared_bundle(home, &first, &[AgentClient::CodexCli], false).unwrap();
+
+    let second = bundle("second", vec![skill_artifact("foo")]);
+    let error = install_prepared_bundle(home, &second, &[AgentClient::CodexCli], true).unwrap_err();
+    assert_eq!(error.code(), "local_extensions_conflict");
+    assert_eq!(
+        fs::read_to_string(home.join(".agents/skills/foo/SKILL.md")).unwrap(),
+        "# Managed\n"
+    );
+}
+
 #[test]
 fn installs_and_uninstalls_a_skill_artifact() {
     let directory = tempdir().unwrap();
