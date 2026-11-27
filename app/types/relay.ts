@@ -307,6 +307,7 @@ export type ExtensionArtifactKind = "rule" | "mcp" | "skill" | "hook";
 export type ExtensionCatalogKind = "rule" | "plugin";
 export type ExtensionInstallAction =
   "install" | "partial" | "update" | "installed";
+export type ExtensionPolicy = "normal" | "required" | "deprecated";
 
 export interface ExtensionArtifactSummary {
   kind: ExtensionArtifactKind;
@@ -321,6 +322,7 @@ export interface ExtensionPackage {
   artifacts: ExtensionArtifactSummary[];
   installAction: ExtensionInstallAction;
   installedClients: AgentClient[];
+  policy: ExtensionPolicy;
 }
 export type ExtensionCatalogPackage = ExtensionPackage;
 export interface ExtensionCatalogSnapshot {

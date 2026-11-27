@@ -14,7 +14,8 @@ export type LocalCommand =
   | "extensions_list"
   | "extension_readme"
   | "extensions_mcp_preview"
-  | "extensions_install";
+  | "extensions_install"
+  | "extensions_policy_sync";
 
 export function useLocalCommand() {
   const notifications = useNotification();

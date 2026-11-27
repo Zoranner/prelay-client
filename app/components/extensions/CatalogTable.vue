@@ -145,7 +145,10 @@ const columns = computed(() => {
     row-key="name"
   >
     <template #cell-name="{ row }">
-      <span :title="row.name">{{ row.name }}</span>
+      <span class="extension-catalog-name" :title="row.name">
+        {{ row.name }}
+        <TagGroup v-if="row.policy === 'required'" :items="['必装']" />
+      </span>
     </template>
     <template v-if="showContents" #cell-contents="{ row }">
       <TagGroup :items="artifactLabels(row.artifacts)" />
@@ -208,6 +211,12 @@ const columns = computed(() => {
 </template>
 
 <style scoped>
+.extension-catalog-name {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+}
+
 .extension-catalog-table {
   min-height: 0;
   flex: 1;

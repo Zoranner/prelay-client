@@ -136,6 +136,13 @@ export function useExtensionInstallJobs() {
         result = await run(request, false);
       } catch (caught) {
         const error = caught as { code?: string };
+        if (error.code === "local_extensions_conflict") {
+          notifications.error(errorText(toRelayError(caught)), {
+            title: "扩展目标已被其他扩展包占用",
+          });
+          await refreshCatalog(request.package);
+          return;
+        }
         if (error.code !== "extension_target_exists") throw caught;
         if (!(await confirmOverwrite(request.package))) return;
         result = await run(request, true);

@@ -13,10 +13,12 @@ type CatalogEvent = {
 // 后端按固定间隔检查规则与插件的更新，只在结果变化时推送对应目录快照；
 // 这里负责订阅、落到共享状态，并在启动或服务地址变化时先自行读取一次首帧。
 export const EXTENSION_CATALOG_EVENT = "extensions:catalog";
+export const EXTENSION_POLICY_EVENT = "extensions:policy";
 
 export function useExtensionUpdateStream() {
   const extensionCatalog = useExtensionCatalog();
   let unlisten: UnlistenFn | undefined;
+  let unlistenPolicy: UnlistenFn | undefined;
 
   async function refresh() {
     try {
@@ -37,12 +39,19 @@ export function useExtensionUpdateStream() {
         ),
       );
     }
+    if (!unlistenPolicy) {
+      unlistenPolicy = await listen(EXTENSION_POLICY_EVENT, () => {
+        void refresh();
+      });
+    }
     await refresh();
   }
 
   function stop() {
     unlisten?.();
     unlisten = undefined;
+    unlistenPolicy?.();
+    unlistenPolicy = undefined;
   }
 
   return { start, stop };
