@@ -20,6 +20,8 @@ pub struct ExtensionPackage {
     pub install_action: ExtensionInstallAction,
     #[serde(default)]
     pub installed_clients: Vec<AgentClient>,
+    #[serde(default)]
+    pub policy: prelay_protocol::ExtensionPolicy,
 }
 
 #[derive(Debug, Clone, Copy, Default, Deserialize, Serialize, PartialEq, Eq)]

@@ -1,7 +1,8 @@
 use std::path::Path;
 
 use prelay_protocol::{
-    CatalogKind, ExtensionArtifactSummary, ExtensionInstallBundle, ExtensionKind, ExtensionSummary,
+    CatalogKind, ExtensionArtifactSummary, ExtensionInstallBundle, ExtensionKind, ExtensionPolicy,
+    ExtensionSummary,
 };
 
 use super::{
@@ -27,19 +28,7 @@ pub async fn list_extensions(
         let client = authenticated_api(state).await?;
         load_summaries(&client, catalog_kind).await?
     };
-    let mut packages = summaries
-        .into_iter()
-        .map(|summary| ExtensionPackage {
-            name: summary.name,
-            repository: summary.repository,
-            commit_sha: summary.latest.commit_sha,
-            version: summary.latest.tag,
-            catalog_kind: summary.catalog_kind.unwrap_or(catalog_kind),
-            artifacts: summary.artifacts,
-            install_action: ExtensionInstallAction::Install,
-            installed_clients: Vec::new(),
-        })
-        .collect::<Vec<_>>();
+    let mut packages = packages_from_summaries(summaries, catalog_kind);
     let clients = crate::agents::installed_agent_clients();
     let host = ExtensionHost::from_clients(&clients).unwrap_or(ExtensionHost::Codex);
     let host_state = HostState::load(home, host)?;
@@ -51,7 +40,28 @@ pub async fn list_extensions(
     Ok(ExtensionCatalogSnapshot { packages })
 }
 
-async fn load_summaries(
+pub(crate) fn packages_from_summaries(
+    summaries: Vec<ExtensionSummary>,
+    catalog_kind: CatalogKind,
+) -> Vec<ExtensionPackage> {
+    summaries
+        .into_iter()
+        .filter(|summary| summary.policy != ExtensionPolicy::Deprecated)
+        .map(|summary| ExtensionPackage {
+            name: summary.name,
+            repository: summary.repository,
+            commit_sha: summary.latest.commit_sha,
+            version: summary.latest.tag,
+            catalog_kind: summary.catalog_kind.unwrap_or(catalog_kind),
+            artifacts: summary.artifacts,
+            install_action: ExtensionInstallAction::Install,
+            installed_clients: Vec::new(),
+            policy: summary.policy,
+        })
+        .collect()
+}
+
+pub(crate) async fn load_summaries(
     client: &crate::relay::client::ApiClient<'_>,
     catalog_kind: CatalogKind,
 ) -> Result<Vec<ExtensionSummary>, ClientError> {
@@ -254,7 +264,44 @@ mod tests {
             artifacts: Vec::new(),
             install_action: ExtensionInstallAction::Install,
             installed_clients: Vec::new(),
+            policy: ExtensionPolicy::Normal,
         }
+    }
+
+    #[test]
+    fn display_projection_drops_deprecated_packages_and_keeps_policy() {
+        use prelay_protocol::ExtensionVersion;
+
+        let summary = |name: &str, policy: ExtensionPolicy| ExtensionSummary {
+            name: name.to_string(),
+            repository: format!("https://example.test/agents/{name}"),
+            latest: ExtensionVersion {
+                tag: "v1.0.0".to_string(),
+                commit_sha: "a".repeat(40),
+                updated_at: "2026-11-27T00:00:00Z".to_string(),
+            },
+            catalog_kind: Some(CatalogKind::Plugin),
+            artifacts: Vec::new(),
+            policy,
+        };
+
+        let packages = packages_from_summaries(
+            vec![
+                summary("keep", ExtensionPolicy::Normal),
+                summary("must", ExtensionPolicy::Required),
+                summary("gone", ExtensionPolicy::Deprecated),
+            ],
+            CatalogKind::Plugin,
+        );
+
+        assert_eq!(
+            packages
+                .iter()
+                .map(|package| package.name.as_str())
+                .collect::<Vec<_>>(),
+            vec!["keep", "must"]
+        );
+        assert_eq!(packages[1].policy, ExtensionPolicy::Required);
     }
 
     #[test]
