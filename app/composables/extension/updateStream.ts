@@ -17,8 +17,16 @@ export const EXTENSION_POLICY_EVENT = "extensions:policy";
 
 export function useExtensionUpdateStream() {
   const extensionCatalog = useExtensionCatalog();
+  const { invokeLocalCommand } = useLocalCommand();
   let unlisten: UnlistenFn | undefined;
   let unlistenPolicy: UnlistenFn | undefined;
+
+  function syncPolicies() {
+    void invokeLocalCommand("extensions_policy_sync", undefined, {
+      notify: false,
+      trackPending: false,
+    }).catch(() => undefined);
+  }
 
   async function refresh() {
     try {
@@ -44,6 +52,7 @@ export function useExtensionUpdateStream() {
         void refresh();
       });
     }
+    syncPolicies();
     await refresh();
   }
 
