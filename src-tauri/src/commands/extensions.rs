@@ -58,3 +58,11 @@ pub async fn extensions_update_all(
     let home = user_home()?;
     update_all_extensions(&home, &state, kind).await
 }
+
+#[tauri::command]
+pub async fn extensions_policy_sync(
+    state: tauri::State<'_, NativeState>,
+) -> Result<crate::extensions::PolicyOutcome, ClientError> {
+    let home = user_home()?;
+    crate::extensions::sync_policies(&home, &state).await
+}

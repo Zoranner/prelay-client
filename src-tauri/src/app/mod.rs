@@ -50,6 +50,7 @@ pub fn run() {
             crate::commands::extensions::extensions_mcp_preview,
             crate::commands::extensions::extensions_install,
             crate::commands::extensions::extensions_update_all,
+            crate::commands::extensions::extensions_policy_sync,
             crate::commands::stats::stats_overview,
             crate::commands::stats::stats_timeline,
             crate::commands::stats::stats_activities,

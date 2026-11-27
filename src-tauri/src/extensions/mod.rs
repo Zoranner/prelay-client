@@ -7,6 +7,7 @@ pub(crate) mod mcp;
 pub(crate) mod mcp_manifest;
 pub(crate) mod model;
 pub(crate) mod ownership;
+pub(crate) mod policy;
 pub(crate) mod rules;
 pub(crate) mod skills;
 pub(crate) mod support;
@@ -19,9 +20,12 @@ pub use model::{
     CatalogKind, ExtensionCatalogSnapshot, ExtensionInstallAction, ExtensionInstallRequest,
     ExtensionInstallResult, ExtensionKind, ExtensionPackage, HookReviewItem, McpInstallPreview,
 };
+pub use policy::{sync as sync_policies, PolicyOutcome};
 
 pub(crate) use model::SKILLS_PREFIX;
 pub(crate) use support::{atomic_write, decode_extension_file, storage_error};
 
 #[cfg(test)]
 mod install_state_tests;
+#[cfg(test)]
+mod policy_tests;

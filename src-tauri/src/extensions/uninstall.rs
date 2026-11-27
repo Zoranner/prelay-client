@@ -12,7 +12,14 @@ pub(crate) fn uninstall_plugin_for_client(
     client: AgentClient,
     package: &str,
 ) -> Result<(), ClientError> {
-    let host = ExtensionHost::from_client(client);
+    uninstall_plugin(home, ExtensionHost::from_client(client), package)
+}
+
+pub(crate) fn uninstall_plugin(
+    home: &Path,
+    host: ExtensionHost,
+    package: &str,
+) -> Result<(), ClientError> {
     let _lock = host_state::lock(home, host)?;
     host_state::ensure_migrated_locked(home)?;
     let state = HostState::load_locked(home, host)?;

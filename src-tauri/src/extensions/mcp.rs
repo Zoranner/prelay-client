@@ -98,6 +98,11 @@ pub(crate) fn health(
     })
 }
 
+pub(crate) fn server_exists(home: &Path, server_name: &str) -> Result<bool, ClientError> {
+    codex_mcp_server_exists(home, server_name)
+        .map_err(|error| ClientError::new("local_extensions_error", error))
+}
+
 pub(crate) fn managed_mcp_servers(state: &HostState) -> BTreeMap<String, ManagedMcpServer> {
     let mut servers = BTreeMap::new();
     for plugin in state.active_plugins() {

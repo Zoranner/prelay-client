@@ -9,6 +9,7 @@ use super::{list_extensions, CatalogKind, ExtensionCatalogSnapshot};
 const UPDATE_CHECK_INTERVAL: Duration = Duration::from_secs(30 * 60);
 const CHECKED_KINDS: [CatalogKind; 2] = [CatalogKind::Rule, CatalogKind::Plugin];
 pub const CATALOG_EVENT: &str = "extensions:catalog";
+pub const POLICY_EVENT: &str = "extensions:policy";
 
 /// 某一类扩展的目录快照推送负载，用 `kind` 让前端把快照落到对应分类。
 #[derive(Clone, serde::Serialize)]
@@ -31,6 +32,15 @@ pub fn spawn_update_checks<R: Runtime>(app: AppHandle<R>) {
         loop {
             interval.tick().await;
             let state = app.state::<NativeState>();
+            // 每个周期只同步一次，规则与插件的目录读取共用这次结果。
+            if let Ok(outcome) = crate::extensions::sync_policies(&home, &state).await {
+                if !outcome.uninstalled.is_empty()
+                    || !outcome.installed.is_empty()
+                    || !outcome.failed.is_empty()
+                {
+                    let _ = app.emit(POLICY_EVENT, &outcome);
+                }
+            }
             for (index, kind) in CHECKED_KINDS.into_iter().enumerate() {
                 let Ok(snapshot) = list_extensions(&home, &state, kind).await else {
                     continue;
