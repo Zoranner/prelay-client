@@ -169,7 +169,7 @@ fn management_connection_failure_does_not_persist_the_relay_url() {
             .expect_err("unavailable management API must reject the connection");
         server.join().expect("join test relay");
 
-        assert_eq!(error.code(), "internal");
+        assert_eq!(error.code(), "server_error");
         assert_eq!(
             state
                 .relay_settings
