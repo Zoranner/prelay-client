@@ -8,7 +8,7 @@ use super::{
     host_state::{ArtifactHealth, ExtensionHost, HostState, PluginArtifact, PluginState},
     install::{install_prepared_bundle, validate_package_bundle},
     mcp,
-    model::ExtensionPackage,
+    model::{ExtensionPackage, HookReviewItem},
     skills,
     uninstall::uninstall_plugin,
 };
@@ -26,6 +26,8 @@ pub struct PolicyOutcome {
     pub installed: Vec<String>,
     pub skipped: Vec<PolicySkip>,
     pub failed: Vec<PolicyFailure>,
+    pub warnings: Vec<String>,
+    pub review: Vec<HookReviewItem>,
 }
 
 #[derive(Debug, Clone, serde::Serialize)]
@@ -48,6 +50,7 @@ pub(crate) struct PolicyPlan {
     pub uninstall: Vec<String>,
     pub install: Vec<ExtensionPackage>,
     pub skip: Vec<PolicySkip>,
+    pub failures: Vec<PolicyFailure>,
 }
 
 static SYNC_LOCK: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
@@ -64,16 +67,52 @@ pub(crate) fn plan(
         match package.policy {
             ExtensionPolicy::Normal => {}
             ExtensionPolicy::Deprecated => {
-                if state.plugin(&package.name).is_some() {
-                    plan.uninstall.push(package.name.clone());
-                } else {
+                let Some(record) = state
+                    .plugins
+                    .iter()
+                    .find(|plugin| plugin.name == package.name)
+                else {
                     plan.skip.push(PolicySkip {
                         name: package.name.clone(),
                         reason: "not-installed".to_string(),
                     });
+                    continue;
+                };
+                if state.is_conflicted(&package.name) {
+                    plan.failures.push(PolicyFailure {
+                        name: package.name.clone(),
+                        code: "local_extensions_conflict".to_string(),
+                        message: "扩展状态存在归属冲突，未自动卸载。".to_string(),
+                    });
+                    continue;
                 }
+                if state.readonly {
+                    plan.failures.push(PolicyFailure {
+                        name: package.name.clone(),
+                        code: "local_extensions_readonly".to_string(),
+                        message: "扩展状态处于只读模式，未自动卸载。".to_string(),
+                    });
+                    continue;
+                }
+                if record.state == PluginState::Installing {
+                    plan.failures.push(PolicyFailure {
+                        name: package.name.clone(),
+                        code: "local_extensions_error".to_string(),
+                        message: "扩展安装未完成，未自动卸载。".to_string(),
+                    });
+                    continue;
+                }
+                plan.uninstall.push(package.name.clone());
             }
             ExtensionPolicy::Required => {
+                if state.is_conflicted(&package.name) {
+                    plan.failures.push(PolicyFailure {
+                        name: package.name.clone(),
+                        code: "local_extensions_conflict".to_string(),
+                        message: "扩展状态存在归属冲突，未自动安装。".to_string(),
+                    });
+                    continue;
+                }
                 if clients.is_empty() {
                     plan.skip.push(PolicySkip {
                         name: package.name.clone(),
@@ -81,7 +120,16 @@ pub(crate) fn plan(
                     });
                     continue;
                 }
-                if required_needs_install(home, &state, package)? {
+                let needs_install = required_needs_install(home, &state, package)?;
+                if needs_install && state.readonly {
+                    plan.failures.push(PolicyFailure {
+                        name: package.name.clone(),
+                        code: "local_extensions_readonly".to_string(),
+                        message: "扩展状态处于只读模式，未自动安装。".to_string(),
+                    });
+                    continue;
+                }
+                if needs_install {
                     plan.install.push(package.clone());
                 } else {
                     plan.skip.push(PolicySkip {
@@ -129,6 +177,7 @@ fn required_needs_install(
     Ok(false)
 }
 
+#[cfg(test)]
 pub(crate) fn execute(
     home: &Path,
     host: ExtensionHost,
@@ -136,13 +185,33 @@ pub(crate) fn execute(
     clients: &[AgentClient],
     bundles: &BTreeMap<String, ExtensionInstallBundle>,
 ) -> PolicyOutcome {
-    let mut outcome = PolicyOutcome::default();
+    let mut outcome = uninstall_phase(home, host, plan);
+    install_phase(home, plan, clients, bundles, &mut outcome);
+    outcome
+}
+
+fn uninstall_phase(home: &Path, host: ExtensionHost, plan: &PolicyPlan) -> PolicyOutcome {
+    let mut outcome = PolicyOutcome {
+        skipped: plan.skip.clone(),
+        failed: plan.failures.clone(),
+        ..PolicyOutcome::default()
+    };
     for name in &plan.uninstall {
         match uninstall_plugin(home, host, name) {
             Ok(()) => outcome.uninstalled.push(name.clone()),
             Err(error) => outcome.failed.push(failure(name, &error)),
         }
     }
+    outcome
+}
+
+fn install_phase(
+    home: &Path,
+    plan: &PolicyPlan,
+    clients: &[AgentClient],
+    bundles: &BTreeMap<String, ExtensionInstallBundle>,
+    outcome: &mut PolicyOutcome,
+) {
     for package in &plan.install {
         let Some(bundle) = bundles.get(&package.name) else {
             outcome.failed.push(PolicyFailure {
@@ -157,12 +226,16 @@ pub(crate) fn execute(
             continue;
         }
         match install_prepared_bundle(home, bundle, clients, false) {
-            Ok(_) => outcome.installed.push(package.name.clone()),
+            Ok(prepared) => {
+                outcome.installed.push(package.name.clone());
+                outcome.review.extend(prepared.review);
+                if let Some(warning) = prepared.trust_warning {
+                    outcome.warnings.push(warning);
+                }
+            }
             Err(error) => outcome.failed.push(failure(&package.name, &error)),
         }
     }
-    outcome.skipped = plan.skip.clone();
-    outcome
 }
 
 fn failure(name: &str, error: &ClientError) -> PolicyFailure {
@@ -196,6 +269,7 @@ pub async fn sync(home: &Path, state: &NativeState) -> Result<PolicyOutcome, Cli
         })
         .collect::<Vec<_>>();
     let mut planned = plan(home, host, &packages, &clients)?;
+    let mut outcome = uninstall_phase(home, host, &planned);
     let mut bundles = BTreeMap::new();
     let mut failures = Vec::new();
     for package in &planned.install {
@@ -209,8 +283,8 @@ pub async fn sync(home: &Path, state: &NativeState) -> Result<PolicyOutcome, Cli
     planned
         .install
         .retain(|package| bundles.contains_key(&package.name));
-    let mut outcome = execute(home, host, &planned, &clients, &bundles);
     outcome.failed.extend(failures);
+    install_phase(home, &planned, &clients, &bundles, &mut outcome);
     Ok(outcome)
 }
 

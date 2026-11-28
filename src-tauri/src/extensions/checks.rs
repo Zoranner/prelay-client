@@ -37,6 +37,8 @@ pub fn spawn_update_checks<R: Runtime>(app: AppHandle<R>) {
                 if !outcome.uninstalled.is_empty()
                     || !outcome.installed.is_empty()
                     || !outcome.failed.is_empty()
+                    || !outcome.warnings.is_empty()
+                    || !outcome.review.is_empty()
                 {
                     let _ = app.emit(POLICY_EVENT, &outcome);
                 }
