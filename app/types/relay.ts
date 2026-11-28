@@ -328,6 +328,29 @@ export type ExtensionCatalogPackage = ExtensionPackage;
 export interface ExtensionCatalogSnapshot {
   packages: ExtensionCatalogPackage[];
 }
+export interface ExtensionHookReview {
+  event: string;
+  matcher: string | null;
+  command: string;
+  commandWindows: string | null;
+}
+export interface ExtensionPolicyFailure {
+  name: string;
+  code: string;
+  message: string;
+}
+export interface ExtensionPolicySkip {
+  name: string;
+  reason: string;
+}
+export interface ExtensionPolicyOutcome {
+  uninstalled: string[];
+  installed: string[];
+  skipped: ExtensionPolicySkip[];
+  failed: ExtensionPolicyFailure[];
+  warnings: string[];
+  review: ExtensionHookReview[];
+}
 export type ExtensionMcpTransport =
   | {
       type: "stdio";

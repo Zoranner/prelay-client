@@ -3,6 +3,7 @@ import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import type {
   ExtensionCatalogKind,
   ExtensionCatalogSnapshot,
+  ExtensionPolicyOutcome,
 } from "~/types/relay";
 
 type CatalogEvent = {
@@ -18,6 +19,7 @@ export const EXTENSION_POLICY_EVENT = "extensions:policy";
 export function useExtensionUpdateStream() {
   const extensionCatalog = useExtensionCatalog();
   const { invokeLocalCommand } = useLocalCommand();
+  const policyFeedback = useExtensionPolicyFeedback();
   let unlisten: UnlistenFn | undefined;
   let unlistenPolicy: UnlistenFn | undefined;
 
@@ -48,9 +50,13 @@ export function useExtensionUpdateStream() {
       );
     }
     if (!unlistenPolicy) {
-      unlistenPolicy = await listen(EXTENSION_POLICY_EVENT, () => {
-        void refresh();
-      });
+      unlistenPolicy = await listen<ExtensionPolicyOutcome>(
+        EXTENSION_POLICY_EVENT,
+        (event) => {
+          policyFeedback.report(event.payload);
+          void refresh();
+        },
+      );
     }
     syncPolicies();
     await refresh();

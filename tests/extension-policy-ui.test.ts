@@ -18,6 +18,10 @@ test("必装包显示标记并只对未受管内容弹覆盖确认", () => {
     new URL("../app/composables/extension/updateStream.ts", import.meta.url),
     "utf8",
   );
+  const feedback = readFileSync(
+    new URL("../app/composables/extension/policyFeedback.ts", import.meta.url),
+    "utf8",
+  );
 
   expect(table).toContain("row.policy === 'required'");
   expect(table).toContain("必装");
@@ -25,4 +29,7 @@ test("必装包显示标记并只对未受管内容弹覆盖确认", () => {
   expect(jobs).toContain("local_extensions_conflict");
   expect(updates).toContain("extensions_policy_sync");
   expect(stream).toContain("extensions:policy");
+  expect(stream).toContain("event.payload");
+  expect(feedback).toContain("扩展策略同步失败");
+  expect(feedback).toContain("扩展策略同步警告");
 });
